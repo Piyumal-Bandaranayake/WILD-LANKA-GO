@@ -3,12 +3,13 @@
   "version": "1.0.0",
   "main": "app.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "Start":"nodemon app.js"
   },
   "repository": {
     "type": "git",
     "url": "https://github.com/PiyumalShalinda/WILD-LANKA-GO.git",
-    "Start":"nodemon app.js"
+    
   },
   "author": "",
   "license": "ISC",
