@@ -1,0 +1,15 @@
+{
+  "name": "backend",
+  "version": "1.0.0",
+  "main": "app.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/PiyumalShalinda/WILD-LANKA-GO.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "description": ""
+}
