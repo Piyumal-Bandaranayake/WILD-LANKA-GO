@@ -7,9 +7,13 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/PiyumalShalinda/WILD-LANKA-GO.git"
+    "url": "https://github.com/PiyumalShalinda/WILD-LANKA-GO.git",
+    "Start":"nodemon app.js"
   },
   "author": "",
   "license": "ISC",
-  "description": ""
+  "description": "",
+  "dependencies": {
+    "nodemon": "^3.1.10"
+  }
 }
