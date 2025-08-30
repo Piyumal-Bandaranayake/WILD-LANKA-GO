@@ -1,101 +1,127 @@
+// controllers/Feedback/FeedbackController.js
 import SafariDriver from "../../models/User/safariDriver.js";
-import Feedback from "../../models/Feedback/FeedbackModel.js"; // Feedback model path
+import Tourist from "../../models/User/tourist.js";
+import TourGuide from "../../models/User/tourGuide.js"; 
+import Feedback from "../../models/Feedback/FeedbackModel.js";
 
-// Insert feedback
-const addFeedback = async (req, res, next) => {
+// Add feedback (userType inferred automatically)
+const addFeedback = async (req, res) => {
     const { username, message } = req.body;
 
-    let feedback;
-
     try {
-        // Check if driver exists
-        const driver = await SafariDriver.findOne({ username });
-        if (!driver) {
-            return res.status(404).json({ message: "Safari Driver not found" });
+        let user = null;
+        let userType = null;
+
+        //  check if driver
+        user = await SafariDriver.findOne({ username });
+        if (user) userType = "driver";
+
+        //  else check tourist
+        if (!user) {
+            user = await Tourist.findOne({ username });
+            if (user) userType = "tourist";
         }
 
-        // Create new feedback
-        feedback = new Feedback({
+        //  else check tourguide
+        if (!user) {
+            user = await TourGuide.findOne({ Username: username }); // TourGuide model uses "Username"
+            if (user) userType = "tourguide";
+        }
+
+        if (!user) {
+            return res.status(404).json({ message: "User not found" });
+        }
+
+        // Create feedback with detected userType
+        const feedback = new Feedback({
             username,
+            userType,
             message,
             date: new Date()
         });
 
         await feedback.save();
+        res.status(200).json({ feedback });
+
     } catch (err) {
-        console.log(err);
+        console.error(err);
+        res.status(500).json({ message: "Error adding feedback", error: err.message });
     }
-
-    // If feedback not inserted
-    if (!feedback) {
-        return res.status(404).json({ message: "Unable to add feedback" });
-    }
-
-    return res.status(200).json({ feedback });
 };
 
-// Get all feedbacks
+// Get all feedbacks ( filter by userType)
 const getAllFeedbacks = async (req, res) => {
     try {
-        const feedbacks = await Feedback.find().sort({ date: -1 });
+        const { userType } = req.query;
+        let filter = {};
+        if (userType && ['driver', 'tourist', 'tourguide'].includes(userType)) {
+            filter.userType = userType;
+        }
+
+        const feedbacks = await Feedback.find(filter).sort({ date: -1 });
         res.status(200).json(feedbacks);
-    } catch (error) {
-        res.status(500).json({ message: "Error fetching feedbacks", error: error.message });
+    } catch (err) {
+        res.status(500).json({ message: "Error fetching feedbacks", error: err.message });
     }
 };
 
 // Get feedbacks by username
 const getFeedbackByUsername = async (req, res) => {
     try {
-        const feedbacks = await Feedback.find({ username: req.params.username }).sort({ date: -1 });
-        if (feedbacks.length === 0) {
-            return res.status(404).json({ message: "No feedback found for this driver" });
+        const { username } = req.params;
+        const feedbacks = await Feedback.find({ username }).sort({ date: -1 });
+        if (!feedbacks.length) {
+            return res.status(404).json({ message: "No feedback found" });
         }
         res.status(200).json(feedbacks);
-    } catch (error) {
-        res.status(500).json({ message: "Error fetching feedbacks", error: error.message });
+    } catch (err) {
+        res.status(500).json({ message: "Error fetching feedbacks", error: err.message });
     }
 };
 
 // Get feedback by ID
 const getFeedbackById = async (req, res) => {
-    const id = req.params.id;
-
-    let feedback;
     try {
-        feedback = await Feedback.findById(id);
+        const feedback = await Feedback.findById(req.params.id);
+        if (!feedback) return res.status(404).json({ message: "Feedback not found" });
+        res.status(200).json(feedback);
     } catch (err) {
-        console.log(err);
+        res.status(500).json({ message: "Error fetching feedback", error: err.message });
     }
-
-    if (!feedback) {
-        return res.status(404).json({ message: "Feedback not found" });
-    }
-
-    return res.status(200).json({ feedback });
 };
 
-// Update feedback by ID
+// Update feedback (only message can be updated)
 const updateFeedback = async (req, res) => {
-    const id = req.params.id;
-    const { message } = req.body; // Only updating message here
-
-    let feedback;
+    const { message } = req.body;
     try {
-        feedback = await Feedback.findByIdAndUpdate(
-            id,
-            { message },
-            { new: true } // Returns the updated document
+        const feedback = await Feedback.findByIdAndUpdate(
+            req.params.id,
+            { message }, // only message
+            { new: true }
         );
+        if (!feedback) return res.status(404).json({ message: "Unable to update feedback" });
+        res.status(200).json(feedback);
     } catch (err) {
-        console.log(err);
+        res.status(500).json({ message: "Error updating feedback", error: err.message });
     }
-
-    if (!feedback) {
-        return res.status(404).json({ message: "Unable to update feedback" });
-    }
-
-    return res.status(200).json({ feedback });
 };
 
-export { addFeedback, getAllFeedbacks, getFeedbackByUsername, getFeedbackById, updateFeedback };
+// Delete feedback by ID
+const deleteFeedback = async (req, res) => {
+    try {
+        const feedback = await Feedback.findByIdAndDelete(req.params.id);
+        if (!feedback) return res.status(404).json({ message: "Unable to delete feedback" });
+        res.status(200).json(feedback);
+    } catch (err) {
+        res.status(500).json({ message: "Error deleting feedback", error: err.message });
+    }
+};
+
+export { 
+    addFeedback, 
+    getAllFeedbacks, 
+    getFeedbackByUsername, 
+    getFeedbackById, 
+    updateFeedback, 
+    deleteFeedback 
+};

@@ -1,23 +1,27 @@
+// models/Feedback/FeedbackModel.js
 import mongoose from "mongoose";
 const { Schema } = mongoose;
 
-// Safari driver feedback
 const feedbackSchema = new Schema({
-    username: {
-        type: String, // Driver's username
-        required: true, // Validate
+    username: { 
+        type: String, 
+        required: true 
     },
-    message: {
-        type: String, // Feedback message
-        required: true, // Validate
+    userType: { 
+        type: String, 
+        enum: ['driver', 'tourist', 'tourguide'], 
+        required: true 
     },
-    date: {
-        type: Date, // Date of feedback
-        default: Date.now, // Automatically set current date
-    }
+    message: { 
+        type: String, 
+        required: true 
+    },
+    date: { 
+        type: Date, 
+        default: Date.now 
+    },
 });
 
-// Create model
-const Feedback = mongoose.model("FeedbackModel", feedbackSchema);
-
-export default Feedback; // ES6 default export
+// The model automatically stores userType when saved
+const Feedback = mongoose.model("Feedback", feedbackSchema);
+export default Feedback;
