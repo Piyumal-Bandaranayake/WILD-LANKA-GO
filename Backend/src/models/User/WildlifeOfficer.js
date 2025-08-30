@@ -35,12 +35,7 @@ const wildlifeOfficerSchema = new mongoose.Schema({
         type: Number,
         required: true,
         min: 0,
-    },
-    Status: {
-        type: String,
-        enum: ['Pending', 'Approved', 'Rejected'],
-        default: 'Pending',  // Default to Pending when the officer applies
-    },
+    }
 });
 
 // Hash the password before saving

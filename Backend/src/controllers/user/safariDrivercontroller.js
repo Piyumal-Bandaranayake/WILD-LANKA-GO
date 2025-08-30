@@ -1,5 +1,6 @@
 import SafariDriver from "../../models/User/safariDriver.js";
 
+
 // Register Safari Driver
 const registerSafariDriver = async (req, res) => {
     const { DriverName, Email, PhoneNumber, username, Password, LicenceNumber, vechicleType, vechicleNumber } = req.body;
@@ -35,4 +36,31 @@ const registerSafariDriver = async (req, res) => {
         res.status(500).json({ message: 'Error registering safari driver', error: error.message });
     }
 }
-export { registerSafariDriver };
+
+// Get Safari Drivers
+const getSafariDrivers = async (req, res) => {
+    try {
+        const drivers = await SafariDriver.find();
+        res.status(200).json(drivers);
+    } catch (error) {
+        res.status(500).json({ message: 'Error fetching safari drivers', error: error.message });
+    }
+};
+
+// Get Safari Driver by ID
+const getSafariDriverById = async (req, res) => {
+    try {
+        const driver = await SafariDriver.findById(req.params.id);
+        if (!driver) {
+            return res.status(404).json({ message: 'Safari Driver not found' });
+        }
+        res.status(200).json(driver);
+    } catch (error) {
+        res.status(500).json({ message: 'Error fetching safari driver', error: error.message });
+    }
+};
+
+export { registerSafariDriver, getSafariDrivers, getSafariDriverById };
+
+
+

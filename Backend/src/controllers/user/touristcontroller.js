@@ -39,4 +39,30 @@ const registerTourist = async (req, res) => {
     }
 };
 
-export { registerTourist };
+
+// Get all tourists
+const getTourists = async (req, res) => {
+    try {
+        const tourists = await Tourist.find();
+        res.status(200).json(tourists);
+    } catch (error) {
+        res.status(500).json({ message: 'Error fetching tourists', error: error.message });
+    }
+};
+
+// Get tourist by ID
+const getTouristById = async (req, res) => {
+    try {
+        const tourist = await Tourist.findById(req.params.id);
+        if (!tourist) {
+            return res.status(404).json({ message: 'Tourist not found' });
+        }
+        res.status(200).json(tourist);
+    } catch (error) {
+        res.status(500).json({ message: 'Error fetching tourist', error: error.message });
+    }
+};
+
+export { registerTourist, getTourists, getTouristById };
+
+
