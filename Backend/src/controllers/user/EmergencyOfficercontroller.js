@@ -39,5 +39,27 @@ const registerEmergencyOfficer = async (req, res) => {
         res.status(500).json({ message: 'Error registering Emergency Officer', error: error.message });
     }
 };
+// Get all Emergency Officers
+const getEmergencyOfficers = async (req, res) => {
+    try {
+        const officers = await EmergencyOfficer.find();
+        res.status(200).json(officers);
+    } catch (error) {
+        res.status(500).json({ message: 'Error fetching Emergency Officers', error: error.message });
+    }
+};
+// Get Emergency Officer by ID
+const getEmergencyOfficerById = async (req, res) => {
+    try {
+        const officer = await EmergencyOfficer.findById(req.params.id);
+        if (!officer) {
+            return res.status(404).json({ message: 'Emergency Officer not found' });
+        }
+        res.status(200).json(officer);
+    } catch (error) {
+        res.status(500).json({ message: 'Error fetching Emergency Officer', error: error.message });
+    }
+};
 
-export { registerEmergencyOfficer };
+
+export { registerEmergencyOfficer ,getEmergencyOfficers, getEmergencyOfficerById};
