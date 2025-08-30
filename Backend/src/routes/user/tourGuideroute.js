@@ -1,5 +1,5 @@
 import express, { Router } from "express";
-import { registerTourGuide} from "../../controllers/user/tourGuidecontroller.js";
+import { registerTourGuide, getTourGuides, getTourGuideById} from "../../controllers/user/tourGuidecontroller.js";
 
 
 const router=express.Router();
@@ -7,4 +7,10 @@ const router=express.Router();
 
 router.post('/register', registerTourGuide);
 
-export default Router;
+// Get all Tour Guides
+router.get('/', getTourGuides);
+
+// Get Tour Guide by ID
+router.get('/:id', getTourGuideById);
+
+export default router;

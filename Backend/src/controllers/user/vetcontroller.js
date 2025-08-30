@@ -39,4 +39,27 @@ const registerVet = async (req, res) => {
         res.status(500).json({ message: 'Error registering Vet', error: error.message });
     }
 };
-export { registerVet };
+// Get all Vets
+const getVets = async (req, res) => {
+    try {
+        const vets = await Vet.find();
+        res.status(200).json(vets);
+    } catch (error) {
+        res.status(500).json({ message: 'Error fetching vets', error: error.message });
+    }
+};
+
+// Get Vet by ID
+const getVetById = async (req, res) => {
+    try {
+        const vet = await Vet.findById(req.params.id);
+        if (!vet) {
+            return res.status(404).json({ message: 'Vet not found' });
+        }
+        res.status(200).json(vet);
+    } catch (error) {
+        res.status(500).json({ message: 'Error fetching vet', error: error.message });
+    }
+};
+
+export { registerVet, getVets, getVetById };
