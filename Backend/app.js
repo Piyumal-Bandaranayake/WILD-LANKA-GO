@@ -9,6 +9,9 @@ import vetRoutes from './src/routes/user/vetroute.js'; // Correct path to vet ro
 import emergencyOfficeroutes from './src/routes/user/emergencyOfficerroute.js'; // Correct path to emergency officer routes 
 import callOperatorRoutes from './src/routes/user/calloperatorroute.js'; // Correct path to call operator routes
 import adminRoutes from './src/routes/user/adminroute.js'; // Correct path to admin routes
+import emergencyRoutes from './src/routes/emergency/emergencyRoute.js';  // Emergency routes
+import emergencyFormRoutes from './src/routes/emergency/emergencyFormRoute.js';  // Emergency form routes
+import emergencyReportRoutes from './src/routes/emergency/emergencyReportRoute.js';  // Emergency report routes
 dotenv.config();  // Load environment variables
 connectDB();  // Connect to MongoDB
 
@@ -24,12 +27,15 @@ app.use('/api/vets', vetRoutes); // All vet-related routes will be prefixed with
 app.use('/api/emergencyOfficers', emergencyOfficeroutes); // All emergency officer-related routes will be prefixed with /api/emergencyOfficers
 app.use('/api/callOperators', callOperatorRoutes); // All call operator-related routes will be prefixed with /api/callOperators
 app.use('/api/admin', adminRoutes); // All admin-related routes will be prefixed with /api/admin
+app.use('/api/emergencies', emergencyRoutes);  // Emergency routes
+app.use('/api/emergency-forms', emergencyFormRoutes);  // Emergency form routes
+app.use('/api/emergency-reports', emergencyReportRoutes);  // Emergency report routes
 app.get("/", (req, res) => {
     res.send("Backend is running...");
 });
 
 // Use port from .env or default to 5000
-const port = process.env.PORT || 5001;
+const port = process.env.PORT || 5000;
 app.listen(port, () => {
     console.log(`Server running on port ${port}`);
 });
