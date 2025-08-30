@@ -1,36 +1,39 @@
-// routes/Feedback/FeedbackRoute.js
 import express from "express";
+import multer from "multer";
 import {
     addFeedback,
     getAllFeedbacks,
-    getFeedbackByUsername,
     getFeedbackById,
     updateFeedback,
-    deleteFeedback,
-    addOrUpdateReply
+    deleteFeedbackByTourist,
+    deleteFeedbackByOperator
 } from "../../controllers/Feedback/FeedbackController.js";
 
 const router = express.Router();
 
-// User adds feedback
-router.post("/", addFeedback);
+// ✅ Multer config for file upload
+const storage = multer.diskStorage({
+    destination: (req, file, cb) => cb(null, 'uploads/'),
+    filename: (req, file, cb) => cb(null, Date.now() + '-' + file.originalname)
+});
+const upload = multer({ storage: storage });
 
-// Get all feedbacks (optional filter ?userType=driver/tourist/tourguide)
+// Tourist adds feedback with image upload
+router.post("/", upload.array("images", 5), addFeedback);
+
+// Get all feedbacks
 router.get("/", getAllFeedbacks);
 
 // Get feedback by ID
-router.get("/id/:id", getFeedbackById);
+router.get("/:id", getFeedbackById);
 
-// Get feedbacks by username
-router.get("/user/:username", getFeedbackByUsername);
+// Update feedback
+router.put("/:id", upload.array("images", 5), updateFeedback);
 
-// Update feedback message
-router.put("/:id", updateFeedback);
+// Delete feedback (tourist)
+router.delete("/tourist/:id", deleteFeedbackByTourist);
 
-// Delete feedback
-router.delete("/:id", deleteFeedback);
-
-// Call operator / wildlife officer / admin adds or edits reply
-router.put("/reply/:id", addOrUpdateReply);
+// Delete feedback (operator)
+router.delete("/operator/:id", deleteFeedbackByOperator);
 
 export default router;

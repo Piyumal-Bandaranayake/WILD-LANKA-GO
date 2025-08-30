@@ -1,146 +1,134 @@
-// controllers/Feedback/FeedbackController.js
-import SafariDriver from "../../models/User/safariDriver.js";
 import Tourist from "../../models/User/tourist.js";
-import TourGuide from "../../models/User/tourGuide.js"; 
 import Feedback from "../../models/Feedback/FeedbackModel.js";
 
-// Add feedback (userType detected automatically)
+// Tourist adds feedback with images
 const addFeedback = async (req, res) => {
-    const { username, message } = req.body;
+  try {
+    const { username, message, tourGuideName, eventType, activityType } = req.body;
 
-    try {
-        let user = null;
-        let userType = null;
+    // Check tourist exists
+    const tourist = await Tourist.findOne({ username });
+    if (!tourist) return res.status(403).json({ message: "Only tourists can submit feedback" });
 
-        // check if driver
-        user = await SafariDriver.findOne({ username });
-        if (user) userType = "driver";
+    // Validate required fields
+    if (!message) return res.status(400).json({ message: "Feedback message is required" });
+    if (!eventType && !activityType) return res.status(400).json({ message: "Event or Activity must be selected" });
 
-        // else check tourist
-        if (!user) {
-            user = await Tourist.findOne({ username });
-            if (user) userType = "tourist";
-        }
-
-        // else check tourguide
-        if (!user) {
-            user = await TourGuide.findOne({ Username: username });
-            if (user) userType = "tourguide";
-        }
-
-        if (!user) {
-            return res.status(404).json({ message: "User not found" });
-        }
-
-        const feedback = new Feedback({
-            username,
-            userType,
-            message
-        });
-
-        await feedback.save();
-        res.status(200).json({ feedback });
-
-    } catch (err) {
-        console.error(err);
-        res.status(500).json({ message: "Error adding feedback", error: err.message });
+    // ✅ Handle images: either JSON array from body OR uploaded files
+    let imagesArray = req.body.images || [];
+    
+    if (typeof imagesArray === 'string') {
+      try {
+        imagesArray = JSON.parse(imagesArray); // Convert JSON string to array
+      } catch (err) {
+        imagesArray = []; // fallback if parsing fails
+      }
     }
+
+    // Add uploaded files if any (multipart/form-data)
+    if (req.files && req.files.length > 0) {
+      const uploadedImages = req.files.map(file => `/uploads/${file.filename}`);
+      imagesArray = [...imagesArray, ...uploadedImages];
+    }
+
+    const feedback = new Feedback({
+      username,
+      message,
+      tourGuideName: tourGuideName || "",
+      eventType: eventType || null,
+      activityType: activityType || null,
+      images: imagesArray
+    });
+
+    await feedback.save();
+    res.status(201).json({ message: "Feedback added successfully", feedback });
+  } catch (err) {
+    res.status(500).json({ message: "Error adding feedback", error: err.message });
+  }
 };
 
-// Get all feedbacks (optionally filter by userType)
+// Get all feedbacks
 const getAllFeedbacks = async (req, res) => {
-    try {
-        const { userType } = req.query;
-        let filter = {};
-        if (userType && ['driver', 'tourist', 'tourguide'].includes(userType)) {
-            filter.userType = userType;
-        }
-
-        const feedbacks = await Feedback.find(filter).sort({ date: -1 });
-        res.status(200).json(feedbacks);
-
-    } catch (err) {
-        res.status(500).json({ message: "Error fetching feedbacks", error: err.message });
-    }
-};
-
-// Get feedbacks by username
-const getFeedbackByUsername = async (req, res) => {
-    try {
-        const { username } = req.params;
-        const feedbacks = await Feedback.find({ username }).sort({ date: -1 });
-        if (!feedbacks.length) return res.status(404).json({ message: "No feedback found" });
-        res.status(200).json(feedbacks);
-    } catch (err) {
-        res.status(500).json({ message: "Error fetching feedbacks", error: err.message });
-    }
+  try {
+    const feedbacks = await Feedback.find().sort({ date: -1 });
+    res.status(200).json(feedbacks);
+  } catch (err) {
+    res.status(500).json({ message: "Error fetching feedbacks", error: err.message });
+  }
 };
 
 // Get feedback by ID
 const getFeedbackById = async (req, res) => {
-    try {
-        const feedback = await Feedback.findById(req.params.id);
-        if (!feedback) return res.status(404).json({ message: "Feedback not found" });
-        res.status(200).json(feedback);
-    } catch (err) {
-        res.status(500).json({ message: "Error fetching feedback", error: err.message });
-    }
+  try {
+    const feedback = await Feedback.findById(req.params.id);
+    if (!feedback) return res.status(404).json({ message: "Feedback not found" });
+    res.status(200).json(feedback);
+  } catch (err) {
+    res.status(500).json({ message: "Error fetching feedback", error: err.message });
+  }
 };
 
-// Update feedback message (user cannot change userType)
+// Update feedback
 const updateFeedback = async (req, res) => {
-    const { message } = req.body;
-    try {
-        const feedback = await Feedback.findByIdAndUpdate(
-            req.params.id,
-            { message },
-            { new: true }
-        );
-        if (!feedback) return res.status(404).json({ message: "Unable to update feedback" });
-        res.status(200).json(feedback);
-    } catch (err) {
-        res.status(500).json({ message: "Error updating feedback", error: err.message });
+  try {
+    const { message, tourGuideName, eventType, activityType } = req.body;
+
+    const feedback = await Feedback.findById(req.params.id);
+    if (!feedback) return res.status(404).json({ message: "Feedback not found" });
+    if (feedback.username !== req.body.username) return res.status(403).json({ message: "You can only update your own feedback" });
+
+    feedback.message = message || feedback.message;
+    feedback.tourGuideName = tourGuideName || feedback.tourGuideName;
+    feedback.eventType = eventType || feedback.eventType;
+    feedback.activityType = activityType || feedback.activityType;
+
+    // ✅ Add new uploaded images if any
+    let imagesArray = feedback.images || [];
+    
+    if (req.files && req.files.length > 0) {
+      const newImages = req.files.map(file => `/uploads/${file.filename}`);
+      imagesArray = [...imagesArray, ...newImages];
     }
+
+    feedback.images = imagesArray;
+
+    await feedback.save();
+    res.status(200).json(feedback);
+  } catch (err) {
+    res.status(500).json({ message: "Error updating feedback", error: err.message });
+  }
 };
 
-// Delete feedback (any role-based check can be added in route/middleware)
-const deleteFeedback = async (req, res) => {
-    try {
-        const feedback = await Feedback.findByIdAndDelete(req.params.id);
-        if (!feedback) return res.status(404).json({ message: "Unable to delete feedback" });
-        res.status(200).json(feedback);
-    } catch (err) {
-        res.status(500).json({ message: "Error deleting feedback", error: err.message });
-    }
+// Delete feedback (tourist)
+const deleteFeedbackByTourist = async (req, res) => {
+  try {
+    const feedback = await Feedback.findById(req.params.id);
+    if (!feedback) return res.status(404).json({ message: "Feedback not found" });
+    if (feedback.username !== req.body.username) return res.status(403).json({ message: "You can only delete your own feedback" });
+
+    await feedback.deleteOne();
+    res.status(200).json({ message: "Feedback deleted successfully" });
+  } catch (err) {
+    res.status(500).json({ message: "Error deleting feedback", error: err.message });
+  }
 };
 
-// Add or update reply (for callOperator/wildlifeOfficer/admin)
-const addOrUpdateReply = async (req, res) => {
-    const { reply, repliedBy } = req.body;
-
-    if (!reply || !repliedBy) {
-        return res.status(400).json({ message: "Reply and repliedBy are required" });
-    }
-
-    try {
-        const feedback = await Feedback.findByIdAndUpdate(
-            req.params.id,
-            { reply, repliedBy, replyDate: new Date() },
-            { new: true }
-        );
-        if (!feedback) return res.status(404).json({ message: "Feedback not found" });
-        res.status(200).json(feedback);
-    } catch (err) {
-        res.status(500).json({ message: "Error adding/updating reply", error: err.message });
-    }
+// Delete feedback (operator)
+const deleteFeedbackByOperator = async (req, res) => {
+  try {
+    const feedback = await Feedback.findByIdAndDelete(req.params.id);
+    if (!feedback) return res.status(404).json({ message: "Feedback not found" });
+    res.status(200).json({ message: "Feedback deleted by operator" });
+  } catch (err) {
+    res.status(500).json({ message: "Error deleting feedback", error: err.message });
+  }
 };
 
-export { 
-    addFeedback,
-    getAllFeedbacks,
-    getFeedbackByUsername,
-    getFeedbackById,
-    updateFeedback,
-    deleteFeedback,
-    addOrUpdateReply
+export {
+  addFeedback,
+  getAllFeedbacks,
+  getFeedbackById,
+  updateFeedback,
+  deleteFeedbackByTourist,
+  deleteFeedbackByOperator
 };
