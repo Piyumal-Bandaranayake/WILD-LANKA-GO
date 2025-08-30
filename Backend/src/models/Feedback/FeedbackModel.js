@@ -16,12 +16,22 @@ const feedbackSchema = new Schema({
         type: String, 
         required: true 
     },
+    reply: {
+        type: String,
+        default: "" // Empty string if no operator reply yet
+    },
+    repliedBy: {
+        type: String, // username of CallOperator/WildlifeOfficer/Admin who replied
+        default: ""
+    },
     date: { 
         type: Date, 
         default: Date.now 
     },
+    replyDate: {
+        type: Date // Timestamp of reply
+    }
 });
 
-// The model automatically stores userType when saved
 const Feedback = mongoose.model("Feedback", feedbackSchema);
 export default Feedback;

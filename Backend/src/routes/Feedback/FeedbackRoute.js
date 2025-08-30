@@ -6,15 +6,16 @@ import {
     getFeedbackByUsername,
     getFeedbackById,
     updateFeedback,
-    deleteFeedback
+    deleteFeedback,
+    addOrUpdateReply
 } from "../../controllers/Feedback/FeedbackController.js";
 
 const router = express.Router();
 
-// Add feedback
+// User adds feedback
 router.post("/", addFeedback);
 
-// Get all feedbacks (optional query ?userType=driver/tourist)
+// Get all feedbacks (optional filter ?userType=driver/tourist/tourguide)
 router.get("/", getAllFeedbacks);
 
 // Get feedback by ID
@@ -23,10 +24,13 @@ router.get("/id/:id", getFeedbackById);
 // Get feedbacks by username
 router.get("/user/:username", getFeedbackByUsername);
 
-// Update feedback by ID
+// Update feedback message
 router.put("/:id", updateFeedback);
 
-// Delete feedback by ID
+// Delete feedback
 router.delete("/:id", deleteFeedback);
+
+// Call operator / wildlife officer / admin adds or edits reply
+router.put("/reply/:id", addOrUpdateReply);
 
 export default router;
