@@ -9,6 +9,8 @@ import vetRoutes from './src/routes/user/vetroute.js'; // Correct path to vet ro
 import emergencyOfficeroutes from './src/routes/user/emergencyOfficerroute.js'; // Correct path to emergency officer routes 
 import callOperatorRoutes from './src/routes/user/calloperatorroute.js'; // Correct path to call operator routes
 import adminRoutes from './src/routes/user/adminroute.js'; // Correct path to admin routes
+import eventRoutes from './src/routes/Activity Management/eventroute.js'; // Import event routes
+
 dotenv.config();  // Load environment variables
 connectDB();  // Connect to MongoDB
 
@@ -24,6 +26,8 @@ app.use('/api/vets', vetRoutes); // All vet-related routes will be prefixed with
 app.use('/api/emergencyOfficers', emergencyOfficeroutes); // All emergency officer-related routes will be prefixed with /api/emergencyOfficers
 app.use('/api/callOperators', callOperatorRoutes); // All call operator-related routes will be prefixed with /api/callOperators
 app.use('/api/admin', adminRoutes); // All admin-related routes will be prefixed with /api/admin
+app.use('/api/events', eventRoutes); // All event-related routes will be prefixed with /api/events
+
 app.get("/", (req, res) => {
     res.send("Backend is running...");
 });
