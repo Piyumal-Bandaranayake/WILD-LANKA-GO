@@ -40,4 +40,27 @@ const registerWildlifeOfficer = async (req, res) => {
     }
 };
 
-export { registerWildlifeOfficer };
+// Get all Wildlife Officers
+const getWildlifeOfficers = async (req, res) => {
+    try {
+        const officers = await WildlifeOfficer.find();
+        res.status(200).json(officers);
+    } catch (error) {
+        res.status(500).json({ message: 'Error fetching Wildlife Officers', error: error.message });
+    }
+};
+
+// Get Wildlife Officer by ID
+const getWildlifeOfficerById = async (req, res) => {
+    try {
+        const officer = await WildlifeOfficer.findById(req.params.id);
+        if (!officer) {
+            return res.status(404).json({ message: 'Wildlife Officer not found' });
+        }
+        res.status(200).json(officer);
+    } catch (error) {
+        res.status(500).json({ message: 'Error fetching Wildlife Officer', error: error.message });
+    }
+};
+
+export { registerWildlifeOfficer, getWildlifeOfficers, getWildlifeOfficerById };
