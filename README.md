@@ -1,2 +1,0 @@
-# WILD LANKA GO
- 2Y2S Project
