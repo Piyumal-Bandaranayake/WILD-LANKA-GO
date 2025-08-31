@@ -60,4 +60,6 @@ const updateEmergencyStatus = async (req, res) => {
     }
 };
 
+
+
 export { reportEmergency, updateEmergencyStatus };
