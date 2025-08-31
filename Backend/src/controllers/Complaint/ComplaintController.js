@@ -57,7 +57,6 @@ const updateComplaint = async (req, res) => {
       return res.status(403).json({ message: "You can only update your own complaint" });
     }
 
-    // Only message and location can be updated
     complaint.message = message || complaint.message;
     complaint.location = location || complaint.location;
 
@@ -71,10 +70,12 @@ const updateComplaint = async (req, res) => {
 // Delete complaint (by complainant)
 const deleteComplaint = async (req, res) => {
   try {
-    const complaint = await Complaint.findById(req.params.id);
+     const { email } = req.query;  // take email from request query
 
+    const complaint = await Complaint.findById(req.params.id);
     if (!complaint) return res.status(404).json({ message: "Complaint not found" });
-    if (complaint.username !== req.body.username) {
+
+    if (complaint.email !== email) {
       return res.status(403).json({ message: "You can only delete your own complaint" });
     }
 
@@ -122,10 +123,10 @@ const updateReply = async (req, res) => {
   }
 };
 
-// Wildlife Officer: Delete reply
+// Wildlife Officer: Delete reply (via query param)
 const deleteReply = async (req, res) => {
   try {
-    const { replyId } = req.body;
+    const { replyId } = req.query; // ✅ get from query param
     const complaint = await Complaint.findById(req.params.id);
 
     if (!complaint) return res.status(404).json({ message: "Complaint not found" });
