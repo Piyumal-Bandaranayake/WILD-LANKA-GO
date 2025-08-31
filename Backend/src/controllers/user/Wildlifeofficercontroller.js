@@ -1,5 +1,6 @@
-import WildlifeOfficer from '../../models/User/WildlifeOfficer.js';  // Correct path to model
+import WildlifeOfficer from '../../models/User/WildlifeOfficer.js';
 import bcrypt from 'bcryptjs';
+
 // Register Wildlife Officer
 const registerWildlifeOfficer = async (req, res) => {
     const { Fullname, Email, Username, Password, PhoneNumber, OfficerID, ExperienceYear } = req.body;
@@ -10,33 +11,48 @@ const registerWildlifeOfficer = async (req, res) => {
     }
 
     try {
-        // Check if the email or username or OfficerID is already taken
-        const existingOfficer = await WildlifeOfficer.findOne({ $or: [{ Email }, { Username }, { OfficerID }] });
+        // Check for existing email, username, or officer ID
+        const existingOfficer = await WildlifeOfficer.findOne({
+            $or: [{ Email }, { Username }, { OfficerID }]
+        });
+
         if (existingOfficer) {
             return res.status(400).json({ message: 'Email, Username, or Officer ID already exists' });
         }
 
-        // Create a new Wildlife Officer
+        // 🔐 Hash the password before saving
+        const hashedPassword = await bcrypt.hash(Password, 10);
+
+        // Create new officer object
         const newOfficer = new WildlifeOfficer({
             Fullname,
             Email,
             Username,
-            Password,
+            Password: hashedPassword,
             PhoneNumber,
             OfficerID,
             ExperienceYear
         });
 
-        // Hash the password before saving
-        newOfficer.Password = await bcrypt.hash(Password, 10);
-
-        // Save the officer to the database
+        // Save to DB
         await newOfficer.save();
 
-        res.status(201).json({ message: 'Wildlife Officer registered successfully', wildlifeOfficer: newOfficer });
+        res.status(201).json({
+            message: 'Wildlife Officer registered successfully',
+            wildlifeOfficer: {
+                id: newOfficer._id,
+                Fullname: newOfficer.Fullname,
+                Email: newOfficer.Email,
+                Username: newOfficer.Username,
+                OfficerID: newOfficer.OfficerID
+            }
+        });
 
     } catch (error) {
-        res.status(500).json({ message: 'Error registering Wildlife Officer', error: error.message });
+        res.status(500).json({
+            message: 'Error registering Wildlife Officer',
+            error: error.message
+        });
     }
 };
 
