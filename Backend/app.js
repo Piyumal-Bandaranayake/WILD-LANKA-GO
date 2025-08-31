@@ -10,6 +10,10 @@ import emergencyOfficeroutes from './src/routes/user/emergencyOfficerroute.js'; 
 import callOperatorRoutes from './src/routes/user/calloperatorroute.js'; // Correct path to call operator routes
 import adminRoutes from './src/routes/user/adminroute.js'; // Correct path to admin routes
 import eventRoutes from './src/routes/Activity Management/eventroute.js'; // Import event routes
+import activityRoutes from './src/routes/Activity Management/Activityroute.js'; // Import activity routes
+import eventRegistrationroutes from './src/routes/Activity Management/eventRegistrationroute.js'; // Import event registration routes
+import Booking from './src/models/Activity Management/Booking.js';
+
 
 dotenv.config();  // Load environment variables
 connectDB();  // Connect to MongoDB
@@ -27,6 +31,11 @@ app.use('/api/emergencyOfficers', emergencyOfficeroutes); // All emergency offic
 app.use('/api/callOperators', callOperatorRoutes); // All call operator-related routes will be prefixed with /api/callOperators
 app.use('/api/admin', adminRoutes); // All admin-related routes will be prefixed with /api/admin
 app.use('/api/events', eventRoutes); // All event-related routes will be prefixed with /api/events
+app.use('/api/activities', activityRoutes); // All activity-related routes will be prefixed with /api/activities
+app.use('/api/eventRegistrations', eventRegistrationroutes); // All event registration-related routes will be prefixed with /api/eventRegistrations
+// To serve static files (images, etc.)
+app.use('/uploads', express.static('uploads'));
+app.use('/api/bookings', Booking); // All booking-related routes will be prefixed with /api/bookings
 
 app.get("/", (req, res) => {
     res.send("Backend is running...");

@@ -8,6 +8,7 @@ const eventSchema = new mongoose.Schema({
     duration: { type: String, required: true },  // Duration of the event (e.g., "3 hours")
     availableSlots: { type: Number, required: true },  // Available slots for the event
     eventType: { type: String, enum: ['Celebration', 'Workshop', 'Talk', 'Conservation', 'Other'], required: true },  // Event type
+    image: { type: String },  // Image URL for the event
 }, { timestamps: true });
 
 const Event = mongoose.model('Event', eventSchema);
