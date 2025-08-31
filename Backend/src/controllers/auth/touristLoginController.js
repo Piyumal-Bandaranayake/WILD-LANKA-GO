@@ -5,33 +5,32 @@ import jwt from 'jsonwebtoken';
 const touristLogin = async (req, res) => {
     const { username, password } = req.body;
 
-    // Input validation
     if (!username || !password) {
         return res.status(400).json({ message: 'Please fill all fields' });
     }
 
     try {
-        // Find the tourist by username
-        const tourist = await Tourist.findOne({ username });
+        const tourist = await Tourist.findOne({ username }); // lowercase here
+
+        console.log('Login attempt for:', username);
+        console.log('Tourist found:', tourist);
+
         if (!tourist) {
-            return res.status(400).json({ message: 'Invalid username or password' });
+            return res.status(400).json({ message: 'Invalid username' });
         }
 
-        // Compare hashed password
         const isMatch = await bcrypt.compare(password, tourist.Password);
         if (!isMatch) {
-            return res.status(400).json({ message: 'Invalid username or password' });
+            return res.status(400).json({ message: 'Invalid password' });
         }
 
-        // Generate JWT token
         const token = jwt.sign(
             { id: tourist._id, role: 'tourist' },
             process.env.JWT_SECRET,
             { expiresIn: '1h' }
         );
 
-        // Return token and basic user info
-        res.status(200).json({
+        return res.status(200).json({
             message: 'Login successful',
             token,
             user: {
@@ -42,7 +41,7 @@ const touristLogin = async (req, res) => {
         });
 
     } catch (error) {
-        res.status(500).json({ message: 'Server error', error: error.message });
+        return res.status(500).json({ message: 'Server error', error: error.message });
     }
 };
 
