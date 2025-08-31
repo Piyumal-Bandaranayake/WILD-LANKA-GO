@@ -16,24 +16,20 @@ const tourGuideSchema = new mongoose.Schema({
         type: String,
         required: true,
         unique: true,
-    
     },
     Username: {
         type: String,
         required: true,
         unique: true,
-        
     },
-        password: {
+    password: {
         type: String,
         required: true,
         minlength: 6
     },
-
     phone: {
         type: String,
         required: true,
-
     },
     Guide_Registration_No: {
         type: String,
@@ -50,8 +46,23 @@ const tourGuideSchema = new mongoose.Schema({
         type: String,
         enum: ['Pending', 'Approved', 'Rejected'],
         default: 'Pending',  // Default to Pending when the guide applies
+    },
+
+    // ✅ New availability column
+    availability: {
+        type: String,
+        enum: ['Available', 'Busy', 'OnLeave', 'Inactive'],
+        default: 'Inactive', // start as Inactive until approved
+    },
+
+    // ✅ New column to track the guide's current tour status
+    currentTourStatus: {
+        type: String,
+        enum: ['Idle', 'Processing', 'Started', 'Ended'],
+        default: 'Idle'
     }
 })
+
 // Hash the password before saving the user model
 tourGuideSchema.pre('save', async function(next) {
     if (this.isModified('Password')) {

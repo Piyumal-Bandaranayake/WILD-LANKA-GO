@@ -10,6 +10,11 @@ import emergencyOfficeroutes from './src/routes/user/emergencyOfficerroute.js'; 
 import callOperatorRoutes from './src/routes/user/calloperatorroute.js'; // Correct path to call operator routes
 import adminRoutes from './src/routes/user/adminroute.js'; // Correct path to admin routes
 import tourRoutes from './src/routes/tourmanagement/tourroutes.js';
+import tourRejectionRoutes from './src/routes/tourmanagement/rejectionroute.js';
+import tourMaterialRoutes from './src/routes/tourmanagement/tourMaterialRoute.js';
+import fuelClaimRoutes from './src/routes/tourmanagement/fuelClaimRoute.js'; // ✅ NEW
+
+
 
 dotenv.config();  // Load environment variables
 connectDB();  // Connect to MongoDB
@@ -28,6 +33,10 @@ app.use('/api/callOperators', callOperatorRoutes); // All call operator-related 
 app.use('/api/admin', adminRoutes); // All admin-related routes will be prefixed with /api/admin
 
 app.use('/api/tour', tourRoutes);
+app.use('/api/tour-rejection', tourRejectionRoutes);
+app.use('/api/tour-materials', tourMaterialRoutes);  
+app.use('/api/fuel-claims', fuelClaimRoutes);  // ✅ NEW
+
 
 app.get("/", (req, res) => {
     res.send("Backend is running...");

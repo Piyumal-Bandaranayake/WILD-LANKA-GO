@@ -1,31 +1,31 @@
 import express from 'express';
 import {
-    createTour,
-    assignDriverAndGuide,
-    getAllTours,
-    getTourById,
-    getToursByGuide,
-    getToursByDriver
-} from  '../../controllers/tourmanagement/tourcontroller.js';
+  createTour,
+  assignDriverAndGuide,
+  getAllTours,
+  getTourById,
+  getToursByGuide,
+  getToursByDriver
+} from '../../controllers/tourmanagement/tourcontroller.js';
 
 const router = express.Router();
 
-// Tourist submits a tour
+// Create new tour (after booking)
 router.post('/create', createTour);
 
-// WPOC assigns driver and tour guide
-router.put('/assign', assignDriverAndGuide);
+// Assign driver and tour guide
+router.put('/assign', assignDriverAndGuide); // ✅ YOU NEED THIS
 
 // Get all tours
 router.get('/', getAllTours);
 
-// Get tour by Mongo ID
+// Get tour by ID
 router.get('/:id', getTourById);
 
-// Get tours assigned to a specific tour guide
+// Get tours by tour guide
 router.get('/guide/:guideId', getToursByGuide);
 
-// Get tours assigned to a specific driver
+// Get tours by driver
 router.get('/driver/:driverId', getToursByDriver);
 
 export default router;

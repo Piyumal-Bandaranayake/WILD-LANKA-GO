@@ -1,12 +1,10 @@
 import mongoose from "mongoose";
 import bcrypt from "bcryptjs";
 
-
 const safariDriverSchema = new mongoose.Schema({
     DriverName:{
         type : String,
         required : true,
-
     },
     Email:{
         type : String,
@@ -44,7 +42,13 @@ const safariDriverSchema = new mongoose.Schema({
         type : String,  
         enum : ['pending', 'approved', 'rejected'],
         default : 'pending',
-        
+    },
+
+    // ✅ New availability column
+    availability:{
+        type : String,
+        enum : ['Available', 'Busy', 'OnLeave', 'Inactive'],
+        default : 'Inactive',   // until approved
     }
 });
 

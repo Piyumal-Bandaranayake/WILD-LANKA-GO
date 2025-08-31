@@ -2,7 +2,7 @@ import SafariDriver from "../../models/User/safariDriver.js";
 
 // Register Safari Driver
 const registerSafariDriver = async (req, res) => {
-    const { DriverName, Email, PhoneNumber, username, Password, LicenceNumber, vechicleType, vechicleNumber } = req.body;
+    const { DriverName, Email, PhoneNumber, username, Password, LicenceNumber, vechicleType, vechicleNumber, availability } = req.body;
 
     // Validate input
     if (!DriverName || !Email || !PhoneNumber || !username || !Password || !LicenceNumber || !vechicleType || !vechicleNumber) {
@@ -16,6 +16,16 @@ const registerSafariDriver = async (req, res) => {
             return res.status(400).json({ message: 'Email, Username, Licence Number or Vehicle Number already exists' });
         }
 
+        // Optional availability validation (if sent)
+        const allowedAvailabilities = ['Available', 'Busy', 'OnLeave', 'Inactive'];
+        let availabilityToSave = undefined;
+        if (availability !== undefined) {
+            if (!allowedAvailabilities.includes(availability)) {
+                return res.status(400).json({ message: 'Invalid availability value' });
+            }
+            availabilityToSave = availability;
+        }
+
         // Create a new safari driver
         const newSafariDriver = new SafariDriver({
             DriverName,
@@ -25,7 +35,8 @@ const registerSafariDriver = async (req, res) => {
             Password,
             LicenceNumber,
             vechicleType,
-            vechicleNumber
+            vechicleNumber,
+            ...(availabilityToSave !== undefined ? { availability: availabilityToSave } : {}) // keep your model default if not provided
         });
 
         // Save the safari driver to the database
@@ -45,4 +56,31 @@ const getSafariDrivers = async (req, res) => {
     }
 };
 
-export { registerSafariDriver, getSafariDrivers };
+// ✅ Update ONLY availability for a driver
+const updateDriverAvailability = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { availability } = req.body;
+
+        const allowedAvailabilities = ['Available', 'Busy', 'OnLeave', 'Inactive'];
+        if (!availability || !allowedAvailabilities.includes(availability)) {
+            return res.status(400).json({ message: 'Invalid availability value' });
+        }
+
+        const driver = await SafariDriver.findByIdAndUpdate(
+            id,
+            { availability },
+            { new: true }
+        );
+
+        if (!driver) {
+            return res.status(404).json({ message: 'Safari Driver not found' });
+        }
+
+        res.status(200).json({ message: 'Availability updated', driver });
+    } catch (error) {
+        res.status(500).json({ message: 'Error updating availability', error: error.message });
+    }
+};
+
+export { registerSafariDriver, getSafariDrivers, updateDriverAvailability };
