@@ -11,6 +11,8 @@ import callOperatorRoutes from './src/routes/user/calloperatorroute.js';
 import adminRoutes from './src/routes/user/adminroute.js';
 import feedbackRoutes from './src/routes/Feedback/FeedbackRoute.js';
 import complaintRoutes from './src/routes/Complaint/ComplaintRoute.js';
+import chatbotRoutes from './src/routes/Chatbot/chatbotRoutes.js';
+
 
 dotenv.config();
 connectDB();
@@ -32,6 +34,8 @@ app.use('/api/callOperators', callOperatorRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/feedbacks', feedbackRoutes);
 app.use('/api/complaints', complaintRoutes);
+app.use('/api/chatbot', chatbotRoutes);
+
 
 app.get("/", (req, res) => res.send("Backend is running..."));
 
