@@ -1,5 +1,5 @@
 import axios from "axios";
-import ApplyJobForm from "src/component/ApplyJobForm.jsx";  // Correct path for ApplyJobForm
+import ApplyJobForm from "./component/ApplyJobForm.jsx";  // Correct path for ApplyJobForm
 import ApplicationList from './component/ApplicationList';  // Correct path for ApplicationList
 import "./App.css";
 
