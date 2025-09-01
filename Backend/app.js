@@ -1,6 +1,12 @@
 
 import express from 'express';
 import dotenv from 'dotenv';
+
+import eventRoutes from './src/routes/Activity Management/eventroute.js'; // Import event routes
+import activityRoutes from './src/routes/Activity Management/Activityroute.js'; // Import activity routes
+import eventRegistrationroutes from './src/routes/Activity Management/eventRegistrationroute.js'; // Import event registration routes
+import Booking from './src/routes/Activity Management/Bookingroute.js'; // Import booking routes
+import Donation from './src/routes/Activity Management/donationroute.js'; // Import donation routes  
 import cors from 'cors';
 import connectDB from './src/config/DB.js';
 
@@ -21,6 +27,7 @@ import complaintRoutes from './src/routes/Complaint/ComplaintRoute.js';
 // Auth controllers
 import { systemLogin } from './src/controllers/auth/systemLoginController.js';
 
+
 // System protected routes
 import systemRoutes from './src/routes/auth/systemLogin.js';
 
@@ -30,6 +37,20 @@ connectDB();
 
 // Initialize app
 const app = express();
+ // Middleware to parse JSON requests
+
+
+app.use('/api/events', eventRoutes); // All event-related routes will be prefixed with /api/events
+app.use('/api/activities', activityRoutes); // All activity-related routes will be prefixed with /api/activities
+app.use('/api/eventRegistrations', eventRegistrationroutes); // All event registration-related routes will be prefixed with /api/eventRegistrations
+app.use('/api/donations', Donation); // All donation-related routes will be prefixed with /api/donations
+
+// To serve static files (images, etc.)
+app.use('/uploads', express.static('uploads'));
+app.use('/api/bookings', Booking); // All booking-related routes will be prefixed with /api/bookings
+
+
+
 
 // Middleware
 app.use(cors());
@@ -62,6 +83,7 @@ app.get("/", (req, res) => res.send("Backend is running..."));
 app.use((err, req, res, next) => {
   console.error(err.stack);
   res.status(500).json({ message: 'Something went wrong', error: err.message });
+
 });
 
 // Start server
