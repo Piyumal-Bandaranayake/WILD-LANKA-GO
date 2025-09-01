@@ -1,5 +1,6 @@
 import express from 'express';
 import dotenv from 'dotenv';
+import cors from 'cors'; // ✅ Added CORS import
 import connectDB from './src/config/DB.js';
 import touristRoutes from './src/routes/user/touristroute.js';
 import driverRoutes from './src/routes/user/safariDriverroute.js';
@@ -13,12 +14,16 @@ import feedbackRoutes from './src/routes/Feedback/FeedbackRoute.js';
 import complaintRoutes from './src/routes/Complaint/ComplaintRoute.js';
 import chatbotRoutes from './src/routes/Chatbot/chatbotRoutes.js';
 
-
 dotenv.config();
 connectDB();
 
 const app = express();
 app.use(express.json());
+
+// ✅ Enable CORS for all origins (or replace "*" with your frontend URL)
+app.use(cors({
+  origin: "*"
+}));
 
 // ✅ Serve uploaded images
 app.use('/uploads', express.static('uploads'));
@@ -36,8 +41,9 @@ app.use('/api/feedbacks', feedbackRoutes);
 app.use('/api/complaints', complaintRoutes);
 app.use('/api/chatbot', chatbotRoutes);
 
-
+// Root endpoint
 app.get("/", (req, res) => res.send("Backend is running..."));
 
+// Start server
 const port = process.env.PORT || 5001;
 app.listen(port, () => console.log(`Server running on port ${port}`));
