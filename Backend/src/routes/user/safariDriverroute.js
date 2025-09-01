@@ -1,5 +1,7 @@
 import express from 'express';
-import { registerSafariDriver, getSafariDrivers, updateDriverAvailability } from '../../controllers/user/safariDrivercontroller.js';
+
+import { registerSafariDriver, getSafariDrivers,getSafariDriverById } from '../../controllers/user/safariDrivercontroller.js';
+
 
 const router = express.Router();
 
@@ -8,6 +10,8 @@ router.post('/register', registerSafariDriver);
 
 // Get all safari drivers
 router.get('/', getSafariDrivers);
+// Get safari driver by ID
+router.get('/:id', getSafariDriverById);
 
 // ✅ Update ONLY availability
 router.patch('/:id/availability', updateDriverAvailability);

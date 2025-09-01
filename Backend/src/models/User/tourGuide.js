@@ -16,11 +16,16 @@ const tourGuideSchema = new mongoose.Schema({
         type: String,
         required: true,
         unique: true,
+        trim: true
+
     },
     Username: {
         type: String,
         required: true,
         unique: true,
+
+        trim: true
+
     },
     password: {
         type: String,
@@ -30,6 +35,9 @@ const tourGuideSchema = new mongoose.Schema({
     phone: {
         type: String,
         required: true,
+
+        trim: true
+
     },
     Guide_Registration_No: {
         type: String,
@@ -38,13 +46,14 @@ const tourGuideSchema = new mongoose.Schema({
         trim: true
     },
     Experience_Year: {
-        type: Number,       
+        type: Number,
         required: true,
         min: 0
     },
     Status: {
         type: String,
         enum: ['Pending', 'Approved', 'Rejected'],
+
         default: 'Pending',  // Default to Pending when the guide applies
     },
 
@@ -63,17 +72,19 @@ const tourGuideSchema = new mongoose.Schema({
     }
 })
 
-// Hash the password before saving the user model
-tourGuideSchema.pre('save', async function(next) {
-    if (this.isModified('Password')) {
-        this.Password = await bcrypt.hash(this.Password, 10); // Hash the password before saving
+
+// ✅ Hash password before saving
+tourGuideSchema.pre('save', async function (next) {
+    if (this.isModified('password')) {
+        this.password = await bcrypt.hash(this.password, 10);
+
     }
     next();
 });
 
-// Compare the entered password with the hashed password
-tourGuideSchema.methods.matchPassword = async function(enteredPassword) {
-    return await bcrypt.compare(enteredPassword, this.Password);
+// ✅ Password comparison method
+tourGuideSchema.methods.matchPassword = async function (enteredPassword) {
+    return await bcrypt.compare(enteredPassword, this.password);
 };
 
 const TourGuide = mongoose.model('TourGuide', tourGuideSchema);

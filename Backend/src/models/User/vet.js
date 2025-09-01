@@ -3,53 +3,52 @@ import bcrypt from "bcryptjs";
 
 // Define the schema for Vet
 const vetSchema = new mongoose.Schema({
-    Fullname: {
-        type: String,
-        required: true,
-    },
-    Email: {
-        type: String,
-        required: true,
-        unique: true,  // Ensure email is unique        
-    },
-    Username: {
-        type: String,
-        required: true,
-        unique: true,  // Ensure username is unique
-    },
-    
-    Password: {
-        type: String,
-        required: true,
-        minlength: 6,  // Ensure password has a minimum length  
-    },
-    PhoneNumber: {
-        type: String,
-        required: true,
-    },
-    VetRegistrationNumber: {
-        type: String,   
-        required: true,
-        unique: true,
-    },
-    speclication: {
-        type: String,
-        required: true,
-    },
-
+  Fullname: {
+    type: String,
+    required: true,
+  },
+  Email: {
+    type: String,
+    required: true,
+    unique: true,
+  },
+  username: {
+    type: String,
+    required: true,
+    unique: true,
+  },
+  password: {
+    type: String,
+    required: true,
+    minlength: 6,
+  },
+  PhoneNumber: {
+    type: String,
+    required: true,
+  },
+  VetRegistrationNumber: {
+    type: String,
+    required: true,
+    unique: true,
+  },
+  specification: {
+    type: String,
+    required: true,
+  },
 });
 
-// Hash the password before saving
-vetSchema.pre('save', async function (next) {
-    if (this.isModified('Password')) {
-        this.Password = await bcrypt.hash(this.Password, 10); // Hash the password before saving
-    }
-    next();
-}
-);
-// Compare the entered password with the hashed password
+// ✅ Hash password before saving
+vetSchema.pre("save", async function (next) {
+  if (this.isModified("password")) {
+    this.password = await bcrypt.hash(this.password, 10);
+  }
+  next();
+});
+
+// ✅ Method to compare passwords
 vetSchema.methods.matchPassword = async function (enteredPassword) {
-    return await bcrypt.compare(enteredPassword, this.Password);
+  return await bcrypt.compare(enteredPassword, this.password);
 };
-const Vet = mongoose.model('Vet', vetSchema);
+
+const Vet = mongoose.model("Vet", vetSchema);
 export default Vet;
