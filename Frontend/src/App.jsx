@@ -1,5 +1,6 @@
 import axios from "axios";
-import ApplyJobForm from "/src/component/ApplyJobForm.jsx";
+import ApplyJobForm from "src/component/ApplyJobForm.jsx";  // Correct path for ApplyJobForm
+import ApplicationList from './component/ApplicationList';  // Correct path for ApplicationList
 import "./App.css";
 
 // ✅ Call your backend directly (bypass proxy confusion)
@@ -14,7 +15,11 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-gray-50 p-6">
+      {/* ApplyJobForm Component for submitting applications */}
       <ApplyJobForm onSubmit={submitToAPI} />
+
+      {/* ApplicationList Component for displaying submitted applications */}
+      <ApplicationList />
     </div>
   );
 }
