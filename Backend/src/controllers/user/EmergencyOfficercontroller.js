@@ -1,65 +1,82 @@
-import EmergencyOfficer from '../../models/User/EmergencyOfficer.js';  // Correct path to model
-import bcrypt from 'bcryptjs';
+import EmergencyOfficer from '../../models/User/EmergencyOfficer.js';
 
-// Register Emergency Officer (admin assigns username and password)
+// ✅ Register Emergency Officer
 const registerEmergencyOfficer = async (req, res) => {
-    const { Fullname, Email, Username, Password, PhoneNumber, EmergencyOfficerRegistartionNumber } = req.body;
+  const {
+    Fullname,
+    Email,
+    username,  // ✅ lowercase
+    password,  // ✅ lowercase
+    PhoneNumber,
+    EmergencyOfficerRegistartionNumber
+  } = req.body;
 
-    // Validate input
-    if (!Fullname || !Email || !Username || !Password || !PhoneNumber || !EmergencyOfficerRegistartionNumber) {
-        return res.status(400).json({ message: 'Please fill all fields' });
+  // ✅ Validation
+  if (!Fullname || !Email || !username || !password || !PhoneNumber || !EmergencyOfficerRegistartionNumber) {
+    return res.status(400).json({ message: 'Please fill all fields' });
+  }
+
+  try {
+    const existingOfficer = await EmergencyOfficer.findOne({
+      $or: [{ Email }, { username }, { EmergencyOfficerRegistartionNumber }]
+    });
+
+    if (existingOfficer) {
+      return res.status(400).json({ message: 'Email, Username, or Registration Number already exists' });
     }
 
-    try {
-        // Check if the email, username, or EmergencyOfficerRegistartionNumber is already taken
-        const existingOfficer = await EmergencyOfficer.findOne({ $or: [{ Email }, { Username }, { EmergencyOfficerRegistartionNumber }] });
-        if (existingOfficer) {
-            return res.status(400).json({ message: 'Email, Username, or Emergency Officer Registration Number already exists' });
-        }
+    // ✅ Schema auto-hashes password
+    const newOfficer = new EmergencyOfficer({
+      Fullname,
+      Email,
+      username,
+      password,
+      PhoneNumber,
+      EmergencyOfficerRegistartionNumber
+    });
 
-        // Create a new Emergency Officer
-        const newEmergencyOfficer = new EmergencyOfficer({
-            Fullname,
-            Email,
-            Username,
-            Password,
-            PhoneNumber,
-            EmergencyOfficerRegistartionNumber
-        });
+    await newOfficer.save();
 
-        // Hash the password before saving
-        newEmergencyOfficer.Password = await bcrypt.hash(Password, 10);
+    res.status(201).json({
+      message: 'Emergency Officer registered successfully',
+      emergencyOfficer: {
+        id: newOfficer._id,
+        username: newOfficer.username,
+        Email: newOfficer.Email,
+        RegistrationNumber: newOfficer.EmergencyOfficerRegistartionNumber
+      }
+    });
 
-        // Save the Emergency Officer to the database
-        await newEmergencyOfficer.save();
-
-        res.status(201).json({ message: 'Emergency Officer registered successfully', emergencyOfficer: newEmergencyOfficer });
-
-    } catch (error) {
-        res.status(500).json({ message: 'Error registering Emergency Officer', error: error.message });
-    }
+  } catch (error) {
+    res.status(500).json({ message: 'Error registering Emergency Officer', error: error.message });
+  }
 };
-// Get all Emergency Officers
+
+// ✅ Get all Emergency Officers
 const getEmergencyOfficers = async (req, res) => {
-    try {
-        const officers = await EmergencyOfficer.find();
-        res.status(200).json(officers);
-    } catch (error) {
-        res.status(500).json({ message: 'Error fetching Emergency Officers', error: error.message });
-    }
+  try {
+    const officers = await EmergencyOfficer.find();
+    res.status(200).json(officers);
+  } catch (error) {
+    res.status(500).json({ message: 'Error fetching Emergency Officers', error: error.message });
+  }
 };
-// Get Emergency Officer by ID
+
+// ✅ Get Emergency Officer by ID
 const getEmergencyOfficerById = async (req, res) => {
-    try {
-        const officer = await EmergencyOfficer.findById(req.params.id);
-        if (!officer) {
-            return res.status(404).json({ message: 'Emergency Officer not found' });
-        }
-        res.status(200).json(officer);
-    } catch (error) {
-        res.status(500).json({ message: 'Error fetching Emergency Officer', error: error.message });
+  try {
+    const officer = await EmergencyOfficer.findById(req.params.id);
+    if (!officer) {
+      return res.status(404).json({ message: 'Emergency Officer not found' });
     }
+    res.status(200).json(officer);
+  } catch (error) {
+    res.status(500).json({ message: 'Error fetching Emergency Officer', error: error.message });
+  }
 };
 
-
-export { registerEmergencyOfficer ,getEmergencyOfficers, getEmergencyOfficerById};
+export {
+  registerEmergencyOfficer,
+  getEmergencyOfficers,
+  getEmergencyOfficerById
+};

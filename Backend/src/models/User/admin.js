@@ -1,40 +1,51 @@
 import mongoose from 'mongoose';
 import bcrypt from 'bcryptjs';
 
-// Define the schema for Admin
 const adminSchema = new mongoose.Schema({
-    Name: {
-        type: String,
-        required: true,  // Admin name is required
-    },
-    UserName: {
-        type: String,
-        required: true,
-        unique: true,  
-    },
-    Email: {
-        type: String,
-        required: true,
-        unique: true,  // Ensure email is unique
-    },
-    Password: {
-        type: String,
-        required: true,
-        minlength: 6,  // Ensure password has a minimum length
-    },
+  Name: {
+    type: String,
+    required: true,
+  },
+  Username: {
+    type: String,
+    required: true,
+    unique: true,
+  },
+  Email: {
+    type: String,
+    required: true,
+    unique: true,
+  },
+  Password: {
+    type: String,
+    required: true,
+    minlength: 6,
+  },
+}, {
+  toJSON: { virtuals: true },
+  toObject: { virtuals: true },
 });
 
-// Hash the password before saving the admin model
+// ✅ Virtual field for compatibility with systemLogin controller
+adminSchema.virtual('password')
+  .get(function () {
+    return this.Password;
+  })
+  .set(function (val) {
+    this.Password = val;
+  });
+
+// ✅ Hash the actual Password field before save
 adminSchema.pre('save', async function (next) {
-    if (this.isModified('Password')) {
-        this.Password = await bcrypt.hash(this.Password, 10); // Hash the password before saving
-    }
-    next();
+  if (this.isModified('Password')) {
+    this.Password = await bcrypt.hash(this.Password, 10);
+  }
+  next();
 });
 
-// Compare the entered password with the hashed password
+// ✅ Utility method if needed elsewhere
 adminSchema.methods.matchPassword = async function (enteredPassword) {
-    return await bcrypt.compare(enteredPassword, this.Password);
+  return await bcrypt.compare(enteredPassword, this.Password);
 };
 
 const Admin = mongoose.model('Admin', adminSchema);
