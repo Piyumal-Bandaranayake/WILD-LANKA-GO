@@ -1,12 +1,16 @@
-import Event from '../../models/Activity Management/event.js';
-import upload from '../../utils/multerConfig.js'
+import Event from '../../models/Activity Management/event.js'
 
 // 1. CREATE: Admin creates a new event (with image upload)
 export const createEvent = async (req, res) => {
   const { name, description, date, location, duration, availableSlots, eventType } = req.body;
 
   try {
-    // Create the event with image URL
+    // Collect image URLs for multiple images
+    let imagesArray = [];
+    if (req.files && req.files.length > 0) {
+      imagesArray = req.files.map(file => `/uploads/events/${file.filename}`);
+    }
+
     const newEvent = new Event({
       name,
       description,
@@ -15,7 +19,7 @@ export const createEvent = async (req, res) => {
       duration,
       availableSlots,
       eventType,
-      image: req.file ? `/uploads/events/${req.file.filename}` : null,  // Save image path in the database
+      images: imagesArray,  // Store images as an array
     });
 
     await newEvent.save();
@@ -46,7 +50,12 @@ export const updateEvent = async (req, res) => {
     event.duration = duration || event.duration;
     event.availableSlots = availableSlots || event.availableSlots;
     event.eventType = eventType || event.eventType;
-    event.image = req.file ? `/uploads/events/${req.file.filename}` : event.image;  // Update image if new one is uploaded
+
+    // Handle images if provided
+    if (req.files && req.files.length > 0) {
+      const newImages = req.files.map(file => `/uploads/events/${file.filename}`);
+      event.images = [...event.images, ...newImages];  // Append new images
+    }
 
     await event.save();
 
@@ -56,17 +65,17 @@ export const updateEvent = async (req, res) => {
   }
 };
 
+
 // 3. DELETE: Admin can delete an event
 export const deleteEvent = async (req, res) => {
   const { id } = req.params;
 
   try {
-    const event = await Event.findById(id);
+    const event = await Event.findByIdAndDelete(id);
+
     if (!event) {
       return res.status(404).json({ message: 'Event not found' });
     }
-
-    await event.remove();
 
     res.status(200).json({ message: 'Event deleted successfully' });
   } catch (error) {
@@ -85,22 +94,20 @@ export const getAllEvents = async (req, res) => {
   }
 };
 
-// 5. Upload event image (for updating an existing event image)
-export const uploadEventImage = async (req, res) => {
-  if (!req.file) {
-    return res.status(400).json({ message: 'No image file uploaded' });
-  }
 
-  // Find the event by ID
+// 6. GET: Admin can view a specific event by ID
+export const getEventById = async (req, res) => {
   const { id } = req.params;
-  const event = await Event.findById(id);
-  if (!event) {
-    return res.status(404).json({ message: 'Event not found' });
+
+  try {
+    const event = await Event.findById(id);
+
+    if (!event) {
+      return res.status(404).json({ message: 'Event not found' });
+    }
+
+    res.status(200).json(event);
+  } catch (error) {
+    res.status(500).json({ message: 'Error fetching event', error: error.message });
   }
-
-  // Update the event with the new image
-  event.image = `/uploads/events/${req.file.filename}`;
-  await event.save();
-
-  res.status(200).json({ message: 'Event image uploaded successfully', event });
 };

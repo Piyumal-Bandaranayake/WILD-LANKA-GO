@@ -55,8 +55,11 @@ export const modifyEventRegistration = async (req, res) => {
       return res.status(404).json({ message: 'Event not found' });
     }
 
+    // Calculate the difference between new and old participants
+    const participantDifference = numberOfParticipants - registration.numberOfParticipants;
+
     // Ensure there are enough available slots for the modification
-    if (event.availableSlots < numberOfParticipants - registration.numberOfParticipants) {
+    if (event.availableSlots < participantDifference) {
       return res.status(400).json({ message: 'Not enough available slots for this event' });
     }
 
@@ -65,7 +68,7 @@ export const modifyEventRegistration = async (req, res) => {
     await registration.save();
 
     // Update the available slots for the event
-    event.availableSlots -= (numberOfParticipants - registration.numberOfParticipants);
+    event.availableSlots -= participantDifference;
     await event.save();
 
     res.status(200).json({ message: 'Event registration modified successfully', registration });
@@ -76,11 +79,12 @@ export const modifyEventRegistration = async (req, res) => {
 
 // 3. DELETE: Tourist deletes their event registration (Tourist removes their registration)
 export const removeEventRegistration = async (req, res) => {
-  const { id } = req.params;
+  const { id } = req.params;  // Extract registration ID from request params
 
   try {
-    // Find the registration by ID
-    const registration = await EventRegistration.findById(id);
+    // Find and delete the registration by ID
+    const registration = await EventRegistration.findByIdAndDelete(id);  // Using findByIdAndDelete instead of remove
+
     if (!registration) {
       return res.status(404).json({ message: 'Event registration not found' });
     }
@@ -91,15 +95,38 @@ export const removeEventRegistration = async (req, res) => {
       return res.status(404).json({ message: 'Event not found' });
     }
 
-    // Restore available slots in the event
+    // Update the event's available slots by adding back the number of participants
     event.availableSlots += registration.numberOfParticipants;
     await event.save();
-
-    // Remove the registration
-    await registration.remove();
 
     res.status(200).json({ message: 'Event registration removed successfully' });
   } catch (error) {
     res.status(500).json({ message: 'Error removing event registration', error: error.message });
+  }
+};
+// 4. GET ALL: Get all event registrations (for admin to view all registrations)
+export const getAllEventRegistrations = async (req, res) => {
+  try {
+    const registrations = await EventRegistration.find().populate('touristId eventId');  // Populate to get tourist and event details
+    res.status(200).json(registrations);
+  } catch (error) {
+    res.status(500).json({ message: 'Error fetching event registrations', error: error.message });
+  }
+};
+
+// 5. GET BY ID: Get a specific event registration by ID (for admin to view a single registration)
+export const getEventRegistrationById = async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const registration = await EventRegistration.findById(id).populate('touristId eventId');  // Populate to get tourist and event details
+
+    if (!registration) {
+      return res.status(404).json({ message: 'Event registration not found' });
+    }
+
+    res.status(200).json(registration);
+  } catch (error) {
+    res.status(500).json({ message: 'Error fetching event registration', error: error.message });
   }
 };

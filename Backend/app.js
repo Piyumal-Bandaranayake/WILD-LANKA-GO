@@ -12,7 +12,8 @@ import adminRoutes from './src/routes/user/adminroute.js'; // Correct path to ad
 import eventRoutes from './src/routes/Activity Management/eventroute.js'; // Import event routes
 import activityRoutes from './src/routes/Activity Management/Activityroute.js'; // Import activity routes
 import eventRegistrationroutes from './src/routes/Activity Management/eventRegistrationroute.js'; // Import event registration routes
-import Booking from './src/models/Activity Management/Booking.js';
+import Booking from './src/routes/Activity Management/Bookingroute.js'; // Import booking routes
+import Donation from './src/routes/Activity Management/donationroute.js'; // Import donation routes
 
 
 dotenv.config();  // Load environment variables
@@ -33,6 +34,8 @@ app.use('/api/admin', adminRoutes); // All admin-related routes will be prefixed
 app.use('/api/events', eventRoutes); // All event-related routes will be prefixed with /api/events
 app.use('/api/activities', activityRoutes); // All activity-related routes will be prefixed with /api/activities
 app.use('/api/eventRegistrations', eventRegistrationroutes); // All event registration-related routes will be prefixed with /api/eventRegistrations
+app.use('/api/donations', Donation); // All donation-related routes will be prefixed with /api/donations
+
 // To serve static files (images, etc.)
 app.use('/uploads', express.static('uploads'));
 app.use('/api/bookings', Booking); // All booking-related routes will be prefixed with /api/bookings

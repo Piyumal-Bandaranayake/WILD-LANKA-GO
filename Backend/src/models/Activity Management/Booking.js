@@ -3,7 +3,7 @@ import mongoose from 'mongoose';
 const bookingSchema = new mongoose.Schema({
   touristId: { 
     type: mongoose.Schema.Types.ObjectId, 
-    ref: 'tourist',  // Reference to the User (Tourist)
+    ref: 'Tourist',  // Reference to the User (Tourist)
     required: true 
   }, 
   
@@ -17,11 +17,6 @@ const bookingSchema = new mongoose.Schema({
     default: Date.now 
   },  // Date when the booking was made
   
-  activityDate: { 
-    type: Date, 
-    required: true 
-  },  // Date of the booked activity (e.g., safari tour date)
-  
   numberOfParticipants: { 
     type: Number, 
     required: true, 
@@ -30,7 +25,11 @@ const bookingSchema = new mongoose.Schema({
   requestTourGuide: { 
     type: Boolean, 
     default: false 
-  }  // Indicates if the tourist requested a tour guide
+  }, // Indicates if the tourist requested a tour guide
+    preferredDate: { 
+    type: Date, 
+    required: true 
+  },
 
 },{ timestamps: true });  // Number of participants for the booking
 

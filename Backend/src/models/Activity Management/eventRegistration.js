@@ -3,7 +3,7 @@ import mongoose from 'mongoose';
 const eventRegistrationSchema = new mongoose.Schema({
   touristId: { 
     type: mongoose.Schema.Types.ObjectId, 
-    ref: 'User',  // Reference to the User (Tourist)
+    ref: 'Tourist',  // Reference to the User (Tourist)
     required: true 
   },
   
