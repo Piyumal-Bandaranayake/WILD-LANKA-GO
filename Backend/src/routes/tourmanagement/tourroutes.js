@@ -10,22 +10,13 @@ import {
 
 const router = express.Router();
 
-// Create new tour (after booking)
 router.post('/create', createTour);
+router.put('/assign', assignDriverAndGuide);
 
-// Assign driver and tour guide
-router.put('/assign', assignDriverAndGuide); // ✅ YOU NEED THIS
-
-// Get all tours
 router.get('/', getAllTours);
-
-// Get tour by ID
+router.get('/guide/:guideId', getToursByGuide);   // <-- before /:id
+router.get('/driver/:driverId', getToursByDriver); // <-- before /:id
 router.get('/:id', getTourById);
 
-// Get tours by tour guide
-router.get('/guide/:guideId', getToursByGuide);
-
-// Get tours by driver
-router.get('/driver/:driverId', getToursByDriver);
 
 export default router;

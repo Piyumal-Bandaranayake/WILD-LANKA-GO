@@ -1,6 +1,8 @@
 import Tour from '../../models/tourmanagement/tour.js';
 import TourGuide from '../../models/User/tourGuide.js';
-import SafariDriver from '../../models/User/safariDriver.js'; // Make sure this path is correct
+import SafariDriver from '../../models/User/safariDriver.js';
+import TourGuideNotification from '../../models/tourmanagement/tourGuideNotification.js';
+
 
 // Create new tour (based on a booking)
 const createTour = async (req, res) => {
@@ -26,33 +28,75 @@ const assignDriverAndGuide = async (req, res) => {
   try {
     const { bookingId, assignedTourGuide, assignedDriver } = req.body;
 
+    // 1) Find the tour by bookingId
     const tour = await Tour.findOne({ bookingId });
     if (!tour) {
       return res.status(404).json({ message: 'Tour not found for this booking' });
     }
 
-    // Assign and update tour
-    tour.assignedTourGuide = assignedTourGuide;
-    tour.assignedDriver = assignedDriver;
+    // 2) (Optional but safer) ensure the guide/driver exist before updating them
+    const [guideDoc, driverDoc] = await Promise.all([
+      assignedTourGuide ? TourGuide.findById(assignedTourGuide) : null,
+      assignedDriver ? SafariDriver.findById(assignedDriver) : null,
+    ]);
+
+    if (assignedTourGuide && !guideDoc) {
+      return res.status(404).json({ message: 'Assigned tour guide not found' });
+    }
+    if (assignedDriver && !driverDoc) {
+      return res.status(404).json({ message: 'Assigned driver not found' });
+    }
+
+    // 3) Update tour
+    tour.assignedTourGuide = assignedTourGuide || tour.assignedTourGuide;
+    tour.assignedDriver = assignedDriver || tour.assignedDriver;
     tour.status = 'Confirmed';
     await tour.save();
 
-    // Update Tour Guide availability
-    await TourGuide.findByIdAndUpdate(assignedTourGuide, {
-      Availability: 'Assigned'
-    });
+    // 4) Update Tour Guide availability + currentTourStatus
+    if (assignedTourGuide) {
+      await TourGuide.findByIdAndUpdate(
+        assignedTourGuide,
+        {
+          availability: 'Busy',
+          currentTourStatus: 'Processing',
+        },
+        { new: true }
+      );
 
-    // Update Safari Driver availability
-    await SafariDriver.findByIdAndUpdate(assignedDriver, {
-      Availability: 'Assigned'
-    });
+      // 5) Create a notification for the guide
+      await TourGuideNotification.create({
+        tourGuideId: assignedTourGuide,
+        tourId: tour._id,
+        type: 'ASSIGNED_TOUR',
+        title: 'New tour assigned',
+        message: `You have been assigned to a new tour (Tour ID: ${tour._id.toString()}).`,
+        meta: {
+          bookingId: bookingId?.toString?.() || String(bookingId),
+          status: tour.status,
+        },
+      });
+    }
 
-    res.status(200).json({
-      message: 'Driver and guide assigned successfully, availability updated',
-      tour
+    // 6) Update Safari Driver availability if provided
+    if (assignedDriver) {
+      await SafariDriver.findByIdAndUpdate(
+        assignedDriver,
+        { availability: 'Busy' },
+        { new: true }
+      );
+    }
+
+    return res.status(200).json({
+      message:
+        'Driver and guide assigned successfully, availability updated, notification sent',
+      tour,
     });
   } catch (error) {
-    res.status(500).json({ message: 'Error assigning driver and guide', error: error.message });
+    return res.status(500).json({
+      message: 'Error assigning driver and guide',
+      error: error.message,
+    });
   }
 };
 
@@ -82,7 +126,9 @@ const getTourById = async (req, res) => {
 // Get tours by tour guide ID
 const getToursByGuide = async (req, res) => {
   try {
-    const tours = await Tour.find({ assignedTourGuide: req.params.guideId }).populate('bookingId');
+    const tours = await Tour.find({ assignedTourGuide: req.params.guideId }).populate(
+      'bookingId'
+    );
     res.status(200).json(tours);
   } catch (error) {
     res.status(500).json({ message: 'Failed to fetch guide tours', error: error.message });
@@ -92,7 +138,9 @@ const getToursByGuide = async (req, res) => {
 // Get tours by driver ID
 const getToursByDriver = async (req, res) => {
   try {
-    const tours = await Tour.find({ assignedDriver: req.params.driverId }).populate('bookingId');
+    const tours = await Tour.find({ assignedDriver: req.params.driverId }).populate(
+      'bookingId'
+    );
     res.status(200).json(tours);
   } catch (error) {
     res.status(500).json({ message: 'Failed to fetch driver tours', error: error.message });
@@ -105,5 +153,5 @@ export {
   getAllTours,
   getTourById,
   getToursByGuide,
-  getToursByDriver
+  getToursByDriver,
 };

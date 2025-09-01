@@ -1,5 +1,6 @@
 import express from 'express';
 import dotenv from 'dotenv';
+import cors from "cors";
 import connectDB from './src/config/DB.js';  // Import DB connection
 import touristRoutes from './src/routes/user/touristroute.js';  // Correct path to tourist routes
 import driverRoutes from './src/routes/user/safariDriverroute.js';  // Correct path to driver routes
@@ -14,12 +15,13 @@ import tourRejectionRoutes from './src/routes/tourmanagement/rejectionroute.js';
 import tourMaterialRoutes from './src/routes/tourmanagement/tourMaterialRoute.js';
 import fuelClaimRoutes from './src/routes/tourmanagement/fuelClaimRoute.js'; // ✅ NEW
 
-
+import applicationRoutes from './src/routes/tourmanagement/applicationRoutes.js';
 
 dotenv.config();  // Load environment variables
 connectDB();  // Connect to MongoDB
 
 const app = express();
+app.use(cors());
 app.use(express.json());  // Middleware to parse JSON requests
 
 // Define the route for tourists
@@ -36,6 +38,8 @@ app.use('/api/tour', tourRoutes);
 app.use('/api/tour-rejection', tourRejectionRoutes);
 app.use('/api/tour-materials', tourMaterialRoutes);  
 app.use('/api/fuel-claims', fuelClaimRoutes);  // ✅ NEW
+app.use('/api/applications', applicationRoutes);
+
 
 
 app.get("/", (req, res) => {
