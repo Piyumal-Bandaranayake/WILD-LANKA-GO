@@ -5,11 +5,7 @@ const safariDriverSchema = new mongoose.Schema({
 
 
     // ✅ New availability column
-  availability:{
-        type : String,
-        enum : ['Available', 'Busy', 'OnLeave', 'Inactive'],
-        default : 'Inactive',   // until approved
-    }
+
 
   DriverName: {
     type: String,
@@ -52,7 +48,11 @@ const safariDriverSchema = new mongoose.Schema({
     type: String,
     enum: ['pending', 'approved', 'rejected'],
     default: 'pending',
-  }
+  },  availability:{
+        type : String,
+        enum : ['Available', 'Busy', 'OnLeave', 'Inactive'],
+        default : 'Inactive',   // until approved
+    }
 
 });
 

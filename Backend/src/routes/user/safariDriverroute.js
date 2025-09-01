@@ -1,6 +1,6 @@
 import express from 'express';
 
-import { registerSafariDriver, getSafariDrivers,getSafariDriverById } from '../../controllers/user/safariDrivercontroller.js';
+import { registerSafariDriver, getSafariDrivers,getSafariDriverById, updateDriverAvailability } from '../../controllers/user/safariDrivercontroller.js';
 
 
 const router = express.Router();

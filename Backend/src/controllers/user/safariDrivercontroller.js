@@ -141,7 +141,7 @@ const updateDriverAvailability = async (req, res) => {
     }
 };
 
-export { registerSafariDriver, getSafariDrivers, updateDriverAvailability };
+export { registerSafariDriver, getSafariDrivers, updateDriverAvailability,getSafariDriverById };
 
 
 
