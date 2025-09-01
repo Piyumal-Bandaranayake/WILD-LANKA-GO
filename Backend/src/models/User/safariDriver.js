@@ -2,6 +2,15 @@ import mongoose from "mongoose";
 import bcrypt from "bcryptjs";
 
 const safariDriverSchema = new mongoose.Schema({
+
+
+    // ✅ New availability column
+  availability:{
+        type : String,
+        enum : ['Available', 'Busy', 'OnLeave', 'Inactive'],
+        default : 'Inactive',   // until approved
+    }
+
   DriverName: {
     type: String,
     required: true,
@@ -44,6 +53,7 @@ const safariDriverSchema = new mongoose.Schema({
     enum: ['pending', 'approved', 'rejected'],
     default: 'pending',
   }
+
 });
 
 // ✅ Hash password before saving

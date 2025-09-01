@@ -2,7 +2,11 @@
 import express from 'express';
 import dotenv from 'dotenv';
 
+import tourRejectionRoutes from './src/routes/tourmanagement/rejectionroute.js';
+import tourMaterialRoutes from './src/routes/tourmanagement/tourMaterialRoute.js';
+import fuelClaimRoutes from './src/routes/tourmanagement/fuelClaimRoute.js'; // ✅ NEW
 
+import applicationRoutes from './src/routes/tourmanagement/applicationRoutes.js';
 import eventRoutes from './src/routes/Activity Management/eventroute.js'; // Import event routes
 import activityRoutes from './src/routes/Activity Management/Activityroute.js'; // Import activity routes
 import eventRegistrationroutes from './src/routes/Activity Management/eventRegistrationroute.js'; // Import event registration routes
@@ -40,6 +44,22 @@ connectDB();
 
 // Initialize app
 const app = express();
+
+ // Middleware to parse JSON requests
+
+// Define the route for tourists
+// All admin-related routes will be prefixed with /api/admin
+
+app.use('/api/tour', tourRoutes);
+app.use('/api/tour-rejection', tourRejectionRoutes);
+app.use('/api/tour-materials', tourMaterialRoutes);  
+app.use('/api/fuel-claims', fuelClaimRoutes);  // ✅ NEW
+app.use('/api/applications', applicationRoutes);
+
+
+
+
+
  // Middleware to parse JSON requests
 
 
@@ -92,6 +112,7 @@ app.get("/", (req, res) => res.send("Backend is running..."));
 app.use((err, req, res, next) => {
   console.error(err.stack);
   res.status(500).json({ message: 'Something went wrong', error: err.message });
+
 
 });
 
