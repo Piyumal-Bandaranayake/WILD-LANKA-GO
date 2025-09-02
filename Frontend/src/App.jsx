@@ -4,7 +4,8 @@ import './App.css';
 import Chatbot from './Chatbot';
 
 // ✅ Import your NewBookings page
-import NewBookings from './tourmanagement/newBookings';
+import NewBookings from './pages/tourmanagement/newBookings';  // Capitalize page name as needed
+import AvailabilityGuideDriver from './pages/tourmanagement/avalabilityGuideDriver';  // Fix case and path
 
 function App() {
   const [count, setCount] = useState(0);
@@ -14,7 +15,7 @@ function App() {
       <>
         <h1>Welcome to WildLanka Go</h1>
         <Chatbot />
-
+        
         {/* Example usage of count state if needed */}
         <p>Current count: {count}</p>
         <button onClick={() => setCount(count + 1)}>Increment</button>
@@ -23,6 +24,8 @@ function App() {
         <Routes>
           {/* This will render NewBookings page at "/" */}
           <Route path="/" element={<NewBookings />} />
+          {/* Fixed route path */}
+          <Route path="/availabilityGuideDriver" element={<AvailabilityGuideDriver />} />
         </Routes>
       </>
     </BrowserRouter>

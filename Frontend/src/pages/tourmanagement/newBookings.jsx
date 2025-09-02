@@ -8,6 +8,7 @@ export default function NewBookings() {
   const [err, setErr] = useState("");
   const [query, setQuery] = useState("");
   const [refreshKey, setRefreshKey] = useState(0);
+  const [showAvailabilityButton, setShowAvailabilityButton] = useState(true); // Control availability button visibility
 
   useEffect(() => {
     let ignore = false;
@@ -99,6 +100,16 @@ export default function NewBookings() {
             >
               Refresh
             </button>
+            
+            {/* Conditional Availability button */}
+            {showAvailabilityButton && (
+            <Link
+              to="/availabilityGuideDriver"
+              className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+            >
+  Availability
+</Link> 
+            )}
           </div>
         </div>
 
