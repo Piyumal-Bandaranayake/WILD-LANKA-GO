@@ -1,5 +1,7 @@
 import AnimalCase from '../../models/Animal Care Management/AnimalCase.js';
 import path from 'path';
+import jsPDF from 'jspdf';
+import 'jspdf-autotable';
 
 // Create a new animal case
 export const createAnimalCase = async (req, res) => {
@@ -101,4 +103,53 @@ export const deleteAnimalCase = async (req, res) => {
     } catch (error) {
         res.status(500).json({ message: error.message });
     }
+};
+
+// Generate a PDF report for an animal case
+export const generateCaseReport = async (req, res) => {
+  try {
+    const animalCase = await AnimalCase.findById(req.params.id);
+    if (!animalCase) {
+      return res.status(404).json({ message: 'Animal case not found' });
+    }
+
+    const doc = new jsPDF();
+
+    // Add title
+    doc.text('Animal Case Report', 14, 20);
+
+    // Add table
+    doc.autoTable({
+      startY: 30,
+      head: [['Field', 'Value']],
+      body: [
+        ['Case ID', animalCase.caseId],
+        ['Animal Type', animalCase.animalType],
+        ['Species (Scientific Name)', animalCase.speciesScientificName],
+        ['Age/Size', animalCase.ageSize],
+        ['Gender', animalCase.gender],
+        ['Priority', animalCase.priority],
+        ['Location', animalCase.location],
+        ['Reported By', animalCase.reportedBy],
+        ['Primary Condition', animalCase.primaryCondition],
+        ['Symptoms/Observations', animalCase.symptomsObservations],
+        ['Initial Treatment Plan', animalCase.initialTreatmentPlan],
+        ['Status', animalCase.status],
+        ['Created At', animalCase.createdAt.toDateString()],
+        ['Last Updated At', animalCase.updatedAt.toDateString()],
+      ],
+    });
+
+    // Set response headers for PDF download
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename=case-report-${animalCase.caseId}.pdf`
+    );
+
+    // Send the PDF buffer as the response
+    res.send(doc.output());
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
 };
