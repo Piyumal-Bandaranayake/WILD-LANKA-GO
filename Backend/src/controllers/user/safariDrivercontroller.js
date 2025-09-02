@@ -48,7 +48,7 @@ const registerSafariDriver = async (req, res) => {
             Email,
             PhoneNumber,
             username,
-            Password,
+            password,
             LicenceNumber,
             vechicleType,
             vechicleNumber,

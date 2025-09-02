@@ -17,6 +17,7 @@ const bookingSchema = new mongoose.Schema({
     default: Date.now 
   },  // Date when the booking was made
   
+  
   numberOfParticipants: { 
     type: Number, 
     required: true, 

@@ -2,9 +2,11 @@ import express from 'express';
 import dotenv from 'dotenv';
 import cors from 'cors';
 
+
 import tourRejectionRoutes from './src/routes/tourmanagement/rejectionroute.js';
 import tourMaterialRoutes from './src/routes/tourmanagement/tourMaterialRoute.js';
 import fuelClaimRoutes from './src/routes/tourmanagement/fuelClaimRoute.js'; // ✅ NEW
+import tourRoutes from './src/routes/tourmanagement/tourroutes.js';
 
 import applicationRoutes from './src/routes/tourmanagement/applicationRoutes.js';
 import eventRoutes from './src/routes/Activity Management/eventroute.js'; // Import event routes
@@ -42,6 +44,7 @@ app.use(express.json());
 app.use('/uploads', express.static('uploads'));
 
 // ---------- Public Routes ---------- //
+app.use('/api/tour', tourRoutes);
 app.use('/api/tourists', touristRoutes);
 app.use('/api/drivers', driverRoutes);
 app.use('/api/tourGuides', tourGuideRoutes);
