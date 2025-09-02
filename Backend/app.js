@@ -26,6 +26,10 @@ import feedbackRoutes from './src/routes/Feedback/FeedbackRoute.js';
 import complaintRoutes from './src/routes/Complaint/ComplaintRoute.js';
 import chatbotRoutes from './src/routes/Chatbot/chatbotRoutes.js';
 
+import emergencyRoutes from './src/routes/emergency/emergencyRoute.js';  // Emergency routes
+import emergencyFormRoutes from './src/routes/emergency/emergencyFormRoute.js';  // Emergency form routes
+import emergencyReportRoutes from './src/routes/emergency/emergencyReportRoute.js';  // Emergency report routes
+
 import { systemLogin } from './src/controllers/auth/systemLoginController.js';
 import connectDB from './src/config/DB.js';
 
@@ -66,6 +70,10 @@ app.use('/api/eventRegistrations', eventRegistrationroutes); // All event regist
 app.use('/api/donations', Donation); // All donation-related routes will be prefixed with /api/donations
 app.use('/api/bookings', Booking); // All booking-related routes will be prefixed with /api/bookings
 
+app.use('/api/emergencies', emergencyRoutes);  // Emergency routes
+app.use('/api/emergency-forms', emergencyFormRoutes);  // Emergency form routes
+app.use('/api/emergency-reports', emergencyReportRoutes);  // Emergency report routes
+
 // ---------- Auth Routes ---------- //
 app.post('/api/login', systemLogin); // Login for system roles (username + password + role)
 
@@ -83,5 +91,5 @@ app.use((err, req, res, next) => {
 });
 
 // Start server
-const port = process.env.PORT || 5001;
+const port = process.env.PORT || 5000;
 app.listen(port, () => console.log(`🚀 Server running on port ${port}`));
