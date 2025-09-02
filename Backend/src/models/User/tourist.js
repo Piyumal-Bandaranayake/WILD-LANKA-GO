@@ -29,10 +29,7 @@ const touristSchema = new mongoose.Schema({
         type: String,
         required: true,
     },
-    ConfirmPassword: {
-        type: String,
-        required: true,
-    },
+   
 });
 
 // Hash the password before saving

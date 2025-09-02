@@ -1,9 +1,9 @@
+// src/routes/user/adminroute.js
 import express from 'express';
-import { adminLogin } from '../../controllers/user/admincontroller.js';  // Correct path to controller
+import { registerAdmin } from '../../controllers/user/admincontroller.js';
 
 const router = express.Router();
 
-// Admin login route
-router.post('/login', adminLogin);
+router.post('/create-initial-admin', registerAdmin);
 
 export default router;
