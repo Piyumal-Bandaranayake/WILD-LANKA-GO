@@ -31,6 +31,7 @@ import chatbotRoutes from './src/routes/Chatbot/chatbotRoutes.js';
 
 import { systemLogin } from './src/controllers/auth/systemLoginController.js';
 import connectDB from './src/config/DB.js';
+import medicationRoutes from './src/routes/Animal Care Management/medicationRoutes.js';
 
 // Load environment variables
 dotenv.config();
@@ -84,6 +85,7 @@ app.use('/api/activities', activityRoutes);
 app.use('/api/eventRegistrations', eventRegistrationroutes); 
 app.use('/api/donations', Donation); 
 app.use('/api/bookings', Booking); 
+app.use('/api/inventory', medicationRoutes);
 
 /* Auth Routes */
 app.post('/api/login', systemLogin); 
