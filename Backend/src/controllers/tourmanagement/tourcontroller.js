@@ -2,14 +2,15 @@ import Tour from '../../models/tourmanagement/tour.js';
 import TourGuide from '../../models/User/tourGuide.js';
 import SafariDriver from '../../models/User/safariDriver.js';
 import Notification from '../../models/tourmanagement/tourGuideNotification.js'; // ✅ Correct model
+import Booking from '../../models/Activity Management/Booking.js';
 
-// Create new tour (based on a booking)
+
 const createTour = async (req, res) => {
   try {
-    const { bookingId } = req.body;
+    const { bookingId, preferredDate } = req.body;
 
-    if (!bookingId) {
-      return res.status(400).json({ message: 'bookingId is required' });
+    if (!bookingId || !preferredDate) {
+      return res.status(400).json({ message: 'Booking ID and Preferred Date are required' });
     }
 
     const existingTour = await Tour.findOne({ bookingId });
@@ -17,14 +18,22 @@ const createTour = async (req, res) => {
       return res.status(400).json({ message: 'Tour already exists for this booking' });
     }
 
-    const newTour = new Tour({ bookingId });
+    const newTour = new Tour({ bookingId, preferredDate }); // Pass preferredDate to the Tour
     await newTour.save();
+
+    // Update the booking status to 'Confirmed' after tour creation
+    const booking = await Booking.findById(bookingId);  // Assuming 'Booking' is your Booking model
+    if (booking) {
+      booking.status = 'Confirmed';  // Set status to 'Confirmed'
+      await booking.save();  // Save the updated booking status
+    }
 
     res.status(201).json({ message: 'Tour created successfully', tour: newTour });
   } catch (error) {
     res.status(500).json({ message: 'Server error while creating tour', error: error.message });
   }
 };
+
 
 // Assign Tour Guide and Driver
 const assignDriverAndGuide = async (req, res) => {

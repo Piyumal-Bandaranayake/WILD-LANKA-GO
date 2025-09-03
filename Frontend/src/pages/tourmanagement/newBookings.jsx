@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useMemo } from "react";
-import { Link, useNavigate } from "react-router-dom";  // Import useNavigate
+import { Link, useNavigate } from "react-router-dom"; // Import useNavigate
 import axios from 'axios';
 
 // Detail Modal Component
@@ -46,7 +46,7 @@ function DetailModal({ open, onClose, item }) {
             onClick={assignNow} // Navigate to the 'assignnow' page
             className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
           >
-            create tour
+            Create Tour
           </button>
         </div>
       </div>
@@ -60,7 +60,7 @@ export default function NewBookings() {
   const [err, setErr] = useState("");
   const [query, setQuery] = useState("");
   const [refreshKey, setRefreshKey] = useState(0);
-  const [showAvailabilityButton, setShowAvailabilityButton] = useState(true); 
+  const [showAvailabilityButton, setShowAvailabilityButton] = useState(true);
   const [selectedBooking, setSelectedBooking] = useState(null); // State for selected booking
   const [isModalOpen, setIsModalOpen] = useState(false); // State to control modal visibility
 
@@ -196,6 +196,7 @@ export default function NewBookings() {
                     <Th>Preferred Date</Th>
                     <Th>Participants</Th>
                     <Th>Guide?</Th>
+                    <Th>Tour Created</Th> {/* New column for Tour Created */}
                     <Th className="text-right">Action</Th>
                   </tr>
                 </thead>
@@ -219,12 +220,13 @@ export default function NewBookings() {
                           {b.requestTourGuide ? "Requested" : "No"}
                         </span>
                       </Td>
+                      <Td>{b.tourId ? "Yes" : "No"}</Td> {/* Display "Yes" or "No" for Tour Created */}
                       <Td className="text-right">
                         <button
                           onClick={() => openModal(b)}
                           className="inline-flex items-center rounded-xl bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-700"
                         >
-                          show details
+                          Show Details
                         </button>
                       </Td>
                     </tr>

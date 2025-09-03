@@ -32,6 +32,12 @@ const bookingSchema = new mongoose.Schema({
     required: true 
   },
 
+   tourId: { 
+    type: mongoose.Schema.Types.ObjectId, 
+    ref: 'Tour',  // Reference to the Tour model
+    default: null 
+  } // New field to store the Tour reference
+
 },{ timestamps: true });  // Number of participants for the booking
 
 
