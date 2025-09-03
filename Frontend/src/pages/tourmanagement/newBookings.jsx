@@ -1,6 +1,58 @@
 import React, { useEffect, useState, useMemo } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";  // Import useNavigate
 import axios from 'axios';
+
+// Detail Modal Component
+function DetailModal({ open, onClose, item }) {
+  if (!open || !item) return null;
+
+  const navigate = useNavigate(); // Hook to navigate to a different page
+  const dt = new Date(item.bookingDate); // Format the booking date
+  const Line = ({ label, children }) => (
+    <div className="flex gap-3">
+      <div className="w-36 text-sm text-[var(--muted)]">{label}</div>
+      <div className="flex-1 text-[var(--ink)]">{children ?? "—"}</div>
+    </div>
+  );
+
+  const assignNow = () => {
+    // Navigate to the 'assignnow' page with the booking ID as a query parameter (or pass as state)
+    navigate(`/assignnow/${item._id}`);
+  };
+
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center">
+      <div className="absolute inset-0 bg-black/40" onClick={onClose} />
+      <div className="relative w-full max-w-2xl rounded-2xl bg-white shadow-xl p-6">
+        <div className="flex items-start justify-between">
+          <h4 className="text-lg font-semibold text-[var(--ink)]">Tourist Booking Information</h4>
+        </div>
+        <div className="mt-4 space-y-3">
+          <Line label="Booking ID">{item._id}</Line>
+          <Line label="Tourist">{item.touristId ? item.touristId.name : "—"}</Line>
+          <Line label="Activity">{item.activityId ? item.activityId.title : "—"}</Line>
+          <Line label="Booking Date">{dt ? dt.toLocaleDateString() : "—"}</Line>
+          <Line label="Preferred Date">{item.preferredDate ? new Date(item.preferredDate).toLocaleDateString() : "—"}</Line>
+          <Line label="Participants">{item.numberOfParticipants ?? "—"}</Line>
+          <Line label="Request Guide">{item.requestTourGuide ? "Yes" : "No"}</Line>
+          <Line label="Status">{item.status ?? "—"}</Line>
+        </div>
+        <div className="mt-6 flex justify-end gap-2">
+          <button onClick={onClose} className="border border-gray-300 text-[var(--ink)] px-4 py-2 rounded-lg hover:bg-gray-50">
+            Close
+          </button>
+          {/* Assign Now Button */}
+          <button
+            onClick={assignNow} // Navigate to the 'assignnow' page
+            className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+          >
+            create tour
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function NewBookings() {
   const [bookings, setBookings] = useState([]);
@@ -8,7 +60,9 @@ export default function NewBookings() {
   const [err, setErr] = useState("");
   const [query, setQuery] = useState("");
   const [refreshKey, setRefreshKey] = useState(0);
-  const [showAvailabilityButton, setShowAvailabilityButton] = useState(true); // Control availability button visibility
+  const [showAvailabilityButton, setShowAvailabilityButton] = useState(true); 
+  const [selectedBooking, setSelectedBooking] = useState(null); // State for selected booking
+  const [isModalOpen, setIsModalOpen] = useState(false); // State to control modal visibility
 
   useEffect(() => {
     let ignore = false;
@@ -18,27 +72,21 @@ export default function NewBookings() {
       setLoading(true);
       setErr(""); // Reset error message
       try {
-        // Make the API request to fetch bookings
-        const res = await axios.get('http://localhost:5001/api/bookings'); // Direct API URL
-
-        // If request is successful, store the data in state
+        const res = await axios.get('http://localhost:5001/api/bookings'); 
         if (!ignore) setBookings(res.data);
       } catch (e) {
-        // If fetch fails, set error
         if (!ignore) setErr(e.message || "Failed to fetch bookings");
       } finally {
-        // End loading state
         if (!ignore) setLoading(false);
       }
     }
 
-    load(); // Call the load function to fetch the bookings data
+    load(); 
     return () => {
-      ignore = true; // Clean up if the component unmounts
+      ignore = true; 
     };
-  }, [refreshKey]); // Dependency array to trigger when refreshKey changes
+  }, [refreshKey]);
 
-  // Helper function to format tourist label (name or ID)
   const touristLabel = (b) => {
     const t = b?.touristId;
     if (!t) return "—";
@@ -46,7 +94,6 @@ export default function NewBookings() {
     return t.name || t.fullName || t.email || t.username || t._id || "—";
   };
 
-  // Helper function to format activity label (title or ID)
   const activityLabel = (b) => {
     const a = b?.activityId;
     if (!a) return "—";
@@ -54,7 +101,6 @@ export default function NewBookings() {
     return a.title || a.name || a._id || "—";
   };
 
-  // Helper function to format dates
   const fmtDate = (d) => {
     try {
       return new Date(d).toLocaleDateString();
@@ -63,17 +109,26 @@ export default function NewBookings() {
     }
   };
 
-  // Filter bookings based on the search query
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return bookings; // If no query, return all bookings
+    if (!q) return bookings; 
     return bookings.filter((b) => {
       const t = String(touristLabel(b)).toLowerCase();
       const a = String(activityLabel(b)).toLowerCase();
       const id = String(b?._id || "").toLowerCase();
-      return t.includes(q) || a.includes(q) || id.includes(q); // Filter by tourist, activity, or ID
+      return t.includes(q) || a.includes(q) || id.includes(q);
     });
   }, [bookings, query]);
+
+  // Handle modal open and close
+  const openModal = (booking) => {
+    setSelectedBooking(booking);
+    setIsModalOpen(true);
+  };
+
+  const closeModal = () => {
+    setIsModalOpen(false);
+  };
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -86,29 +141,27 @@ export default function NewBookings() {
           </div>
 
           <div className="flex items-center gap-2">
-            {/* Search input */}
             <input
               value={query}
-              onChange={(e) => setQuery(e.target.value)} // Update search query
+              onChange={(e) => setQuery(e.target.value)} 
               placeholder="Search by tourist, activity, or ID…"
               className="w-64 rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-emerald-500"
             />
-            {/* Refresh button */}
             <button
-              onClick={() => setRefreshKey((k) => k + 1)} // Trigger refresh by updating refreshKey
+              onClick={() => setRefreshKey((k) => k + 1)} 
               className="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700"
             >
               Refresh
             </button>
             
-            {/* Conditional Availability button */}
+            {/* Availability Button */}
             {showAvailabilityButton && (
-            <Link
-              to="/availabilityGuideDriver"
-              className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
-            >
-  Availability
-</Link> 
+              <Link
+                to="/availabilityGuideDriver"
+                className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+              >
+                Availability
+              </Link> 
             )}
           </div>
         </div>
@@ -116,12 +169,12 @@ export default function NewBookings() {
         {/* Content Section */}
         <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
           {loading && (
-            <div className="p-6 text-sm text-gray-500">Loading bookings…</div> // Display loading text
+            <div className="p-6 text-sm text-gray-500">Loading bookings…</div> 
           )}
 
           {err && !loading && (
             <div className="p-6 text-sm text-red-600">
-              Failed to load: {err} // Show error if fetch fails
+              Failed to load: {err}
             </div>
           )}
 
@@ -167,12 +220,12 @@ export default function NewBookings() {
                         </span>
                       </Td>
                       <Td className="text-right">
-                        <Link
-                          to={`/assign/${b._id}`}
+                        <button
+                          onClick={() => openModal(b)}
                           className="inline-flex items-center rounded-xl bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-700"
                         >
-                          Assign
-                        </Link>
+                          show details
+                        </button>
                       </Td>
                     </tr>
                   ))}
@@ -182,6 +235,9 @@ export default function NewBookings() {
           )}
         </div>
       </div>
+
+      {/* Detail Modal for showing booking details */}
+      <DetailModal open={isModalOpen} onClose={closeModal} item={selectedBooking} />
     </div>
   );
 }

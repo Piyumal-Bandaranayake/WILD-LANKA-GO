@@ -2,6 +2,9 @@ import { useState } from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import './App.css';
 import Chatbot from './Chatbot';
+import AssignNowPage from './pages/tourmanagement/AssignNowPage';  // Import the new AssignNowPage
+
+
 
 // ✅ Import your NewBookings page
 import NewBookings from './pages/tourmanagement/newBookings';  // Capitalize page name as needed
@@ -26,6 +29,7 @@ function App() {
           <Route path="/" element={<NewBookings />} />
           {/* Fixed route path */}
           <Route path="/availabilityGuideDriver" element={<AvailabilityGuideDriver />} />
+          <Route path="/assignnow/:bookingId" element={<AssignNowPage />} />
         </Routes>
       </>
     </BrowserRouter>
