@@ -32,15 +32,13 @@ router.get('/:id', async (req, res) => {
 
 // **New Endpoint to delete an emergency form by ID (DELETE)**
 router.delete('/:id', async (req, res) => {
-    try {
-        const form = await EmergencyForm.findByIdAndDelete(req.params.id);
-        if (!form) {
-            return res.status(404).json({ message: 'Emergency form not found' });
-        }
-        res.status(200).json({ message: 'Emergency form deleted successfully' });
-    } catch (error) {
-        res.status(500).json({ message: 'Error deleting emergency form', error: error.message });
-    }
+  try {
+    const form = await EmergencyForm.findByIdAndDelete(req.params.id);
+    if (!form) return res.status(404).json({ message: 'Emergency form not found' });
+    res.status(200).json({ message: 'Emergency form deleted successfully' });
+  } catch (error) {
+    res.status(500).json({ message: 'Error deleting emergency form', error: error.message });
+  }
 });
 
 export default router;

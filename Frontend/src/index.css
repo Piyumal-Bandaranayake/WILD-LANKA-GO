@@ -2,3 +2,12 @@
 @plugin "flowbite-react/plugin/tailwindcss";
 @source "../.flowbite-react/class-list.json";
 
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+:root{
+  --brand-green:#22C55E; --brand-green-600:#16A34A;
+  --brand-green-50:#ECFDF5; --brand-green-100:#DCFCE7;
+  --ink:#0F172A; --muted:#475569;
+  --avatar-soft:#FDECEC; --avatar-icon:#EF4444;
+}

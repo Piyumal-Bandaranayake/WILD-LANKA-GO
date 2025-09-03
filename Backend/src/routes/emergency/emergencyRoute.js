@@ -85,6 +85,17 @@ router.get('/calculate/by-type', async (req, res) => {
         }
       }
     ]);
+    // Endpoint for deleting an emergency by _id (DELETE)
+router.delete('/:id', async (req, res) => {
+  try {
+    const deleted = await Emergency.findByIdAndDelete(req.params.id);
+    if (!deleted) return res.status(404).json({ message: 'Emergency not found' });
+    res.status(200).json({ message: 'Emergency deleted successfully' });
+  } catch (error) {
+    res.status(500).json({ message: 'Error deleting emergency', error: error.message });
+  }
+});
+
 
     res.status(200).json({
       message: 'Emergency statistics calculated successfully',
