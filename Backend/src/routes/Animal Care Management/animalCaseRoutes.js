@@ -6,8 +6,10 @@ import {
   getAnimalCaseById,
   getAllAnimalCases,
   updateAnimalCase,
-  deleteAnimalCase
+  deleteAnimalCase,
+  generateCaseReport
 } from '../../controllers/Animal care Management/animalCaseController.js';
+
 
 const router = express.Router();
 
@@ -37,5 +39,7 @@ router.put('/cases/:id', upload.array('photosDocumentation'), updateAnimalCase);
 
 // Delete an animal case
 router.delete('/cases/:id', deleteAnimalCase);
+
+router.get('/cases/report/:id', generateCaseReport);
 
 export default router;
