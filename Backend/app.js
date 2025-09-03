@@ -1,10 +1,13 @@
 import express from 'express';
 import dotenv from 'dotenv';
 import cors from 'cors';
+import multer from 'multer'; // Multer for handling file uploads
+import path from 'path';
 
+// Import routes
 import tourRejectionRoutes from './src/routes/tourmanagement/rejectionroute.js';
 import tourMaterialRoutes from './src/routes/tourmanagement/tourMaterialRoute.js';
-import fuelClaimRoutes from './src/routes/tourmanagement/fuelClaimRoute.js'; // ✅ NEW
+import fuelClaimRoutes from './src/routes/tourmanagement/fuelClaimRoute.js';
 
 import applicationRoutes from './src/routes/tourmanagement/applicationRoutes.js';
 import eventRoutes from './src/routes/Activity Management/eventroute.js'; // Import event routes
@@ -28,6 +31,7 @@ import chatbotRoutes from './src/routes/Chatbot/chatbotRoutes.js';
 
 import { systemLogin } from './src/controllers/auth/systemLoginController.js';
 import connectDB from './src/config/DB.js';
+import medicationRoutes from './src/routes/Animal Care Management/medicationRoutes.js';
 
 // Load environment variables
 dotenv.config();
@@ -39,9 +43,26 @@ const app = express();
 // Middleware
 app.use(cors());
 app.use(express.json());
-app.use('/uploads', express.static('uploads'));
 
-// ---------- Public Routes ---------- //
+// Serve static files from the 'uploads' folder (where images will be stored)
+app.use('/uploads', express.static('uploads'));  // Important for serving uploaded images
+
+/* Multer Configuration for File Uploads */
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, 'uploads/');  // Save files to the 'uploads' folder
+  },
+  filename: (req, file, cb) => {
+    cb(null, Date.now() + path.extname(file.originalname)); // Unique filename using timestamp
+  }
+});
+const upload = multer({ storage });  // Initialize multer with the storage configuration
+
+/* Routes for Animal Care Management */
+import animalCaseRoutes from './src/routes/Animal Care Management/animalCaseRoutes.js'; // Import animal case routes
+app.use('/api/animal-cases', animalCaseRoutes);  // Use multer upload middleware for image handling
+
+/* Other Routes */
 app.use('/api/tourists', touristRoutes);
 app.use('/api/drivers', driverRoutes);
 app.use('/api/tourGuides', tourGuideRoutes);
@@ -50,26 +71,26 @@ app.use('/api/vets', vetRoutes);
 app.use('/api/emergencyOfficers', emergencyOfficeroutes);
 app.use('/api/callOperators', callOperatorRoutes);
 app.use('/api/admins', adminRoutes);
-
 app.use('/api/feedbacks', feedbackRoutes);
 app.use('/api/complaints', complaintRoutes);
 app.use('/api/chatbot', chatbotRoutes);
 
-// ---------- Management Routes ---------- //
+// Management Routes
 app.use('/api/tour-rejection', tourRejectionRoutes);
 app.use('/api/tour-materials', tourMaterialRoutes);  
-app.use('/api/fuel-claims', fuelClaimRoutes);  // ✅ NEW
+app.use('/api/fuel-claims', fuelClaimRoutes);  
 app.use('/api/applications', applicationRoutes);
-app.use('/api/events', eventRoutes); // All event-related routes will be prefixed with /api/events
-app.use('/api/activities', activityRoutes); // All activity-related routes will be prefixed with /api/activities
-app.use('/api/eventRegistrations', eventRegistrationroutes); // All event registration-related routes will be prefixed with /api/eventRegistrations
-app.use('/api/donations', Donation); // All donation-related routes will be prefixed with /api/donations
-app.use('/api/bookings', Booking); // All booking-related routes will be prefixed with /api/bookings
+app.use('/api/events', eventRoutes); 
+app.use('/api/activities', activityRoutes); 
+app.use('/api/eventRegistrations', eventRegistrationroutes); 
+app.use('/api/donations', Donation); 
+app.use('/api/bookings', Booking); 
+app.use('/api/inventory', medicationRoutes); 
 
-// ---------- Auth Routes ---------- //
-app.post('/api/login', systemLogin); // Login for system roles (username + password + role)
+/* Auth Routes */
+app.post('/api/login', systemLogin); 
 
-// ---------- Protected System Routes ---------- //
+/* Protected System Routes */
 import systemRoutes from './src/routes/auth/systemLogin.js';
 app.use('/api/system', systemRoutes);
 
