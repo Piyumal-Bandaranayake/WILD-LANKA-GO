@@ -3,7 +3,7 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import './App.css';
 import Chatbot from './Chatbot';
 import AssignNowPage from './pages/tourmanagement/AssignNowPage';  // Import the new AssignNowPage
-
+import GuideDashboard from './pages/tourmanagement/guidedashboard';
 
 
 // ✅ Import your NewBookings page
@@ -30,6 +30,7 @@ function App() {
           {/* Fixed route path */}
           <Route path="/availabilityGuideDriver" element={<AvailabilityGuideDriver />} />
           <Route path="/assignnow/:bookingId" element={<AssignNowPage />} />
+          <Route path="/guidedashboard" element={<GuideDashboard />} />
         </Routes>
       </>
     </BrowserRouter>
