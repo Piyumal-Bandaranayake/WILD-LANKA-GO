@@ -169,6 +169,18 @@ export default function NewBookings() {
               >
                 Dashboard
               </Link> 
+              <Link
+                to="/ApplyJobForm"
+                className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+              >
+                job apply
+              </Link> 
+              <Link
+                to="/newApplications"
+                className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+              >
+                new Applications
+              </Link> 
           </div>
         </div>
 
