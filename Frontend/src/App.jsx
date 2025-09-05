@@ -1,18 +1,20 @@
 import { useState } from 'react';
 import './App.css';
 import Chatbot from './Chatbot';
+import Navbar from './components/Navbar';
+import HeroSection from './components/hero';
+
 
 function App() {
   const [count, setCount] = useState(0);
 
   return (
     <>
-      <h1>Welcome to WildLanka Go</h1>
-      <Chatbot />
-
-      {/* Example usage of count state if needed */}
-      <p>Current count: {count}</p>
-      <button onClick={() => setCount(count + 1)}>Increment</button>
+ 
+      <Navbar />
+      <hero/>
+     
+      
     </>
   );
 }
