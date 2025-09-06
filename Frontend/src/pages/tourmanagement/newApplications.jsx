@@ -1,4 +1,3 @@
-// src/pages/tourmanagement/NewApplications.jsx
 import React, { useEffect, useMemo, useState } from "react";
 import axios from "axios";
 
@@ -74,7 +73,7 @@ export default function NewApplications() {
   const [currentRejectId, setCurrentRejectId] = useState(null);
   const [refreshKey, setRefreshKey] = useState(0);
 
-  // ----------------------- CONNECT: list Submitted apps -----------------------
+  // ----------------------- CONNECT: list all apps -----------------------
   useEffect(() => {
     let ignore = false;
 
@@ -84,7 +83,6 @@ export default function NewApplications() {
       setSuccess("");
       try {
         const params = new URLSearchParams();
-        params.set("status", "Submitted");
         if (roleFilter !== "ALL") params.set("role", roleFilter);
         const res = await axios.get(
           `http://localhost:5001/api/applications?${params.toString()}`
@@ -122,12 +120,17 @@ export default function NewApplications() {
         action: "approve",
       });
 
-      // Remove immediately from the current list (we only show "Submitted")
-      setApps((prev) => prev.filter((x) => String(x?._id) !== String(id)));
+      // Update status locally to reflect approval in UI
+      setApps((prev) =>
+        prev.map((x) =>
+          String(x._id) === String(id)
+            ? { ...x, status: "ApprovedByWPO", notes: "" }
+            : x
+        )
+      );
 
       setSuccess("Application approved.");
-      // Ensure the UI stays in sync with backend
-      setRefreshKey((k) => k + 1);
+      setRefreshKey((k) => k + 1); // Ensure the UI stays in sync with backend
     } catch (e) {
       setErr(e?.response?.data?.message || e.message || "Approval failed");
     }
@@ -149,12 +152,17 @@ export default function NewApplications() {
         notes,
       });
 
-      // Remove immediately from the current list (we only show "Submitted")
-      setApps((prev) => prev.filter((x) => String(x?._id) !== String(currentRejectId)));
+      // Update status and notes locally
+      setApps((prev) =>
+        prev.map((x) =>
+          String(x._id) === String(currentRejectId)
+            ? { ...x, status: "RejectedByWPO", notes }
+            : x
+        )
+      );
 
       setSuccess("Application rejected. Email sent to applicant.");
-      // Ensure the UI stays in sync with backend
-      setRefreshKey((k) => k + 1);
+      setRefreshKey((k) => k + 1); // Ensure the UI stays in sync with backend
     } catch (e) {
       setErr(e?.response?.data?.message || e.message || "Rejection failed");
     } finally {
@@ -313,18 +321,26 @@ export default function NewApplications() {
                       </td>
                       <td className="px-3 py-3">
                         <div className="flex items-center justify-end gap-2">
-                          <button
-                            onClick={() => approve(a._id)}
-                            className="rounded-lg bg-green-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-green-700"
-                          >
-                            Approve
-                          </button>
-                          <button
-                            onClick={() => openReject(a._id)}
-                            className="rounded-lg bg-red-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-red-700"
-                          >
-                            Reject
-                          </button>
+                          {a.status === "ApprovedByWPO" ? (
+                            <span className="text-green-700 text-xs font-semibold">Approved</span>
+                          ) : a.status === "RejectedByWPO" ? (
+                            <span className="text-red-700 text-xs font-semibold">Rejected</span>
+                          ) : (
+                            <>
+                              <button
+                                onClick={() => approve(a._id)}
+                                className="rounded-lg bg-green-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-green-700"
+                              >
+                                Approve
+                              </button>
+                              <button
+                                onClick={() => openReject(a._id)}
+                                className="rounded-lg bg-red-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-red-700"
+                              >
+                                Reject
+                              </button>
+                            </>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -336,11 +352,7 @@ export default function NewApplications() {
         </div>
       </div>
 
-      <RejectDialog
-        open={rejectOpen}
-        onClose={() => setRejectOpen(false)}
-        onConfirm={confirmReject}
-      />
+      <RejectDialog open={rejectOpen} onClose={() => setRejectOpen(false)} onConfirm={confirmReject} />
     </div>
   );
 }

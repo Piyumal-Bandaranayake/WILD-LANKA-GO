@@ -5,6 +5,7 @@ import Notification from '../../models/tourmanagement/tourGuideNotification.js';
 import Booking from '../../models/Activity Management/Booking.js';
 
 
+// Create tour
 const createTour = async (req, res) => {
   try {
     const { bookingId, preferredDate } = req.body;
@@ -18,14 +19,14 @@ const createTour = async (req, res) => {
       return res.status(400).json({ message: 'Tour already exists for this booking' });
     }
 
-    const newTour = new Tour({ bookingId, preferredDate }); // Pass preferredDate to the Tour
+    const newTour = new Tour({ bookingId, preferredDate }); // Create the tour
     await newTour.save();
 
-    // Update the booking status to 'Confirmed' after tour creation
-    const booking = await Booking.findById(bookingId);  // Assuming 'Booking' is your Booking model
+    // Update the booking status to 'Confirmed'
+    const booking = await Booking.findById(bookingId);
     if (booking) {
       booking.status = 'Confirmed';  // Set status to 'Confirmed'
-      await booking.save();  // Save the updated booking status
+      await booking.save();
     }
 
     res.status(201).json({ message: 'Tour created successfully', tour: newTour });

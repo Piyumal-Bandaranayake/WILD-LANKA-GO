@@ -15,6 +15,10 @@ import ApplyJobForm from './pages/tourmanagement/ApplyJobForm';
 //    and the default export is `export default function NewApplications() { ... }`
 import NewApplications from './pages/tourmanagement/NewApplications';
 
+import AdminCreateUserPage from './pages/tourmanagement/AdminCreateUserPage';
+
+import AllToursPage from './pages/tourmanagement/AllToursPage'; // Import the new page
+
 function App() {
   const [count, setCount] = useState(0);
 
@@ -28,6 +32,9 @@ function App() {
         <Route path="/ApplyJobForm" element={<ApplyJobForm />} />
         {/* 👇 Use PascalCase component */}
         <Route path="/newApplications" element={<NewApplications />} />
+         <Route path="/AdminCreateUserPage" element={<AdminCreateUserPage />} />
+          <Route path="/AllToursPage" element={<AllToursPage />} />
+         
       </Routes>
     </BrowserRouter>
   );

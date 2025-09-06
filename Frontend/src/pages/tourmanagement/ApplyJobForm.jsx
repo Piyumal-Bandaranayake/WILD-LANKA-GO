@@ -1,6 +1,6 @@
 import { useState } from "react";
 import axios from "axios";
-import bgImage from "./img4.jpg"; // ✅ Ensure correct path
+import bgImage from "./img6.jpg"; // ✅ Ensure correct path
 
 const EMPTY = {
   firstname: "",
@@ -118,7 +118,7 @@ export default function ApplyJobForm({ onSubmit }) {
       {/* 🔳 Full Background Image */}
       <div
         className="absolute inset-0 bg-cover bg-center bg-no-repeat"
-        style={{ backgroundImage: `url(${bgImage})` }}
+        style={{ backgroundImage: `url(${bgImage})`, height: "100vh" }} // Ensure it covers full viewport height
       ></div>
 
       {/* 🌓 Overlay */}
