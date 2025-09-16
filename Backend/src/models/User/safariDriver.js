@@ -48,7 +48,8 @@ const safariDriverSchema = new mongoose.Schema({
     type: String,
     enum: ['pending', 'approved', 'rejected'],
     default: 'pending',
-  },  availability:{
+  },  
+  availability:{
         type : String,
         enum : ['Available', 'Busy', 'OnLeave', 'Inactive'],
         default : 'Inactive',   // until approved
