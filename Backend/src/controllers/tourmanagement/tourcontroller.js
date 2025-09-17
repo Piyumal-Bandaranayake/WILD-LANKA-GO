@@ -22,9 +22,10 @@ const createTour = async (req, res) => {
     const newTour = new Tour({ bookingId, preferredDate }); // Create the tour
     await newTour.save();
 
-    // Update the booking status to 'Confirmed'
+    // Update the booking with the new tourId
     const booking = await Booking.findById(bookingId);
     if (booking) {
+      booking.tourId = newTour._id; // Set the tourId in the booking
       booking.status = 'Confirmed';  // Set status to 'Confirmed'
       await booking.save();
     }
@@ -34,6 +35,7 @@ const createTour = async (req, res) => {
     res.status(500).json({ message: 'Server error while creating tour', error: error.message });
   }
 };
+
 
 
 // Assign Tour Guide and Driver

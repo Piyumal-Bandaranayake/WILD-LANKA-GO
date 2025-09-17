@@ -164,9 +164,19 @@ export default function NewBookings() {
 
   // Callback to update booking status when tour is created
   const handleTourCreate = (tourId) => {
-    setBookings((prevBookings) => prevBookings.map((booking) =>
-      booking._id === tourId ? { ...booking, tourId: "Yes" } : booking  // Update status to "Yes"
-    ));
+    // Update the bookings with the "Tour Created" status
+    setBookings((prevBookings) =>
+      prevBookings.map((booking) =>
+        booking._id === tourId
+          ? { ...booking, tourCreated: true, tourId: "Yes" }  // Mark as created
+          : booking
+      )
+    );
+
+    // Remove the relevant booking from the list (after tour is created)
+    setBookings((prevBookings) =>
+      prevBookings.filter((booking) => booking._id !== tourId)
+    );
 
     setRefreshKey((k) => k + 1); // Trigger a refresh for ToursPage
   };
@@ -204,8 +214,9 @@ export default function NewBookings() {
               to="/guidedashboard"
               className="rounded-xl bg-blue-600 text-white px-4 py-2 text-sm font-medium hover:bg-blue-700"
             >
-              Dashboard
+              guide GuideDashboard
             </Link>
+            
             <Link
               to="/ApplyJobForm"
               className="rounded-xl bg-blue-600 text-white px-4 py-2 text-sm font-medium hover:bg-blue-700"
@@ -274,7 +285,8 @@ export default function NewBookings() {
                       <td className="px-3 py-3 text-right">
                         <button
                           onClick={() => openModal(b)}
-                          className="inline-flex items-center rounded-xl bg-green-600 text-white px-3 py-1.5 text-sm font-medium hover:bg-green-700"
+                          className={`inline-flex items-center rounded-xl bg-green-600 text-white px-3 py-1.5 text-sm font-medium hover:bg-green-700 ${b.tourId ? 'cursor-not-allowed opacity-50' : ''}`}
+                          disabled={b.tourId} // Disable if tourId exists (i.e., the tour is created)
                         >
                           Show Details
                         </button>
