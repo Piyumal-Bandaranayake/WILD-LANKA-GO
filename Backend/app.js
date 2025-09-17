@@ -19,7 +19,7 @@ import Donation from './src/routes/Activity Management/donationroute.js'; // Imp
 import touristRoutes from './src/routes/user/touristroute.js';
 import driverRoutes from './src/routes/user/safariDriverroute.js';
 import tourGuideRoutes from './src/routes/user/tourGuideroute.js';
-import wildlifeOfficerRoutes from './src/routes/user/wildlifeOfficerroute.js';
+import wildlifeOfficerRoutes from './src/routes/user/Wildlifeofficerroute.js';
 import vetRoutes from './src/routes/user/vetroute.js';
 import emergencyOfficeroutes from './src/routes/user/emergencyOfficerroute.js';
 import callOperatorRoutes from './src/routes/user/calloperatorroute.js';
