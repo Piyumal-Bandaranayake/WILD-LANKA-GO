@@ -11,14 +11,14 @@ const vetSchema = new mongoose.Schema({
   Email: {
     type: String,
     required: true,
-    unique: true,
+    unique: true, // ← Index created automatically
     lowercase: true,
     match: [/^\w+([.-]?\w+)*@\w+([.-]?\w+)*(\.\w{2,3})+$/, 'Please enter a valid email']
   },
   username: {
     type: String,
     required: true,
-    unique: true,
+    unique: true, // ← Index created automatically
     trim: true,
     minlength: 3
   },
@@ -35,7 +35,7 @@ const vetSchema = new mongoose.Schema({
   VetRegistrationNumber: {
     type: String,
     required: true,
-    unique: true,
+    unique: true, // ← Index created automatically
     uppercase: true,
     trim: true
   },
@@ -56,10 +56,10 @@ const vetSchema = new mongoose.Schema({
   timestamps: true 
 });
 
-// Create indexes to ensure uniqueness
-vetSchema.index({ Email: 1 }, { unique: true });
-vetSchema.index({ username: 1 }, { unique: true });
-vetSchema.index({ VetRegistrationNumber: 1 }, { unique: true });
+// REMOVE THESE DUPLICATE INDEX DEFINITIONS:
+// vetSchema.index({ Email: 1 }, { unique: true });
+// vetSchema.index({ username: 1 }, { unique: true });
+// vetSchema.index({ VetRegistrationNumber: 1 }, { unique: true });
 
 // Hash password before saving
 vetSchema.pre("save", async function (next) {
@@ -82,12 +82,5 @@ vetSchema.methods.toJSON = function () {
 };
 
 const Vet = mongoose.model("Vet", vetSchema);
-
-// Drop any conflicting old indexes on application start
-Vet.init().then(() => {
-  console.log("Vet model initialized with proper indexes");
-}).catch(err => {
-  console.log("Model initialization completed");
-});
 
 export default Vet;
