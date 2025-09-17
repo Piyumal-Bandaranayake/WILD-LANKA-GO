@@ -5,8 +5,8 @@ const registerEmergencyOfficer = async (req, res) => {
   const {
     Fullname,
     Email,
-    username,  // ✅ lowercase
-    password,  // ✅ lowercase
+    username,
+    password,
     PhoneNumber,
     EmergencyOfficerRegistartionNumber
   } = req.body;
@@ -17,19 +17,33 @@ const registerEmergencyOfficer = async (req, res) => {
   }
 
   try {
+    // Check for existing officer with case-insensitive matching
     const existingOfficer = await EmergencyOfficer.findOne({
-      $or: [{ Email }, { username }, { EmergencyOfficerRegistartionNumber }]
+      $or: [
+        { Email: Email.toLowerCase() },
+        { username: username.toLowerCase() },
+        { EmergencyOfficerRegistartionNumber }
+      ]
     });
 
     if (existingOfficer) {
-      return res.status(400).json({ message: 'Email, Username, or Registration Number already exists' });
+      // Provide specific error messages
+      if (existingOfficer.Email.toLowerCase() === Email.toLowerCase()) {
+        return res.status(400).json({ message: 'Email already exists' });
+      }
+      if (existingOfficer.username.toLowerCase() === username.toLowerCase()) {
+        return res.status(400).json({ message: 'Username already exists' });
+      }
+      if (existingOfficer.EmergencyOfficerRegistartionNumber === EmergencyOfficerRegistartionNumber) {
+        return res.status(400).json({ message: 'Registration Number already exists' });
+      }
     }
 
     // ✅ Schema auto-hashes password
     const newOfficer = new EmergencyOfficer({
       Fullname,
-      Email,
-      username,
+      Email: Email.toLowerCase(),
+      username: username.toLowerCase(),
       password,
       PhoneNumber,
       EmergencyOfficerRegistartionNumber
@@ -48,7 +62,29 @@ const registerEmergencyOfficer = async (req, res) => {
     });
 
   } catch (error) {
-    res.status(500).json({ message: 'Error registering Emergency Officer', error: error.message });
+    console.error("Registration error:", error);
+    
+    // Handle MongoDB duplicate key errors
+    if (error.code === 11000) {
+      const field = Object.keys(error.keyPattern)[0];
+      return res.status(400).json({ 
+        message: `${field} already exists` 
+      });
+    }
+    
+    // Handle validation errors
+    if (error.name === 'ValidationError') {
+      const errors = Object.values(error.errors).map(err => err.message);
+      return res.status(400).json({ 
+        message: 'Validation error', 
+        errors 
+      });
+    }
+    
+    res.status(500).json({ 
+      message: 'Error registering Emergency Officer', 
+      error: error.message 
+    });
   }
 };
 
@@ -75,8 +111,116 @@ const getEmergencyOfficerById = async (req, res) => {
   }
 };
 
+// ✅ Update Emergency Officer Profile
+const updateEmergencyOfficer = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { Fullname, Email, PhoneNumber } = req.body;
+
+    // Check if officer exists
+    const officer = await EmergencyOfficer.findById(id);
+    if (!officer) {
+      return res.status(404).json({ message: 'Emergency Officer not found' });
+    }
+
+    // Check if email is being changed and if it already exists
+    if (Email && Email !== officer.Email) {
+      const emailExists = await EmergencyOfficer.findOne({ 
+        Email: Email.toLowerCase(), 
+        _id: { $ne: id } 
+      });
+      if (emailExists) {
+        return res.status(400).json({ message: 'Email already registered' });
+      }
+    }
+
+    // Update the officer
+    const updatedOfficer = await EmergencyOfficer.findByIdAndUpdate(
+      id,
+      { 
+        Fullname: Fullname || officer.Fullname,
+        Email: Email ? Email.toLowerCase() : officer.Email,
+        PhoneNumber: PhoneNumber || officer.PhoneNumber
+      },
+      { new: true, runValidators: true }
+    );
+
+    res.status(200).json({ 
+      message: 'Emergency Officer profile updated successfully', 
+      emergencyOfficer: updatedOfficer 
+    });
+  } catch (error) {
+    if (error.name === 'ValidationError') {
+      const errors = Object.values(error.errors).map(err => err.message);
+      return res.status(400).json({ message: 'Validation error', errors });
+    }
+    if (error.code === 11000) {
+      return res.status(400).json({ message: 'Email already registered' });
+    }
+    res.status(500).json({ message: 'Error updating emergency officer profile', error: error.message });
+  }
+};
+
+// ✅ Delete Emergency Officer Profile
+const deleteEmergencyOfficer = async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    const officer = await EmergencyOfficer.findById(id);
+    if (!officer) {
+      return res.status(404).json({ message: 'Emergency Officer not found' });
+    }
+    
+    await EmergencyOfficer.findByIdAndDelete(id);
+    
+    res.status(200).json({ message: 'Emergency Officer profile deleted successfully' });
+  } catch (error) {
+    res.status(500).json({ message: 'Error deleting emergency officer profile', error: error.message });
+  }
+};
+
+// ✅ Toggle Emergency Officer Availability
+const toggleAvailability = async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    const officer = await EmergencyOfficer.findById(id);
+    if (!officer) {
+      return res.status(404).json({ message: 'Emergency Officer not found' });
+    }
+    
+    // Toggle availability
+    const updatedOfficer = await EmergencyOfficer.findByIdAndUpdate(
+      id,
+      { isAvailable: !officer.isAvailable },
+      { new: true }
+    );
+    
+    res.status(200).json({ 
+      message: `Emergency Officer is now ${updatedOfficer.isAvailable ? 'available' : 'unavailable'}`,
+      emergencyOfficer: updatedOfficer 
+    });
+  } catch (error) {
+    res.status(500).json({ message: 'Error toggling availability', error: error.message });
+  }
+};
+
+// ✅ Get Available Emergency Officers
+const getAvailableOfficers = async (req, res) => {
+  try {
+    const availableOfficers = await EmergencyOfficer.find({ isAvailable: true });
+    res.status(200).json(availableOfficers);
+  } catch (error) {
+    res.status(500).json({ message: 'Error fetching available emergency officers', error: error.message });
+  }
+};
+
 export {
   registerEmergencyOfficer,
   getEmergencyOfficers,
-  getEmergencyOfficerById
+  getEmergencyOfficerById,
+  updateEmergencyOfficer,
+  deleteEmergencyOfficer,
+  toggleAvailability,
+  getAvailableOfficers
 };
