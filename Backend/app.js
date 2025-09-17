@@ -33,7 +33,6 @@ import emergencyRoutes from './src/routes/emergency/emergencyRoute.js';  // Emer
 import emergencyFormRoutes from './src/routes/emergency/emergencyFormRoute.js';  // Emergency form routes
 import emergencyReportRoutes from './src/routes/emergency/emergencyReportRoute.js';  // Emergency report routes
 
-import { systemLogin } from './src/controllers/auth/systemLoginController.js';
 import connectDB from './src/config/DB.js';
 import medicationRoutes from './src/routes/Animal Care Management/medicationRoutes.js';
 
@@ -91,18 +90,9 @@ app.use('/api/donations', Donation);
 app.use('/api/bookings', Booking); 
 app.use('/api/inventory', medicationRoutes); 
 
-
 app.use('/api/emergencies', emergencyRoutes);  // Emergency routes
 app.use('/api/emergency-forms', emergencyFormRoutes);  // Emergency form routes
 app.use('/api/emergency-reports', emergencyReportRoutes);  // Emergency report routes
-
-// ---------- Auth Routes ---------- //
-app.post('/api/login', systemLogin); // Login for system roles (username + password + role)
-
-
-/* Protected System Routes */
-import systemRoutes from './src/routes/auth/systemLogin.js';
-app.use('/api/system', systemRoutes);
 
 // Root Route
 app.get("/", (req, res) => res.send("Backend is running..."));
