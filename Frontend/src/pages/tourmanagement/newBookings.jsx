@@ -19,13 +19,14 @@ function DetailModal({ open, onClose, item, onTourCreate }) {
   // Function to create a tour
   const createTour = async () => {
     try {
-      // Create a tour for the booking
-      const response = await axios.post('http://localhost:5001/api/tour/create', { bookingId: item._id });
+      const response = await axios.post('http://localhost:5001/api/tour/create', {
+        bookingId: item._id,  // Correctly pass the booking ID from the selected item
+        preferredDate: item.preferredDate,  // You can also pass preferredDate or any other necessary data
+      });
 
       if (response.status === 201) {
-        // If the tour is successfully created
-        // Remove the booking from the list
-        onTourCreate(item._id);
+        // If the tour is successfully created, update UI by calling onTourCreate
+        onTourCreate(item._id);  // This will update the "Tour Created" status to "Yes"
 
         // Close the modal
         onClose();
@@ -161,9 +162,12 @@ export default function NewBookings() {
     setBookings((prevBookings) => prevBookings.filter((b) => b._id !== bookingId));
   };
 
-  // Callback to remove booking when tour is created
+  // Callback to update booking status when tour is created
   const handleTourCreate = (tourId) => {
-    setBookings((prevBookings) => prevBookings.filter((b) => b._id !== tourId));
+    setBookings((prevBookings) => prevBookings.map((booking) =>
+      booking._id === tourId ? { ...booking, tourId: "Yes" } : booking  // Update status to "Yes"
+    ));
+
     setRefreshKey((k) => k + 1); // Trigger a refresh for ToursPage
   };
 
@@ -285,7 +289,7 @@ export default function NewBookings() {
       </div>
 
       {/* Modal */}
-      <DetailModal open={isModalOpen} onClose={() => setIsModalOpen(false)} item={selectedBooking} onTourCreate={removeBooking} />
+      <DetailModal open={isModalOpen} onClose={() => setIsModalOpen(false)} item={selectedBooking} onTourCreate={handleTourCreate} />
     </div>
   );
 }
