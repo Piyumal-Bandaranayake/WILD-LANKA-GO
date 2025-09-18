@@ -11,12 +11,12 @@ const wildlifeOfficerSchema = new mongoose.Schema({
     required: true,
     unique: true,
   },
-  username: { // ✅ lowercase and consistent with login system
+  username: {
     type: String,
     required: true,
     unique: true,
   },
-  password: { // ✅ lowercase and consistent
+  password: {
     type: String,
     required: true,
     minlength: 6,
@@ -40,7 +40,11 @@ const wildlifeOfficerSchema = new mongoose.Schema({
     enum: ['Pending', 'Approved', 'Rejected'],
     default: 'Pending',
   },
-});
+  isAvailable: {
+    type: Boolean,
+    default: false
+  }
+}, { timestamps: true });
 
 // ✅ Hash the password before saving
 wildlifeOfficerSchema.pre('save', async function (next) {

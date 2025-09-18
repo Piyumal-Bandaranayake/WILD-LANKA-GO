@@ -1,18 +1,24 @@
+// routes/user/touristroute.js
 import express from 'express';
-import { registerTourist, getTourists, getTouristById } from '../../controllers/user/touristcontroller.js';
-import { touristLogin } from '../../controllers/auth/touristLoginController.js';
+import { 
+  registerTourist, 
+  getTourists, 
+  getTouristById, 
+  updateTourist, 
+  deleteTourist 
+} from '../../controllers/user/touristcontroller.js';
 import { resetTouristPassword } from '../../controllers/auth/touristresetPasswordController.js';
-import protect from '../../middleware/authMiddleware.js'; // ✅ import protect middleware
 
 const router = express.Router();
 
 // ---------------- Public Routes ---------------- //
 router.post('/register', registerTourist);   // Anyone can register
-router.post('/login', touristLogin);         // Anyone can login
+router.put('/reset-password', resetTouristPassword); // Password reset (username-based)
 
-// ---------------- Protected Routes ---------------- //
-router.get('/', protect, getTourists);       // Only logged-in users can view all tourists
-router.get('/:id', protect, getTouristById); // Only logged-in users can view tourist by ID
-router.put('/reset-password', protect, resetTouristPassword); // Only logged-in users can reset password
+// ---------------- Tourist Management Routes ---------------- //
+router.get('/', getTourists);       // Get all tourists
+router.get('/:id', getTouristById); // Get tourist by ID
+router.put('/:id', updateTourist);  // Update tourist profile
+router.delete('/:id', deleteTourist); // Delete tourist profile
 
 export default router;

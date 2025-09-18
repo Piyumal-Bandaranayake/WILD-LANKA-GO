@@ -4,10 +4,13 @@ import cors from 'cors';
 import multer from 'multer'; // Multer for handling file uploads
 import path from 'path';
 
-// Import routes
+
+
 import tourRejectionRoutes from './src/routes/tourmanagement/rejectionroute.js';
 import tourMaterialRoutes from './src/routes/tourmanagement/tourMaterialRoute.js';
-import fuelClaimRoutes from './src/routes/tourmanagement/fuelClaimRoute.js';
+import fuelClaimRoutes from './src/routes/tourmanagement/fuelClaimRoute.js'; // ✅ NEW
+import tourRoutes from './src/routes/tourmanagement/tourroutes.js';
+
 
 import applicationRoutes from './src/routes/tourmanagement/applicationRoutes.js';
 import eventRoutes from './src/routes/Activity Management/eventroute.js'; // Import event routes
@@ -19,7 +22,7 @@ import Donation from './src/routes/Activity Management/donationroute.js'; // Imp
 import touristRoutes from './src/routes/user/touristroute.js';
 import driverRoutes from './src/routes/user/safariDriverroute.js';
 import tourGuideRoutes from './src/routes/user/tourGuideroute.js';
-import wildlifeOfficerRoutes from './src/routes/user/wildlifeOfficerroute.js';
+import wildlifeOfficerRoutes from './src/routes/user/Wildlifeofficerroute.js';
 import vetRoutes from './src/routes/user/vetroute.js';
 import emergencyOfficeroutes from './src/routes/user/emergencyOfficerroute.js';
 import callOperatorRoutes from './src/routes/user/calloperatorroute.js';
@@ -29,7 +32,10 @@ import feedbackRoutes from './src/routes/Feedback/FeedbackRoute.js';
 import complaintRoutes from './src/routes/Complaint/ComplaintRoute.js';
 import chatbotRoutes from './src/routes/Chatbot/chatbotRoutes.js';
 
-import { systemLogin } from './src/controllers/auth/systemLoginController.js';
+import emergencyRoutes from './src/routes/emergency/emergencyRoute.js';  // Emergency routes
+import emergencyFormRoutes from './src/routes/emergency/emergencyFormRoute.js';  // Emergency form routes
+import emergencyReportRoutes from './src/routes/emergency/emergencyReportRoute.js';  // Emergency report routes
+
 import connectDB from './src/config/DB.js';
 import medicationRoutes from './src/routes/Animal Care Management/medicationRoutes.js';
 
@@ -43,6 +49,10 @@ const app = express();
 // Middleware
 app.use(cors());
 app.use(express.json());
+
+
+// ---------- Public Routes ---------- //
+app.use('/api/tour', tourRoutes);
 
 // Serve static files from the 'uploads' folder (where images will be stored)
 app.use('/uploads', express.static('uploads'));  // Important for serving uploaded images
@@ -63,6 +73,7 @@ import animalCaseRoutes from './src/routes/Animal Care Management/animalCaseRout
 app.use('/api/animal-cases', animalCaseRoutes);  // Use multer upload middleware for image handling
 
 /* Other Routes */
+
 app.use('/api/tourists', touristRoutes);
 app.use('/api/drivers', driverRoutes);
 app.use('/api/tourGuides', tourGuideRoutes);
@@ -87,12 +98,9 @@ app.use('/api/donations', Donation);
 app.use('/api/bookings', Booking); 
 app.use('/api/inventory', medicationRoutes); 
 
-/* Auth Routes */
-app.post('/api/login', systemLogin); 
-
-/* Protected System Routes */
-import systemRoutes from './src/routes/auth/systemLogin.js';
-app.use('/api/system', systemRoutes);
+app.use('/api/emergencies', emergencyRoutes);  // Emergency routes
+app.use('/api/emergency-forms', emergencyFormRoutes);  // Emergency form routes
+app.use('/api/emergency-reports', emergencyReportRoutes);  // Emergency report routes
 
 // Root Route
 app.get("/", (req, res) => res.send("Backend is running..."));
@@ -104,5 +112,5 @@ app.use((err, req, res, next) => {
 });
 
 // Start server
-const port = process.env.PORT || 5001;
+const port = process.env.PORT || 5000;
 app.listen(port, () => console.log(`🚀 Server running on port ${port}`));

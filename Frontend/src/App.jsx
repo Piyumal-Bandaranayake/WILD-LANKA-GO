@@ -1,10 +1,25 @@
 import { useState, useEffect } from 'react';
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import './App.css';
+
+// Import components
 import Navbar from './components/Navbar';
 import Footer from './components/footer';
-import Home from './pages/home'; // Import your Home component
-import '@fortawesome/fontawesome-free/css/all.min.css';
-import ActivityEventCards from './components/activityEventcarts';
+import Home from './pages/home';
+import Chatbot from './components/Chatbot';
+
+// Tour Management Pages
+import NewBookings from './pages/tourmanagement/newBookings';
+import AvailabilityGuideDriver from './pages/tourmanagement/avalabilityGuideDriver';
+import AssignNowPage from './pages/tourmanagement/AssignNowPage';
+import GuideDashboard from './pages/tourmanagement/guidedashboard';
+import ApplyJobForm from './pages/tourmanagement/ApplyJobForm';
+import NewApplications from './pages/tourmanagement/NewApplications';
+import AdminCreateUserPage from './pages/tourmanagement/AdminCreateUserPage';
+import AllToursPage from './pages/tourmanagement/AllToursPage';
+
+// Emergency Pages
+import EmergencyOfficerDashboard from './pages/emergency/EmergencyOfficerDashboard';
 
 function App() {
   const [isDarkMode, setIsDarkMode] = useState(false);
@@ -45,11 +60,27 @@ function App() {
   }
 
   return (
-    <div className="App">
-      
-      <Home /> {/* This is where you call your Home component */}
-      
-    </div>
+    <Router>
+      <div className="App min-h-screen flex flex-col">
+        <Navbar isDarkMode={isDarkMode} toggleDarkMode={toggleDarkMode} />
+        <main className="flex-grow">
+          <Routes>
+            <Route path="/" element={<Home />} />
+            <Route path="/bookings" element={<NewBookings />} />
+            <Route path="/availability" element={<AvailabilityGuideDriver />} />
+            <Route path="/assignnow/:bookingId" element={<AssignNowPage />} />
+            <Route path="/guide-dashboard" element={<GuideDashboard />} />
+            <Route path="/apply-job" element={<ApplyJobForm />} />
+            <Route path="/applications" element={<NewApplications />} />
+            <Route path="/admin/create-user" element={<AdminCreateUserPage />} />
+            <Route path="/tours" element={<AllToursPage />} />
+            <Route path="/emergency/officer" element={<EmergencyOfficerDashboard />} />
+          </Routes>
+        </main>
+        <Footer />
+        <Chatbot />
+      </div>
+    </Router>
   );
 }
 

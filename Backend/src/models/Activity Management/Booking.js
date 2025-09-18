@@ -17,6 +17,7 @@ const bookingSchema = new mongoose.Schema({
     default: Date.now 
   },  // Date when the booking was made
   
+  
   numberOfParticipants: { 
     type: Number, 
     required: true, 
@@ -30,6 +31,12 @@ const bookingSchema = new mongoose.Schema({
     type: Date, 
     required: true 
   },
+
+   tourId: { 
+    type: mongoose.Schema.Types.ObjectId, 
+    ref: 'Tour',  // Reference to the Tour model
+    default: null 
+  } // New field to store the Tour reference
 
 },{ timestamps: true });  // Number of participants for the booking
 
