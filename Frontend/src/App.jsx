@@ -1,8 +1,9 @@
-// src/App.jsx
-import { useState } from 'react';
+import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import './App.css';
-import Chatbot from './Chatbot';
+
+import Home from './pages/home';
+import AboutUs from './pages/AboutUs';
 import AssignNowPage from './pages/tourmanagement/AssignNowPage';
 import GuideDashboard from './pages/tourmanagement/guidedashboard';
 import NewBookings from './pages/tourmanagement/newBookings';
@@ -13,24 +14,12 @@ import AdminCreateUserPage from './pages/tourmanagement/AdminCreateUserPage';
 import AllToursPage from './pages/tourmanagement/AllToursPage';
 import EmergencyOfficerDashboard from './pages/emergency/EmergencyOfficerDashboard';
 
-function Home() {
-  const [count, setCount] = useState(0);
-  
-  return (
-    <>
-      <h1>Welcome to WildLanka Go</h1>
-      <Chatbot />
-      <p>Current count: {count}</p>
-      <button onClick={() => setCount(c => c + 1)}>Increment</button>
-    </>
-  );
-}
-
-export default function App() {
+function App() {
   return (
     <Router>
       <Routes>
         <Route path="/" element={<Home />} />
+        <Route path="/about" element={<AboutUs />} />
         <Route path="/availabilityGuideDriver" element={<AvailabilityGuideDriver />} />
         <Route path="/assignnow/:bookingId" element={<AssignNowPage />} />
         <Route path="/guidedashboard" element={<GuideDashboard />} />
@@ -39,7 +28,10 @@ export default function App() {
         <Route path="/AdminCreateUserPage" element={<AdminCreateUserPage />} />
         <Route path="/AllToursPage" element={<AllToursPage />} />
         <Route path="/emergency/officer" element={<EmergencyOfficerDashboard />} />
+        <Route path="/new-bookings" element={<NewBookings />} />
       </Routes>
     </Router>
   );
 }
+
+export default App;
