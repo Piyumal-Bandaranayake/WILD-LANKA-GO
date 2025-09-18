@@ -17,15 +17,12 @@ const tourGuideSchema = new mongoose.Schema({
         required: true,
         unique: true,
         trim: true
-
     },
     Username: {
         type: String,
         required: true,
         unique: true,
-
         trim: true
-
     },
     password: {
         type: String,
@@ -35,9 +32,7 @@ const tourGuideSchema = new mongoose.Schema({
     phone: {
         type: String,
         required: true,
-
         trim: true
-
     },
     Guide_Registration_No: {
         type: String,
@@ -53,31 +48,24 @@ const tourGuideSchema = new mongoose.Schema({
     Status: {
         type: String,
         enum: ['Pending', 'Approved', 'Rejected'],
-
-        default: 'Pending',  // Default to Pending when the guide applies
+        default: 'Pending',
     },
-
-    // ✅ New availability column
-    availability: {
-        type: String,
-        enum: ['Available', 'Busy', 'OnLeave', 'Inactive'],
-        default: 'Inactive', // start as Inactive until approved
+    // ✅ Changed to boolean like Wildlife Officer
+    isAvailable: {
+        type: Boolean,
+        default: false
     },
-
-    // ✅ New column to track the guide's current tour status
     currentTourStatus: {
         type: String,
         enum: ['Idle', 'Processing', 'Started', 'Ended'],
         default: 'Idle'
     }
-})
-
+}, { timestamps: true });
 
 // ✅ Hash password before saving
 tourGuideSchema.pre('save', async function (next) {
     if (this.isModified('password')) {
         this.password = await bcrypt.hash(this.password, 10);
-
     }
     next();
 });
