@@ -1,4 +1,5 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
 
 const Footer = () => {
   return (
@@ -34,18 +35,18 @@ const Footer = () => {
             <h4 className="text-lg font-semibold text-green-700 mb-4">Quick Links</h4>
             <div className="grid grid-cols-2 gap-4">
               <ul className="space-y-2">
-                <li><a href="/" className="hover:text-green-600 transition-colors">Home</a></li>
-                <li><a href="/events" className="hover:text-green-600 transition-colors">Events</a></li>
-                <li><a href="/activities" className="hover:text-green-600 transition-colors">Activities</a></li>
-                <li><a href="/about" className="hover:text-green-600 transition-colors">About Us</a></li>
-                <li><a href="/contact" className="hover:text-green-600 transition-colors">Contact</a></li>
+                <li><Link to="/" className="hover:text-green-600 transition-colors">Home</Link></li>
+                <li><Link to="/events" className="hover:text-green-600 transition-colors">Events</Link></li>
+                <li><Link to="/activities" className="hover:text-green-600 transition-colors">Activities</Link></li>
+                <li><Link to="/about" className="hover:text-green-600 transition-colors">About Us</Link></li>
+                <li><Link to="/contact" className="hover:text-green-600 transition-colors">Contact</Link></li>
               </ul>
               
               <ul className="space-y-2">
-                <li><a href="/tours" className="hover:text-green-600 transition-colors">Wildlife Tours</a></li>
-                <li><a href="/booking" className="hover:text-green-600 transition-colors">Event Booking</a></li>
-                <li><a href="/support" className="hover:text-green-600 transition-colors">Emergency Support</a></li>
-                <li><a href="/guides" className="hover:text-green-600 transition-colors">Guide Services</a></li>
+                <li><Link to="/tours" className="hover:text-green-600 transition-colors">Wildlife Tours</Link></li>
+                <li><Link to="/booking" className="hover:text-green-600 transition-colors">Event Booking</Link></li>
+                <li><Link to="/support" className="hover:text-green-600 transition-colors">Emergency Support</Link></li>
+                <li><Link to="/guides" className="hover:text-green-600 transition-colors">Guide Services</Link></li>
               </ul>
             </div>
           </div>

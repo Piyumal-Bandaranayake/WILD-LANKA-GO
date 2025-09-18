@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import logo from '../assets/logo.png'; // ✅ Update path if needed
 
 const NavBar = () => {
@@ -32,18 +33,18 @@ const NavBar = () => {
       `}
     >
       {/* Logo + Brand */}
-      <a href="/" className="flex items-center gap-3 font-bold text-lg text-green-700">
+      <Link to="/" className="flex items-center gap-3 font-bold text-lg text-green-700">
         <img src={logo} alt="Wild Lanka Go" className="h-10 w-auto" />
         Wild Lanka Go
-      </a>
+      </Link>
 
       {/* Desktop Nav */}
       <ul className="md:flex hidden items-center gap-10">
         {navLinks.map((link, index) => (
           <li key={index}>
-            <a href={link.path} className="hover:text-green-600 transition-colors">
+            <Link to={link.path} className="hover:text-green-600 transition-colors">
               {link.name}
-            </a>
+            </Link>
           </li>
         ))}
       </ul>
@@ -74,9 +75,9 @@ const NavBar = () => {
           <ul className="flex flex-col space-y-4 text-lg">
             {navLinks.map((link, index) => (
               <li key={index}>
-                <a href={link.path} className="text-sm hover:text-green-600 transition-colors">
+                <Link to={link.path} className="text-sm hover:text-green-600 transition-colors">
                   {link.name}
-                </a>
+                </Link>
               </li>
             ))}
           </ul>
