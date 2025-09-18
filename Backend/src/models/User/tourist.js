@@ -29,8 +29,7 @@ const touristSchema = new mongoose.Schema({
         type: String,
         required: true,
     },
-   
-});
+}, { timestamps: true }); // Add timestamps for created/updated dates
 
 // Hash the password before saving
 touristSchema.pre('save', async function(next) {
@@ -45,20 +44,6 @@ touristSchema.methods.matchPassword = async function(enteredPassword) {
     return await bcrypt.compare(enteredPassword, this.Password);
 };
 
-// Validate that password and confirm password match
-touristSchema.methods.validatePassword = function() {
-    return this.Password === this.ConfirmPassword;
-};
-
-// Add a unique username check before saving
-touristSchema.pre('save', async function(next) {
-    const userExists = await mongoose.model('Tourist').findOne({ username: this.username });
-    if (userExists) {
-        return next(new Error('Username already exists'));
-    }
-    next();
-});
-
 // Create and export the model using default export
 const Tourist = mongoose.model('Tourist', touristSchema);
-export default Tourist;  // Use default export
+export default Tourist;

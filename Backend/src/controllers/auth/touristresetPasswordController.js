@@ -1,4 +1,4 @@
-// controllers/user/resetPasswordController.js
+// Alternative controllers/user/resetPasswordController.js
 import Tourist from '../../models/User/tourist.js';
 import bcrypt from 'bcryptjs';
 
@@ -7,6 +7,10 @@ const resetTouristPassword = async (req, res) => {
 
     if (!username || !currentPassword || !newPassword) {
         return res.status(400).json({ message: 'All fields are required' });
+    }
+
+    if (newPassword.length < 6) {
+        return res.status(400).json({ message: 'New password must be at least 6 characters long' });
     }
 
     try {
@@ -21,12 +25,12 @@ const resetTouristPassword = async (req, res) => {
             return res.status(400).json({ message: 'Current password is incorrect' });
         }
 
+        // Hash the new password
         const hashedNewPassword = await bcrypt.hash(newPassword, 10);
 
-        await Tourist.updateOne(
-            { username },
-            { $set: { Password: hashedNewPassword } }
-        );
+        // Update the password
+        user.Password = hashedNewPassword;
+        await user.save();
 
         res.status(200).json({ message: 'Password updated successfully' });
 
