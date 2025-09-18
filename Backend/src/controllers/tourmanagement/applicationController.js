@@ -96,7 +96,7 @@ export const adminCreateAccount = async (req, res) => {
         Guide_Registration_No: application.Guide_Registration_No,
         Experience_Year: application.Experience_Year || 0,
         Status: 'Approved',
-        availability: 'Available',
+        isAvailable: true,
         currentTourStatus: 'Idle',
       });
     } else if (application.role === 'Driver') {
@@ -105,12 +105,12 @@ export const adminCreateAccount = async (req, res) => {
         Email: application.email,
         PhoneNumber: application.phone,
         username: Username,
-        Password: hashed,
+        password: hashed,
         LicenceNumber: application.LicenceNumber,
-        vechicleType: application.vechicleType,
-        vechicleNumber: application.vechicleNumber,
+        vehicleType: application.vehicleType,
+        vehicleNumber: application.vehicleNumber,
         status: 'approved',
-        availability: 'Available',
+        isAvailable: true,
       });
     } else {
       return res.status(400).json({ message: 'Unsupported role' });
