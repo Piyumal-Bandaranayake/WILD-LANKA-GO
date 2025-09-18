@@ -30,6 +30,7 @@ const registerTourist = async (req, res) => {
   }
 };
 
+// Get all tourists
 const getTourists = async (req, res) => {
   try {
     const tourists = await Tourist.find();
@@ -39,6 +40,7 @@ const getTourists = async (req, res) => {
   }
 };
 
+// Get tourist by ID
 const getTouristById = async (req, res) => {
   try {
     const tourist = await Tourist.findById(req.params.id);
@@ -51,4 +53,61 @@ const getTouristById = async (req, res) => {
   }
 };
 
-export { registerTourist, getTourists, getTouristById };
+// Update tourist profile
+const updateTourist = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { FirstName, LastName, Email, PhoneNumber, username } = req.body;
+    
+    // Check if the tourist exists
+    const tourist = await Tourist.findById(id);
+    if (!tourist) {
+      return res.status(404).json({ message: 'Tourist not found' });
+    }
+    
+    // Check if email or username already exists (excluding current user)
+    if (Email && Email !== tourist.Email) {
+      const emailExists = await Tourist.findOne({ Email, _id: { $ne: id } });
+      if (emailExists) {
+        return res.status(400).json({ message: 'Email already exists' });
+      }
+    }
+    
+    if (username && username !== tourist.username) {
+      const usernameExists = await Tourist.findOne({ username, _id: { $ne: id } });
+      if (usernameExists) {
+        return res.status(400).json({ message: 'Username already exists' });
+      }
+    }
+    
+    // Update the tourist
+    const updatedTourist = await Tourist.findByIdAndUpdate(
+      id,
+      { FirstName, LastName, Email, PhoneNumber, username },
+      { new: true, runValidators: true }
+    );
+    
+    res.status(200).json({ message: 'Tourist updated successfully', tourist: updatedTourist });
+  } catch (error) {
+    res.status(500).json({ message: 'Error updating tourist', error: error.message });
+  }
+};
+
+// Delete tourist profile
+const deleteTourist = async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    const tourist = await Tourist.findById(id);
+    if (!tourist) {
+      return res.status(404).json({ message: 'Tourist not found' });
+    }
+    
+    await Tourist.findByIdAndDelete(id);
+    res.status(200).json({ message: 'Tourist deleted successfully' });
+  } catch (error) {
+    res.status(500).json({ message: 'Error deleting tourist', error: error.message });
+  }
+};
+
+export { registerTourist, getTourists, getTouristById, updateTourist, deleteTourist };

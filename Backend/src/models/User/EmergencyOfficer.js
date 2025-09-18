@@ -11,12 +11,12 @@ const emergencyOfficerSchema = new mongoose.Schema({
     required: true,
     unique: true,
   },
-  username: { // ✅ lowercase key (matches systemLogin)
+  username: {
     type: String,
     required: true,
     unique: true,
   },
-  password: { // ✅ lowercase key (matches login)
+  password: {
     type: String,
     required: true,
     minlength: 6,
@@ -30,7 +30,11 @@ const emergencyOfficerSchema = new mongoose.Schema({
     required: true,
     unique: true,
   },
-});
+  isAvailable: {
+    type: Boolean,
+    default: false
+  }
+}, { timestamps: true });
 
 // ✅ Hash password before saving
 emergencyOfficerSchema.pre('save', async function (next) {
