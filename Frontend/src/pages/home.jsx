@@ -19,7 +19,7 @@ const Home = () => {
       setCurrentImageIndex((prevIndex) => 
         prevIndex === backgroundImages.length - 1 ? 0 : prevIndex + 1
       );
-    }, 5000);
+    }, 5001);
 
     return () => clearInterval(interval);
   }, [backgroundImages.length]);
