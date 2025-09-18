@@ -34,7 +34,7 @@ const reportEmergency = async (req, res) => {
 // Update the status of an emergency
 const updateEmergencyStatus = async (req, res) => {
     try {
-        const { case_id, status } = req.body;
+        const { id, status } = req.body;
 
         // Ensure the status is valid
         const validStatuses = ['pending', 'in-progress', 'resolved'];
@@ -42,9 +42,9 @@ const updateEmergencyStatus = async (req, res) => {
             return res.status(400).json({ message: 'Invalid status' });
         }
 
-        // Find the emergency by case_id and update the status
-        const emergency = await Emergency.findOneAndUpdate(
-            { case_id },
+        // Find the emergency by id and update the status
+        const emergency = await Emergency.findByIdAndUpdate(
+            id,
             { status },
             { new: true } // Return the updated document
         );
