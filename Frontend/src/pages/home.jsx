@@ -1,12 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import Footer from "../components/footer";
 import Navbar from "../components/Navbar";
-import ActivityEventCards from "../components/activityEventcarts";
 import axios from 'axios';
 
 const Home = () => {
-  const [isDarkMode, setIsDarkMode] = useState(false);
-  const [themeLoaded, setThemeLoaded] = useState(false);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
 
   // Background images for the carousel
@@ -27,43 +24,9 @@ const Home = () => {
     return () => clearInterval(interval);
   }, [backgroundImages.length]);
 
-  // Theme handling - load before rendering
-  useEffect(() => {
-    const theme = localStorage.getItem('theme');
-    if (theme === 'dark' || (!theme && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
-      document.documentElement.classList.add('dark');
-      setIsDarkMode(true);
-    } else {
-      document.documentElement.classList.remove('dark');
-      setIsDarkMode(false);
-    }
-    setThemeLoaded(true);
-  }, []);
-
-  // Toggle theme
-  const toggleDarkMode = () => {
-    const newIsDarkMode = !isDarkMode;
-    setIsDarkMode(newIsDarkMode);
-    if (newIsDarkMode) {
-      document.documentElement.classList.add('dark');
-      localStorage.setItem('theme', 'dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-      localStorage.setItem('theme', 'light');
-    }
-  };
-
-  if (!themeLoaded) {
-    return (
-      <div className="flex items-center justify-center h-screen bg-gray-900">
-        <div className="text-green-400 text-xl">Loading...</div>
-      </div>
-    );
-  }
-
   return (
     <div className="flex flex-col min-h-screen">
-      <Navbar isDarkMode={isDarkMode} toggleDarkMode={toggleDarkMode} />
+      <Navbar />
       
       {/* Hero Section with Animated Image Carousel */}
       <section className="pt-32 pb-40 relative bg-cover bg-center bg-no-repeat overflow-hidden">
@@ -123,55 +86,14 @@ const Home = () => {
         </div>
       </section>
 
-      {/* Features Section */}
-      <section className="py-16 bg-white dark:bg-gray-900">
-        <div className="container mx-auto px-4">
-          <h2 className="text-3xl font-semibold text-center text-green-700 dark:text-green-400 mb-12">
-            Why Choose Wild Lanka Go?
-          </h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            <div className="text-center p-6 bg-gray-50 dark:bg-gray-800 rounded-xl hover:shadow-lg transition-shadow duration-300">
-              <div className="text-green-600 dark:text-green-400 text-4xl mb-4">
-                <i className="fas fa-users"></i>
-              </div>
-              <h3 className="text-xl font-semibold mb-2">Expert Guides</h3>
-              <p className="text-gray-600 dark:text-gray-300">
-                Our knowledgeable guides have years of experience with Sri Lanka's wildlife and ecosystems.
-              </p>
-            </div>
-            <div className="text-center p-6 bg-gray-50 dark:bg-gray-800 rounded-xl hover:shadow-lg transition-shadow duration-300">
-              <div className="text-green-600 dark:text-green-400 text-4xl mb-4">
-                <i className="fas fa-shield-alt"></i>
-              </div>
-              <h3 className="text-xl font-semibold mb-2">Safety First</h3>
-              <p className="text-gray-600 dark:text-gray-300">
-                Your safety is our priority with well-maintained equipment and trained staff.
-              </p>
-            </div>
-            <div className="text-center p-6 bg-gray-50 dark:bg-gray-800 rounded-xl hover:shadow-lg transition-shadow duration-300">
-              <div className="text-green-600 dark:text-green-400 text-4xl mb-4">
-                <i className="fas fa-leaf"></i>
-              </div>
-              <h3 className="text-xl font-semibold mb-2">Eco-Friendly</h3>
-              <p className="text-gray-600 dark:text-gray-300">
-                We're committed to sustainable tourism that protects Sri Lanka's natural heritage.
-              </p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Activities and Events Section */}
-      <ActivityEventCards />
-
       {/* Testimonials Section */}
-      <section className="py-16 bg-gray-50 dark:bg-gray-800">
+      <section className="py-16 bg-gray-50">
         <div className="container mx-auto px-4">
-          <h2 className="text-3xl font-semibold text-center text-green-700 dark:text-green-400 mb-12">
+          <h2 className="text-3xl font-semibold text-center text-green-700 mb-12">
             What Our Visitors Say
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            <div className="bg-white dark:bg-gray-900 p-6 rounded-xl shadow-md hover:shadow-lg transition-shadow duration-300">
+            <div className="bg-white p-6 rounded-xl shadow-md hover:shadow-lg transition-shadow duration-300">
               <div className="flex text-yellow-400 mb-4">
                 <i className="fas fa-star"></i>
                 <i className="fas fa-star"></i>
@@ -179,7 +101,7 @@ const Home = () => {
                 <i className="fas fa-star"></i>
                 <i className="fas fa-star"></i>
               </div>
-              <p className="text-gray-600 dark:text-gray-300 mb-4">
+              <p className="text-gray-600 mb-4">
                 "The leopard tracking experience was absolutely incredible! Our guide spotted three different leopards and shared so much knowledge about their behavior."
               </p>
               <div className="flex items-center">
@@ -190,7 +112,7 @@ const Home = () => {
                 </div>
               </div>
             </div>
-            <div className="bg-white dark:bg-gray-900 p-6 rounded-xl shadow-md hover:shadow-lg transition-shadow duration-300">
+            <div className="bg-white p-6 rounded-xl shadow-md hover:shadow-lg transition-shadow duration-300">
               <div className="flex text-yellow-400 mb-4">
                 <i className="fas fa-star"></i>
                 <i className="fas fa-star"></i>
@@ -198,7 +120,7 @@ const Home = () => {
                 <i className="fas fa-star"></i>
                 <i className="fas fa-star"></i>
               </div>
-              <p className="text-gray-600 dark:text-gray-300 mb-4">
+              <p className="text-gray-600 mb-4">
                 "The whale watching tour exceeded all expectations. We saw blue whales, dolphins, and even a turtle! The crew was professional and knowledgeable."
               </p>
               <div className="flex items-center">
@@ -209,7 +131,7 @@ const Home = () => {
                 </div>
               </div>
             </div>
-            <div className="bg-white dark:bg-gray-900 p-6 rounded-xl shadow-md hover:shadow-lg transition-shadow duration-300">
+            <div className="bg-white p-6 rounded-xl shadow-md hover:shadow-lg transition-shadow duration-300">
               <div className="flex text-yellow-400 mb-4">
                 <i className="fas fa-star"></i>
                 <i className="fas fa-star"></i>
@@ -217,7 +139,7 @@ const Home = () => {
                 <i className="fas fa-star"></i>
                 <i className="fas fa-star"></i>
               </div>
-              <p className="text-gray-600 dark:text-gray-300 mb-4">
+              <p className="text-gray-600 mb-4">
                 "The bird watching expedition was a highlight of our Sri Lanka trip. Our guide could identify birds by their calls alone and knew all the best spots."
               </p>
               <div className="flex items-center">
@@ -233,7 +155,7 @@ const Home = () => {
       </section>
 
       {/* CTA Section */}
-      <section className="py-16 bg-green-600 dark:bg-green-700">
+      <section className="py-16 bg-green-600">
         <div className="container mx-auto px-4 text-center text-white">
           <h2 className="text-3xl font-bold mb-6">Ready for Your Wildlife Adventure?</h2>
           <p className="text-xl mb-8 max-w-2xl mx-auto">
@@ -246,25 +168,6 @@ const Home = () => {
       </section>
 
       <Footer />
-      
-      {/* Add custom CSS for animations */}
-      <style jsx>{`
-        @keyframes fadeIn {
-          from { opacity: 0; transform: translateY(20px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-        .animate-fade-in {
-          animation: fadeIn 1s ease-out forwards;
-        }
-        .animate-fade-in-delay {
-          animation: fadeIn 1s ease-out 0.3s forwards;
-          opacity: 0;
-        }
-        .animate-fade-in-delay-2 {
-          animation: fadeIn 1s ease-out 0.6s forwards;
-          opacity: 0;
-        }
-      `}</style>
     </div>
   );
 };
