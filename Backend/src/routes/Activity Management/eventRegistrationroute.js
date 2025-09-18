@@ -1,21 +1,27 @@
 import express from 'express';
-import { createEventRegistration, modifyEventRegistration, removeEventRegistration ,getAllEventRegistrations,getEventRegistrationById} from '../../controllers/Activity Management/eventRegistrationcontroller.js';
+import {
+    createEventRegistration,
+    modifyEventRegistration,
+    deleteEventRegistration,
+    getAllRegistrations,
+    getRegistrationById,
+} from '../../controllers/Activity Management/eventRegistrationcontroller.js';
 
 const router = express.Router();
 
-// POST - Tourist registers for an event
-router.post('/create', createEventRegistration);
+// POST - User registers for an event
+router.post('/', createEventRegistration);
 
-// PUT - Modify an existing event registration (e.g., change number of participants)
-router.put('/modify/:id', modifyEventRegistration);
+// PUT - User modifies their event registration
+router.put('/:id', modifyEventRegistration);
 
-// DELETE - Tourist deletes their event registration
-router.delete('/delete/:id', removeEventRegistration);
+// DELETE - User deletes their event registration
+router.delete('/:id', deleteEventRegistration);
 
-//get all event registrations
-router.get('/', getAllEventRegistrations);
+// GET - Admin gets all event registrations
+router.get('/', getAllRegistrations);
 
-//get event registration by id
-router.get('/:id', getEventRegistrationById);
+// GET - Get a single event registration by ID
+router.get('/:id', getRegistrationById);
 
 export default router;

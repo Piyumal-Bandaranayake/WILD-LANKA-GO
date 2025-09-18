@@ -2,7 +2,7 @@ import Booking from '../../models/Activity Management/Booking.js';
 import Activity from '../../models/Activity Management/Activity.js'; 
 
 export const createBooking = async (req, res) => {
-  const { touristId, activityId,  bookingDate, numberOfParticipants, requestTourGuide, preferredDate } = req.body;
+  const { userId, activityId,  bookingDate, numberOfParticipants, requestTourGuide, preferredDate } = req.body;
 
   try {
     // 1. Check if the activity exists
@@ -19,7 +19,7 @@ export const createBooking = async (req, res) => {
 
     // 3. Create the booking
     const newBooking = new Booking({
-      touristId,
+      userId,
       activityId,
       bookingDate: bookingDate || Date.now(),
       numberOfParticipants,
@@ -44,7 +44,7 @@ export const createBooking = async (req, res) => {
 // Get all bookings (for officers/admins to manage)
 export const getAllBookings = async (req, res) => {
   try {
-    const bookings = await Booking.find().populate('touristId', 'activityId');
+    const bookings = await Booking.find().populate('userId', 'activityId');
     res.status(200).json(bookings);
   } catch (error) {
     res.status(500).json({ message: 'Error fetching bookings', error: error.message });
@@ -58,7 +58,7 @@ export const getBookingById = async (req, res) => {
 
   try {
     // 1. Find the booking by ID
-    const booking = await Booking.findById(id).populate('touristId', 'activityId');
+    const booking = await Booking.findById(id).populate('userId', 'activityId');
     
     if (!booking) {
       return res.status(404).json({ message: 'Booking not found' });

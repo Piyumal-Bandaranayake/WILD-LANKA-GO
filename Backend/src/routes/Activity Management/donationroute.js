@@ -1,18 +1,26 @@
 import express from 'express';
-import { makeDonation, getDonationHistory, getAllDonations ,updateDonationMessage} from '../../controllers/Activity Management/donationcontroller.js';
+import {
+    makeDonation,
+    getDonationHistory,
+    getAllDonations,
+    updateDonationMessage,
+} from '../../controllers/Activity Management/donationcontroller.js';
 
 const router = express.Router();
 
-// POST - Tourist makes a donation
-router.post('/donate', makeDonation);
+// GET - Get all donations (for public display)
+router.get('/', getAllDonations);
 
-// GET - Tourist can view their donation history
-router.get('/history/:touristId', getDonationHistory);
+// POST - User makes a donation
+router.post('/', makeDonation);
 
-// GET - Admin can view all donations made by all tourists
+// GET - User can view their donation history
+router.get('/history/:userId', getDonationHistory);
+
+// GET - Admin can view all donations made by all users
 router.get('/all', getAllDonations);
 
-// PUT - Tourist can update their donation message
-router.put('/update/:id', updateDonationMessage);
+// PUT - User can update their donation message
+router.put('/:id', updateDonationMessage);
 
 export default router;
