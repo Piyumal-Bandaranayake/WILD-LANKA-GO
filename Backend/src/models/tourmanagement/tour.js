@@ -4,7 +4,7 @@ const tourSchema = new mongoose.Schema({
   // Reference to the original booking (from tourist)
   bookingId: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'booking', // must match your Booking model
+    ref: 'Booking', // must match your Booking model
     required: true,
     unique: true // One tour per booking
   },

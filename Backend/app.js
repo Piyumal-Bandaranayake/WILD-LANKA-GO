@@ -4,10 +4,13 @@ import cors from 'cors';
 import multer from 'multer'; // Multer for handling file uploads
 import path from 'path';
 
-// Import routes
+
+
 import tourRejectionRoutes from './src/routes/tourmanagement/rejectionroute.js';
 import tourMaterialRoutes from './src/routes/tourmanagement/tourMaterialRoute.js';
-import fuelClaimRoutes from './src/routes/tourmanagement/fuelClaimRoute.js';
+import fuelClaimRoutes from './src/routes/tourmanagement/fuelClaimRoute.js'; // ✅ NEW
+import tourRoutes from './src/routes/tourmanagement/tourroutes.js';
+
 
 import applicationRoutes from './src/routes/tourmanagement/applicationRoutes.js';
 import eventRoutes from './src/routes/Activity Management/eventroute.js'; // Import event routes
@@ -47,6 +50,10 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+
+// ---------- Public Routes ---------- //
+app.use('/api/tour', tourRoutes);
+
 // Serve static files from the 'uploads' folder (where images will be stored)
 app.use('/uploads', express.static('uploads'));  // Important for serving uploaded images
 
@@ -66,6 +73,7 @@ import animalCaseRoutes from './src/routes/Animal Care Management/animalCaseRout
 app.use('/api/animal-cases', animalCaseRoutes);  // Use multer upload middleware for image handling
 
 /* Other Routes */
+
 app.use('/api/tourists', touristRoutes);
 app.use('/api/drivers', driverRoutes);
 app.use('/api/tourGuides', tourGuideRoutes);

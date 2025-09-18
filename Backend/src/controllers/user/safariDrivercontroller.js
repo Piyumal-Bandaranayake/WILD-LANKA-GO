@@ -35,6 +35,10 @@ const registerSafariDriver = async (req, res) => {
       isActive: true
     });
 
+
+
+
+
     if (existingDriver) {
       if (existingDriver.Email === Email.toLowerCase()) {
         return res.status(400).json({ message: 'Email already registered' });
@@ -48,6 +52,7 @@ const registerSafariDriver = async (req, res) => {
       if (existingDriver.vehicleNumber === vehicleNumber.toUpperCase().trim()) {
         return res.status(400).json({ message: 'Vehicle Number already exists' });
       }
+
     }
 
     // ✅ Create new driver

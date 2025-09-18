@@ -50,3 +50,23 @@ export const getAllBookings = async (req, res) => {
     res.status(500).json({ message: 'Error fetching bookings', error: error.message });
   }
 };
+
+
+// Get a single booking by ID
+export const getBookingById = async (req, res) => {
+  const { id } = req.params;  // Get the booking ID from the URL parameter
+
+  try {
+    // 1. Find the booking by ID
+    const booking = await Booking.findById(id).populate('touristId', 'activityId');
+    
+    if (!booking) {
+      return res.status(404).json({ message: 'Booking not found' });
+    }
+
+    // 2. Return the booking details
+    res.status(200).json(booking);
+  } catch (error) {
+    res.status(500).json({ message: 'Error fetching booking', error: error.message });
+  }
+};
