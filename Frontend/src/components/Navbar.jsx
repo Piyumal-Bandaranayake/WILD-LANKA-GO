@@ -1,17 +1,41 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import { useAuthContext } from '../contexts/AuthContext';
+import ProfileImage from './ProfileImage';
 import logo from '../assets/logo.png'; // ✅ Update path if needed
 
 const NavBar = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
+  const { 
+    isFullyAuthenticated, 
+    isLoading, 
+    user, 
+    backendUser, 
+    loginWithRedirect, 
+    logout 
+  } = useAuthContext();
 
   const navLinks = [
     { name: 'Home', path: '/' },
-    { name: 'Activity', path: '/activity' },
-    { name: 'Event', path: '/event' },
+    { name: 'Activities', path: '/activities' },
+    { name: 'Events', path: '/events' },
     { name: 'About', path: '/about' },
-    { name: 'Contact', path: '/contact' },
+    { name: 'Donations', path: '/donations' },
+  ];
+
+  const protectedNavLinks = [
+    { name: 'Dashboard', path: '/dashboard' },
+    { name: 'Animal Care', path: '/animal-care' },
+    { name: 'Feedback', path: '/feedback' },
+    { name: 'Complaints', path: '/complaints' },
+    { name: 'Profile', path: '/profile' },
+  ];
+
+  const adminNavLinks = [
+    { name: 'User Management', path: '/user-management' },
+    { name: 'Emergency Officer', path: '/emergency/officer' },
+    { name: 'Tour Management', path: '/AllToursPage' },
   ];
 
   // Scroll listener to detect if the page has been scrolled
@@ -47,16 +71,42 @@ const NavBar = () => {
             </Link>
           </li>
         ))}
+        {isFullyAuthenticated && protectedNavLinks.map((link, index) => (
+          <li key={`protected-${index}`}>
+            <Link to={link.path} className="hover:text-green-600 transition-colors">
+              {link.name}
+            </Link>
+          </li>
+        ))}
       </ul>
 
       {/* Right Buttons */}
       <div className="flex items-center gap-4">
-        {/* Login Button */}
-        <button
-          className="bg-white text-gray-600 border border-gray-300 hover:bg-green-100 transition-colors px-6 py-2 rounded-full text-sm"
-        >
-          Login
-        </button>
+        {/* Login/Logout Button */}
+        {!isFullyAuthenticated ? (
+          <button
+            className="bg-white text-gray-600 border border-gray-300 hover:bg-green-100 transition-colors px-6 py-2 rounded-full text-sm"
+            onClick={() => loginWithRedirect()}
+            disabled={isLoading}
+          >
+            {isLoading ? 'Loading...' : 'Login'}
+          </button>
+        ) : (
+          <div className="flex items-center gap-3">
+            <ProfileImage
+              src={user?.picture}
+              alt={user?.name}
+              fallbackText={user?.name}
+              className="w-8 h-8 rounded-full border-2 border-green-600"
+            />
+            <button
+              className="bg-white text-gray-600 border border-gray-300 hover:bg-green-100 transition-colors px-6 py-2 rounded-full text-sm"
+              onClick={() => logout({ logoutParams: { returnTo: window.location.origin } })}
+            >
+              Logout
+            </button>
+          </div>
+        )}
 
         {/* Mobile Menu Button */}
         <button
@@ -80,12 +130,43 @@ const NavBar = () => {
                 </Link>
               </li>
             ))}
+            {isFullyAuthenticated && protectedNavLinks.map((link, index) => (
+              <li key={`mobile-protected-${index}`}>
+                <Link to={link.path} className="text-sm hover:text-green-600 transition-colors">
+                  {link.name}
+                </Link>
+              </li>
+            ))}
           </ul>
 
-          {/* Mobile Login */}
-          <button className="bg-white text-gray-600 border border-gray-300 hover:bg-green-100 transition-colors mt-6 px-6 py-2 rounded-full text-sm">
-            Login
-          </button>
+          {/* Mobile Login/Logout */}
+          {!isFullyAuthenticated ? (
+            <button
+              className="bg-white text-gray-600 border border-gray-300 hover:bg-green-100 transition-colors mt-6 px-6 py-2 rounded-full text-sm"
+              onClick={() => loginWithRedirect()}
+              disabled={isLoading}
+            >
+              {isLoading ? 'Loading...' : 'Login'}
+            </button>
+          ) : (
+            <div className="mt-6">
+              <div className="flex items-center gap-2 mb-3">
+                <ProfileImage
+                  src={user?.picture}
+                  alt={user?.name}
+                  fallbackText={user?.name}
+                  className="w-8 h-8 rounded-full border-2 border-green-600"
+                />
+                <span className="text-sm text-gray-700">{user?.name}</span>
+              </div>
+              <button
+                className="bg-white text-gray-600 border border-gray-300 hover:bg-green-100 transition-colors px-6 py-2 rounded-full text-sm"
+                onClick={() => logout({ logoutParams: { returnTo: window.location.origin } })}
+              >
+                Logout
+              </button>
+            </div>
+          )}
         </div>
       )}
     </nav>
