@@ -120,6 +120,7 @@ export const protectedApi = {
   
   // Treatment endpoints
   getTreatmentsByCase: (caseId, params) => api.get(`/animal-cases/${caseId}/treatments`, { params }),
+  getTreatments: () => api.get('/animal-cases/treatments'),
   createTreatment: (caseId, formData) => api.post(`/animal-cases/${caseId}/treatments`, formData, {
     headers: { 'Content-Type': 'multipart/form-data' }
   }),
@@ -129,6 +130,18 @@ export const protectedApi = {
   }),
   deleteTreatmentImage: (treatmentId, imageId) => api.delete(`/animal-cases/treatments/${treatmentId}/images/${imageId}`),
   generateTreatmentReport: (caseId, params) => api.get(`/animal-cases/${caseId}/treatments/report`, { params }),
+
+  // Medication endpoints
+  getMedications: () => api.get('/medications'),
+  getMedicationInventory: () => api.get('/medications'), // Same as getMedications for now
+  createMedication: (data) => api.post('/medications', data),
+  updateMedication: (id, data) => api.put(`/medications/${id}`, data),
+  deleteMedication: (id) => api.delete(`/medications/${id}`),
+
+  // Collaboration endpoints
+  getVetCollaborations: () => api.get('/collaboration/collaborating-cases'),
+  createCollaboration: (data) => api.post('/collaboration', data),
+  updateCollaboration: (id, data) => api.put(`/collaboration/${id}`, data),
   createAnimalCaseWithImages: (formData) => api.post('/animal-cases/with-images', formData, {
     headers: { 'Content-Type': 'multipart/form-data' }
   }),
