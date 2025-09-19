@@ -67,11 +67,147 @@ const animalCaseSchema = new mongoose.Schema({
       height: { type: Number }
     }
   }],
+  assignedVet: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    default: null,
+  },
+  assignedDate: {
+    type: Date,
+    default: null,
+  },
+  assignedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    default: null,
+  },
   status: {
     type: String,
     enum: ['Unassigned', 'Assigned', 'In Progress', 'Completed'],
     default: 'Unassigned',
     required: true,
+  },
+  completedDate: {
+    type: Date,
+    default: null,
+  },
+  collaboratingVets: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+  }],
+  collaborationComments: [{
+    veterinarian: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      required: true,
+    },
+    comment: { type: String, required: true },
+    isPrivate: { type: Boolean, default: false },
+    timestamp: { type: Date, default: Date.now },
+  }],
+  collaborationHistory: [{
+    action: {
+      type: String,
+      enum: ['shared', 'transferred', 'collaboration_removed', 'access_granted'],
+      required: true,
+    },
+    performedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      required: true,
+    },
+    targetVet: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+    },
+    previousVet: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+    },
+    reason: { type: String },
+    message: { type: String },
+    accessLevel: {
+      type: String,
+      enum: ['view', 'edit', 'full'],
+      default: 'view',
+    },
+    timestamp: { type: Date, default: Date.now },
+  }],
+  estimatedRecoveryTime: {
+    type: String,
+    default: '',
+  },
+  treatmentCost: {
+    type: Number,
+    default: 0,
+  },
+  medications: [{
+    medication: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Medication',
+    },
+    dosage: { type: String },
+    frequency: { type: String },
+    startDate: { type: Date },
+    endDate: { type: Date },
+    notes: { type: String },
+  }],
+  gpsTracking: {
+    isActive: { type: Boolean, default: false },
+    deviceId: { type: String, default: '' },
+    enabledAt: { type: Date },
+    enabledBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+    },
+    disabledAt: { type: Date },
+    disabledBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+    },
+    disabledReason: { type: String },
+    lastLocation: {
+      latitude: { type: Number },
+      longitude: { type: Number },
+      timestamp: { type: Date },
+    },
+    locationHistory: [{
+      latitude: { type: Number, required: true },
+      longitude: { type: Number, required: true },
+      timestamp: { type: Date, default: Date.now },
+      batteryLevel: { type: Number }, // GPS device battery percentage
+      signalStrength: { type: Number }, // Signal strength percentage
+      recordedBy: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User',
+      },
+    }],
+    safeZone: {
+      center: {
+        latitude: { type: Number },
+        longitude: { type: Number },
+      },
+      radius: { type: Number }, // in meters
+    },
+    alerts: [{
+      type: {
+        type: String,
+        enum: ['geofence_violation', 'no_movement', 'low_battery', 'device_offline'],
+      },
+      message: { type: String },
+      severity: {
+        type: String,
+        enum: ['low', 'medium', 'high', 'critical'],
+        default: 'medium',
+      },
+      timestamp: { type: Date, default: Date.now },
+      acknowledged: { type: Boolean, default: false },
+      acknowledgedBy: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User',
+      },
+      acknowledgedAt: { type: Date },
+    }],
   },
   createdAt: {
     type: Date,

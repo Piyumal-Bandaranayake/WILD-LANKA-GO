@@ -9,7 +9,8 @@ import {
     updateAnimalCase,
     assignCaseToVet,
     deleteImageFromCase,
-    getVetDashboardStats
+    getVetDashboardStats,
+    getAllTreatments
 } from '../../controllers/animalCare/animalCareController.js';
 import {
     createTreatment,
@@ -57,6 +58,7 @@ const upload = multer({
 // Animal Case Routes
 router.get('/', auth0UserInfoMiddleware, getAnimalCases);
 router.get('/dashboard/stats', auth0UserInfoMiddleware, getVetDashboardStats);
+router.get('/treatments', auth0UserInfoMiddleware, getAllTreatments);
 router.get('/:id', auth0UserInfoMiddleware, getAnimalCaseById);
 router.post('/', auth0UserInfoMiddleware, upload.array('images', 10), createAnimalCase);
 router.put('/:id', auth0UserInfoMiddleware, upload.array('images', 10), updateAnimalCase);
