@@ -54,10 +54,19 @@ const animalCaseSchema = new mongoose.Schema({
     type: String,
     default: '', // Additional notes, if any
   },
-  photosDocumentation: {
-    type: [String], // Array of image URLs for photos of the animal, injury, etc.
-    default: [],
-  },
+  photosDocumentation: [{
+    public_id: { type: String, required: true },
+    url: { type: String, required: true },
+    thumbnail_url: { type: String },
+    description: { type: String, default: '' },
+    uploaded_at: { type: Date, default: Date.now },
+    uploaded_by: { type: String, default: '' },
+    file_size: { type: Number },
+    dimensions: {
+      width: { type: Number },
+      height: { type: Number }
+    }
+  }],
   status: {
     type: String,
     enum: ['Unassigned', 'Assigned', 'In Progress', 'Completed'],

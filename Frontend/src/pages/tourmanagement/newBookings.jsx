@@ -216,7 +216,7 @@ export default function NewBookings() {
             >
               guide GuideDashboard
             </Link>
-            
+
             <Link
               to="/ApplyJobForm"
               className="rounded-xl bg-blue-600 text-white px-4 py-2 text-sm font-medium hover:bg-blue-700"

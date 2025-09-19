@@ -1,91 +1,82 @@
+import User from '../../models/User.js';
 import Donation from '../../models/Activity Management/donation.js';
-import User from '../../models/User/tourist.js';  // Assuming you have a User model
 
-// 1. MAKE DONATION: Tourist makes a general donation to support conservation
-export const makeDonation = async (req, res) => {
-  const { touristId, amount, message } = req.body;  // Collect donation details
+// 1. MAKE DONATION: User makes a general donation to support conservation
+const makeDonation = async (req, res) => {
+    const { userId, amount, message } = req.body;  // Collect donation details
 
-  try {
-    // Check if the tourist exists
-    const tourist = await User.findById(touristId);
-    if (!tourist) {
-      return res.status(404).json({ message: 'Tourist not found' });
+    try {
+        // Check if the user exists
+        const user = await User.findById(userId);
+        if (!user) {
+            return res.status(404).json({ message: 'User not found' });
+        }
+
+        // Create the donation
+        const newDonation = new Donation({
+            userId,
+            amount,
+            message,
+        });
+
+        await newDonation.save();
+        res.status(201).json({ message: 'Donation successful', donation: newDonation });
+    } catch (error) {
+        res.status(500).json({ message: 'Error making donation', error: error.message });
     }
-
-    // Create the donation record
-    const newDonation = new Donation({
-      touristId,
-      amount,
-      message,
-    });
-
-    // Save the donation
-    await newDonation.save();
-
-    res.status(201).json({ message: 'Donation successful', donation: newDonation });
-  } catch (error) {
-    res.status(500).json({ message: 'Error making donation', error: error.message });
-  }
 };
 
-// 2. GET DONATION HISTORY: Tourist can see all their donations
-export const getDonationHistory = async (req, res) => {
-  const { touristId } = req.params;  // Extract touristId from params
+// 2. GET DONATION HISTORY: User can see all their donations
+const getDonationHistory = async (req, res) => {
+    const { userId } = req.params;  // Extract userId from params
 
-  try {
-    // Find all donations made by the tourist
-    const donations = await Donation.find({ touristId }).populate('touristId');  // Populate tourist details
-
-    if (!donations || donations.length === 0) {
-      return res.status(404).json({ message: 'No donations found' });
+    try {
+        // Find all donations made by the user
+        const donations = await Donation.find({ userId }).populate('userId');  // Populate user details
+        res.status(200).json(donations);
+    } catch (error) {
+        res.status(500).json({ message: 'Error fetching donation history', error: error.message });
     }
-
-    res.status(200).json(donations);
-  } catch (error) {
-    res.status(500).json({ message: 'Error fetching donation history', error: error.message });
-  }
 };
 
-// 3. GET ALL DONATIONS: Admin can view all donations made by all tourists
-export const getAllDonations = async (req, res) => {
-  try {
-    // Fetch all donations from the database
-    const donations = await Donation.find().populate('touristId');  // Populate tourist details
-
-    if (!donations || donations.length === 0) {
-      return res.status(404).json({ message: 'No donations found' });
+// 3. GET ALL DONATIONS: Admin can view all donations made by all users
+const getAllDonations = async (req, res) => {
+    try {
+        const donations = await Donation.find().populate('userId');  // Populate user details
+        res.status(200).json(donations);
+    } catch (error) {
+        res.status(500).json({ message: 'Error fetching all donations', error: error.message });
     }
-
-    res.status(200).json(donations);
-  } catch (error) {
-    res.status(500).json({ message: 'Error fetching all donations', error: error.message });
-  }
 };
-// 3. UPDATE MESSAGE: Tourist can update only the message of their donation
-export const updateDonationMessage = async (req, res) => {
-  const { id } = req.params;  // Donation ID to be updated
-  const { message } = req.body;  // New message
 
-  try {
-    // Find the donation by ID
-    const donation = await Donation.findById(id);
+// 4. UPDATE MESSAGE: User can update only the message of their donation
+const updateDonationMessage = async (req, res) => {
+    const { id } = req.params;
+    const { message, userId } = req.body; // userId is needed for authorization
 
-    if (!donation) {
-      return res.status(404).json({ message: 'Donation not found' });
+    try {
+        const donation = await Donation.findById(id);
+        if (!donation) {
+            return res.status(404).json({ message: 'Donation not found' });
+        }
+
+        // Ensure the user updating the message is the one who made the donation
+        if (donation.userId.toString() !== userId) {
+            return res.status(403).json({ message: 'You are not authorized to update this donation' });
+        }
+
+        donation.message = message;
+        await donation.save();
+
+        res.status(200).json({ message: 'Donation message updated successfully', donation });
+    } catch (error) {
+        res.status(500).json({ message: 'Error updating donation message', error: error.message });
     }
+};
 
-    // Ensure the tourist updating the message is the one who made the donation
-    if (donation.touristId.toString() !== req.body.touristId) {
-      return res.status(403).json({ message: 'You can only update your own donation message' });
-    }
-
-    // Update the message
-    donation.message = message || donation.message;
-
-    await donation.save();
-
-    res.status(200).json({ message: 'Donation message updated successfully', donation });
-  } catch (error) {
-    res.status(500).json({ message: 'Error updating donation message', error: error.message });
-  }
+export {
+    makeDonation,
+    getDonationHistory,
+    getAllDonations,
+    updateDonationMessage,
 };

@@ -3,8 +3,7 @@ import dotenv from 'dotenv';
 import cors from 'cors';
 import multer from 'multer'; // Multer for handling file uploads
 import path from 'path';
-
-
+import { fileURLToPath } from 'url';
 
 import tourRejectionRoutes from './src/routes/tourmanagement/rejectionroute.js';
 import tourMaterialRoutes from './src/routes/tourmanagement/tourMaterialRoute.js';
@@ -19,7 +18,7 @@ import eventRegistrationroutes from './src/routes/Activity Management/eventRegis
 import Booking from './src/routes/Activity Management/Bookingroute.js'; // Import booking routes
 import Donation from './src/routes/Activity Management/donationroute.js'; // Import donation routes  
 
-import touristRoutes from './src/routes/user/touristroute.js';
+import userRoutes from './src/routes/user/userroute.js';
 import driverRoutes from './src/routes/user/safariDriverroute.js';
 import tourGuideRoutes from './src/routes/user/tourGuideroute.js';
 import wildlifeOfficerRoutes from './src/routes/user/Wildlifeofficerroute.js';
@@ -38,6 +37,8 @@ import emergencyReportRoutes from './src/routes/emergency/emergencyReportRoute.j
 
 import connectDB from './src/config/DB.js';
 import medicationRoutes from './src/routes/Animal Care Management/medicationRoutes.js';
+import authRoutes from './src/routes/auth/auth.js';
+import { scheduleCleanup } from './src/utils/cacheCleanup.js';
 
 // Load environment variables
 dotenv.config();
@@ -50,12 +51,15 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
 
 // ---------- Public Routes ---------- //
 app.use('/api/tour', tourRoutes);
 
 // Serve static files from the 'uploads' folder (where images will be stored)
-app.use('/uploads', express.static('uploads'));  // Important for serving uploaded images
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));  // Important for serving uploaded images
 
 /* Multer Configuration for File Uploads */
 const storage = multer.diskStorage({
@@ -73,8 +77,12 @@ import animalCaseRoutes from './src/routes/Animal Care Management/animalCaseRout
 app.use('/api/animal-cases', animalCaseRoutes);  // Use multer upload middleware for image handling
 
 /* Other Routes */
+import tokenTestRoutes from './src/routes/test/tokenTest.js';
+import profileImageRoutes from './src/routes/user/profileImageRoute.js';
 
-app.use('/api/tourists', touristRoutes);
+app.use('/api/test', tokenTestRoutes);
+app.use('/api/profile-image', profileImageRoutes);
+app.use('/api/users', userRoutes);
 app.use('/api/drivers', driverRoutes);
 app.use('/api/tourGuides', tourGuideRoutes);
 app.use('/api/wildlifeOfficers', wildlifeOfficerRoutes);
@@ -85,6 +93,7 @@ app.use('/api/admins', adminRoutes);
 app.use('/api/feedbacks', feedbackRoutes);
 app.use('/api/complaints', complaintRoutes);
 app.use('/api/chatbot', chatbotRoutes);
+app.use('/api/auth', authRoutes);
 
 // Management Routes
 app.use('/api/tour-rejection', tourRejectionRoutes);
@@ -112,5 +121,10 @@ app.use((err, req, res, next) => {
 });
 
 // Start server
-const port = process.env.PORT || 5000;
-app.listen(port, () => console.log(`🚀 Server running on port ${port}`));
+const port = process.env.PORT || 5001;
+app.listen(port, () => {
+  console.log(`🚀 Server running on port ${port}`);
+  
+  // Schedule cache cleanup
+  scheduleCleanup();
+});

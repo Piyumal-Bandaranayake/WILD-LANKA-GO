@@ -12,7 +12,8 @@ function Chatbot() {
     setMessages(newMessages);
 
     // Send to backend
-    const res = await fetch("http://localhost:5001/api/chatbot/chat", {
+    const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5001/api';
+    const res = await fetch(`${API_BASE_URL}/chatbot/chat`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ message: input }),
