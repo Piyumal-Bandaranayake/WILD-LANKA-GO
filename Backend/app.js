@@ -74,7 +74,12 @@ const upload = multer({ storage });  // Initialize multer with the storage confi
 
 /* Routes for Animal Care Management */
 import animalCaseRoutes from './src/routes/Animal Care Management/animalCaseRoutes.js'; // Import animal case routes
+import collaborationRoutes from './src/routes/Animal Care Management/collaborationRoutes.js'; // Import collaboration routes
+import gpsTrackingRoutes from './src/routes/Animal Care Management/gpsTrackingRoutes.js'; // Import GPS tracking routes
 app.use('/api/animal-cases', animalCaseRoutes);  // Use multer upload middleware for image handling
+app.use('/api/medications', medicationRoutes);  // Add medication routes
+app.use('/api/collaboration', collaborationRoutes);  // Add collaboration routes
+app.use('/api/gps-tracking', gpsTrackingRoutes);  // Add GPS tracking routes
 
 /* Other Routes */
 import tokenTestRoutes from './src/routes/test/tokenTest.js';
@@ -89,7 +94,8 @@ app.use('/api/wildlifeOfficers', wildlifeOfficerRoutes);
 app.use('/api/vets', vetRoutes);
 app.use('/api/emergencyOfficers', emergencyOfficeroutes);
 app.use('/api/callOperators', callOperatorRoutes);
-app.use('/api/admins', adminRoutes);
+app.use('/api/admins', adminRoutes);  // Plural for consistency with existing code
+app.use('/api/admin', adminRoutes);   // Singular to match frontend expectations
 app.use('/api/feedbacks', feedbackRoutes);
 app.use('/api/complaints', complaintRoutes);
 app.use('/api/chatbot', chatbotRoutes);
