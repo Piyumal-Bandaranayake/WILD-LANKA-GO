@@ -20,9 +20,11 @@ const Footer = () => {
               <button className="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-full transition-colors">
                 Get Started Today
               </button>
+              <Link to="/contact">
               <button className="bg-white text-green-600 border border-green-600 hover:bg-green-50 px-6 py-2 rounded-full transition-colors">
                 Contact Us
               </button>
+              </Link>
             </div>
             <p className="text-gray-600">
               Discover Sri Lanka's incredible wildlife through expert-guided experiences. 

@@ -29,6 +29,7 @@ import EmergencyList from './pages/emergency/EmergencyList';
 import TourList from './pages/tourmanagement/TourList';
 import AdminDashboard from './pages/admin/AdminDashboard';
 import FuelClaimList from './pages/fuel-claims/FuelClaimList';
+import ContactUs from './pages/contactus';
 
 function App() {
   return (
@@ -36,6 +37,7 @@ function App() {
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/about" element={<AboutUs />} />
+        <Route path="/contact" element={<ContactUs />} />
         <Route path="/dashboard" element={<Dashboard />} />
 
         {/* Tour Management Routes */}
@@ -81,6 +83,8 @@ function App() {
 
         {/* User Profile */}
         <Route path="/profile" element={<Profile />} />
+
+        
       </Routes>
     </Router>
   );
