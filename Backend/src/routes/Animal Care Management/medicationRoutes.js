@@ -1,35 +1,36 @@
 import express from 'express';
-import { 
-  addMedication,
-  updateMedicationStock,
-  orderMedication,  // Order medication when stock is low
-  updateMedication,
-  getAllMedications,
+import {
+  getMedications,
   getMedicationById,
-  deleteMedication
-} from '../../controllers/Animal Care Management/medicationController.js';
+  createMedication,
+  updateMedication,
+  useMedication,
+  requestRestock,
+  handleRestockRequest,
+  getRestockRequests,
+  getMedicationAlerts,
+  generateUsageReport,
+  deleteMedication,
+  bulkUpdateQuantities
+} from '../../controllers/animalCare/medicationController.js';
+import auth0UserInfoMiddleware from '../../middleware/auth0UserInfoMiddleware.js';
 
 const router = express.Router();
 
-// Add new medication to inventory
-router.post('/', addMedication);
+// Medication CRUD routes
+router.get('/', auth0UserInfoMiddleware, getMedications);
+router.get('/alerts', auth0UserInfoMiddleware, getMedicationAlerts);
+router.get('/restock-requests', auth0UserInfoMiddleware, getRestockRequests);
+router.get('/usage-report', auth0UserInfoMiddleware, generateUsageReport);
+router.get('/:id', auth0UserInfoMiddleware, getMedicationById);
+router.post('/', auth0UserInfoMiddleware, createMedication);
+router.put('/:id', auth0UserInfoMiddleware, updateMedication);
+router.delete('/:id', auth0UserInfoMiddleware, deleteMedication);
 
-// Update medication stock after receiving new stock
-router.put('/update-stock', updateMedicationStock);
-
-// Order medication from supplier when stock is low
-router.post('/order', orderMedication);  // POST request to order medication
-
-// Get all medications
-router.get('/', getAllMedications);
-
-// Get medication by ID
-router.get('/:id', getMedicationById);
-
-// Update medication
-router.put('/:id', updateMedication);
-
-// Delete medication
-router.delete('/:id', deleteMedication);
+// Medication usage and inventory management
+router.post('/:id/use', auth0UserInfoMiddleware, useMedication);
+router.post('/:id/restock-request', auth0UserInfoMiddleware, requestRestock);
+router.put('/:id/restock-requests/:requestId', auth0UserInfoMiddleware, handleRestockRequest);
+router.post('/bulk-update', auth0UserInfoMiddleware, bulkUpdateQuantities);
 
 export default router;

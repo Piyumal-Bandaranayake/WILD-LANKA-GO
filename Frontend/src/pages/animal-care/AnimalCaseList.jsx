@@ -12,6 +12,10 @@ const AnimalCaseList = () => {
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [selectedCase, setSelectedCase] = useState(null);
 
+    // Debug logging
+    console.log('🐾 AnimalCaseList - backendUser:', backendUser);
+    console.log('🐾 AnimalCaseList - cases state:', cases, 'is array:', Array.isArray(cases));
+
     const [newCase, setNewCase] = useState({
         animalType: '',
         description: '',
@@ -30,17 +34,58 @@ const AnimalCaseList = () => {
     const [uploadingImages, setUploadingImages] = useState(false);
 
     useEffect(() => {
-        fetchCases();
-    }, []);
+        // Only fetch cases when user is authenticated with backend
+        if (backendUser) {
+            fetchCases();
+        }
+    }, [backendUser]);
 
-    const fetchCases = async () => {
+    const fetchCases = async (retryCount = 0) => {
         try {
             setLoading(true);
+            setError(null);
+            
+            // Check if user is authenticated
+            if (!backendUser) {
+                setError('Please wait for authentication to complete...');
+                return;
+            }
+            
+            // Add a small delay to ensure token is properly set
+            if (retryCount === 0) {
+                await new Promise(resolve => setTimeout(resolve, 500));
+            }
+            
+            console.log('🔄 Fetching animal cases for user:', backendUser.email);
             const response = await protectedApi.getAnimalCases();
-            setCases(response.data || []);
+            console.log('✅ API Response received:', response); // Debug log
+            
+            // Handle the correct backend response structure
+            let casesData = [];
+            if (response.data && response.data.cases && Array.isArray(response.data.cases)) {
+                casesData = response.data.cases;
+            } else if (Array.isArray(response.data)) {
+                casesData = response.data;
+            }
+            
+            console.log('📝 Setting cases data:', casesData.length, 'cases'); // Debug log
+            setCases(casesData);
         } catch (error) {
-            console.error('Failed to fetch animal cases:', error);
-            setError('Failed to load animal cases');
+            console.error('❌ Failed to fetch animal cases:', error);
+            
+            // Retry once if it's a 401 error and we haven't retried yet
+            if (error.response?.status === 401 && retryCount === 0) {
+                console.log('🔄 Retrying after 401 error...');
+                setTimeout(() => fetchCases(1), 1000);
+                return;
+            }
+            
+            if (error.response?.status === 401) {
+                setError('Authentication required. Please log in again.');
+            } else {
+                setError('Failed to load animal cases. Please try again.');
+            }
+            setCases([]); // Ensure cases is always an array
         } finally {
             setLoading(false);
         }
@@ -163,6 +208,28 @@ const AnimalCaseList = () => {
         );
     }
 
+    // Safety check to ensure cases is always an array
+    const safeCases = Array.isArray(cases) ? cases : [];
+    
+    console.log('🐾 Render - safeCases:', safeCases, 'length:', safeCases.length);
+
+    // Show loading if not authenticated or if waiting for initial data
+    if (!backendUser || loading) {
+        return (
+            <div className="flex flex-col min-h-screen">
+                <Navbar />
+                <div className="flex-1 pt-32 pb-16 flex items-center justify-center">
+                    <div className="text-center">
+                        <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-green-600 mx-auto mb-4"></div>
+                        <p className="text-gray-600">
+                            {!backendUser ? 'Authenticating...' : 'Loading animal cases...'}
+                        </p>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
     return (
         <div className="flex flex-col min-h-screen">
             <Navbar />
@@ -170,28 +237,46 @@ const AnimalCaseList = () => {
                 <div className="container mx-auto px-4">
                     <div className="flex justify-between items-center mb-8">
                         <h1 className="text-3xl font-bold text-gray-800">Animal Care Cases</h1>
-                        <button
-                            onClick={() => setShowCreateModal(true)}
-                            className="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 transition-colors"
-                        >
-                            Report New Case
-                        </button>
+                        <div className="flex gap-3">
+                            <button
+                                onClick={() => fetchCases()}
+                                className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
+                            >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                                </svg>
+                                Refresh
+                            </button>
+                            <button
+                                onClick={() => setShowCreateModal(true)}
+                                className="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 transition-colors"
+                            >
+                                Report New Case
+                            </button>
+                        </div>
                     </div>
 
                     {error && (
-                        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
-                            {error}
+                        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4 flex justify-between items-center">
+                            <span>{error}</span>
+                            <button
+                                onClick={() => fetchCases()}
+                                className="bg-red-600 text-white px-3 py-1 rounded text-sm hover:bg-red-700 transition-colors"
+                            >
+                                Retry
+                            </button>
                         </div>
                     )}
 
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                        {cases.map((animalCase) => (
-                            <div key={animalCase._id} className="bg-white rounded-lg shadow-md p-6">
-                                <div className="flex justify-between items-start mb-4">
-                                    <h3 className="text-xl font-semibold">Case #{animalCase.caseId || animalCase._id.slice(-6)}</h3>
-                                    <div className="flex gap-2">
-                                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(animalCase.status)}`}>
-                                            {animalCase.status}
+                        {safeCases.length > 0 ? (
+                            safeCases.map((animalCase) => (
+                                <div key={animalCase._id} className="bg-white rounded-lg shadow-md p-6">
+                                    <div className="flex justify-between items-start mb-4">
+                                        <h3 className="text-xl font-semibold">Case #{animalCase.caseId || animalCase._id.slice(-6)}</h3>
+                                        <div className="flex gap-2">
+                                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(animalCase.status)}`}>
+                                                {animalCase.status}
                                         </span>
                                         <div className={`w-3 h-3 rounded-full ${getPriorityColor(animalCase.priority)}`} title={`${animalCase.priority} Priority`}></div>
                                     </div>
@@ -302,10 +387,18 @@ const AnimalCaseList = () => {
                                     )}
                                 </div>
                             </div>
-                        ))}
+                            ))
+                        ) : (
+                            <div className="col-span-full text-center py-12">
+                                <p className="text-gray-500 text-lg">
+                                    {loading ? 'Loading animal cases...' : 'No animal cases found'}
+                                </p>
+                            </div>
+                        )}
                     </div>
 
-                    {cases.length === 0 && (
+                    {/* Keep the existing empty state message for when there are 0 cases */}
+                    {safeCases.length === 0 && !loading && (
                         <div className="text-center py-12">
                             <p className="text-gray-500 text-lg">No animal cases reported</p>
                         </div>

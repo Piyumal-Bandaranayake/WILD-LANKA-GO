@@ -35,7 +35,16 @@ export const getAnimalCases = async (req, res) => {
     const skip = (page - 1) * limit;
     
     const cases = await AnimalCase.find(filter)
-      .populate('assignedVet', 'name email role')
+      .populate({
+        path: 'assignedVet',
+        select: 'name email role',
+        strictPopulate: false
+      })
+      .populate({
+        path: 'collaboratingVets',
+        select: 'name email role',
+        strictPopulate: false
+      })
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(parseInt(limit));
@@ -343,5 +352,38 @@ export const getVetDashboardStats = async (req, res) => {
   } catch (error) {
     console.error('❌ Error fetching dashboard stats:', error);
     res.status(500).json({ message: 'Failed to fetch dashboard stats', error: error.message });
+  }
+};
+
+// Get all treatments for dashboard
+export const getAllTreatments = async (req, res) => {
+  try {
+    const { sub: auth0Id } = req.auth.payload;
+    
+    // Get current user
+    const currentUser = await User.findOne({ auth0Id });
+    if (!currentUser) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    let treatments;
+    
+    if (currentUser.role === 'vet') {
+      // Only get treatments assigned to this vet
+      treatments = await Treatment.find({ assignedVet: currentUser._id })
+        .populate('caseId', 'caseId animalType')
+        .sort({ createdAt: -1 });
+    } else {
+      // Get all treatments for admin/officers
+      treatments = await Treatment.find()
+        .populate('caseId', 'caseId animalType')
+        .populate('assignedVet', 'name')
+        .sort({ createdAt: -1 });
+    }
+
+    res.json(treatments);
+  } catch (error) {
+    console.error('❌ Error fetching treatments:', error);
+    res.status(500).json({ message: 'Failed to fetch treatments', error: error.message });
   }
 };
