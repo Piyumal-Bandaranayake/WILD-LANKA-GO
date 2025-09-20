@@ -197,13 +197,11 @@ const ActivityList = () => {
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                         {activities.map((activity) => (
                             <div key={activity._id} className="bg-white rounded-lg shadow-lg overflow-hidden transform hover:-translate-y-2 transition-transform duration-300">
-                                {activity.imageUrl && (
                                     <img
-                                        src={activity.imageUrl}
+                                        src={"https://images.unsplash.com/photo-1507525428034-b723cf961d3e?q=80&w=1200&auto=format&fit=crop"}
                                         alt={activity.title}
                                         className="w-full h-56 object-cover"
                                     />
-                                )}
                                 <div className="p-6">
                                     <h3 className="text-2xl font-semibold text-green-800 mb-3">{activity.title}</h3>
                                     <p className="text-gray-700 mb-4">{activity.description}</p>

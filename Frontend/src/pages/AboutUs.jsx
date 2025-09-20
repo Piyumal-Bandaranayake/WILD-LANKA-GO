@@ -185,6 +185,7 @@ export default function AboutUs() {
           <button className="bg-white text-green-700 font-semibold px-6 py-3 rounded-lg shadow hover:bg-gray-100 transition">
             📞 Contact Us
           </button>
+          <p className="mt-4 text-lg">Or call us at: +94 77 886 8965</p>
         </div>
       </section>
 

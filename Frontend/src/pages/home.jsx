@@ -3,6 +3,8 @@ import Footer from "../components/footer";
 import Navbar from "../components/Navbar";
 import { protectedApi } from '../services/authService';
 
+import Chatbot from '../Chatbot';
+
 const Home = () => {
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [feedbacks, setFeedbacks] = useState([]);
@@ -96,7 +98,7 @@ const Home = () => {
 
       {/* Hero Section */}
       <section
-        className="pt-32 pb-40 relative bg-cover bg-center transition-all duration-1000"
+        className="h-screen relative bg-cover bg-center flex items-center justify-center transition-all duration-1000"
         style={{ backgroundImage: `url(${backgroundImages[currentImageIndex]})` }}
       >
         <div className="absolute inset-0 bg-gradient-to-r from-black/70 to-black/40"></div>
@@ -130,6 +132,43 @@ const Home = () => {
         </div>
       </section>
 
+      {/* Upcoming Events Section */}
+      <section className="py-16 bg-white">
+        <div className="container mx-auto px-4">
+          <h2 className="text-3xl font-semibold text-center text-green-700 mb-12">
+            Upcoming Events
+          </h2>
+          {eventsLoading ? (
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto"></div>
+              <p className="mt-4 text-gray-600">Loading events...</p>
+            </div>
+          ) : eventsError ? (
+            <div className="text-center text-red-500 bg-red-100 p-4 rounded-lg">
+              {eventsError}
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+              {events.map((event) => (
+                <div key={event._id} className="bg-gray-50 p-6 rounded-xl shadow-md hover:shadow-lg transition-shadow duration-300">
+                  <img
+                    src={"https://images.unsplash.com/photo-1523580494863-6f3031224c94?q=80&w=1200&auto=format&fit=crop"}
+                    alt={event.title}
+                    className="w-full h-40 object-cover rounded-lg mb-4"
+                  />
+                  <h3 className="text-xl font-semibold mb-2">{event.title}</h3>
+                  <p className="text-gray-600 mb-4">{event.description}</p>
+                  <div className="space-y-2 text-sm">
+                    <p><span className="font-medium">Date:</span> {new Date(event.date).toLocaleDateString()}</p>
+                    <p><span className="font-medium">Location:</span> {event.location}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </section>
+
       {/* Popular Activities Section */}
       <section className="py-16 bg-gray-50">
         <div className="container mx-auto px-4">
@@ -149,6 +188,11 @@ const Home = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
               {activities.map((activity) => (
                 <div key={activity._id} className="bg-white p-6 rounded-xl shadow-md hover:shadow-lg transition-shadow duration-300">
+                  <img
+                    src={"https://images.unsplash.com/photo-1507525428034-b723cf961d3e?q=80&w=1200&auto=format&fit=crop"}
+                    alt={activity.title}
+                    className="w-full h-40 object-cover rounded-lg mb-4"
+                  />
                   <h3 className="text-xl font-semibold mb-2">{activity.title}</h3>
                   <p className="text-gray-600 mb-4">{activity.description}</p>
                   <div className="space-y-2 text-sm">
@@ -210,6 +254,7 @@ const Home = () => {
       </section>
 
       <Footer />
+      <Chatbot />
     </div>
   );
 };

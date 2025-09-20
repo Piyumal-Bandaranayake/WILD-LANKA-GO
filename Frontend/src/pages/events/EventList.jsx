@@ -150,13 +150,11 @@ const EventList = () => {
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                         {events.map((event) => (
                             <div key={event._id} className="bg-white rounded-lg shadow-lg overflow-hidden transform hover:-translate-y-2 transition-transform duration-300">
-                                {event.imageUrl && (
                                     <img
-                                        src={event.imageUrl}
+                                        src={"https://images.unsplash.com/photo-1523580494863-6f3031224c94?q=80&w=1200&auto=format&fit=crop"}
                                         alt={event.title}
                                         className="w-full h-56 object-cover"
                                     />
-                                )}
                                 <div className="p-6">
                                     <h3 className="text-2xl font-semibold text-green-800 mb-3">{event.title}</h3>
                                     <p className="text-gray-700 mb-4">{event.description}</p>
