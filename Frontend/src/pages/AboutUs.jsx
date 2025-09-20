@@ -9,7 +9,7 @@ export default function AboutUs() {
 
       {/* Hero Section */}
       <section
-        className="relative h-[70vh] bg-cover bg-center flex items-center justify-center"
+        className="relative h-[50vh] bg-cover bg-center flex items-center justify-center"
         style={{
           backgroundImage:
             "url('https://images.unsplash.com/photo-1598387993214-f22e0c2d4523?q=80&w=1200&auto=format&fit=crop')",
