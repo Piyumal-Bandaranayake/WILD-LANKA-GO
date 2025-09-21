@@ -4,6 +4,20 @@ import { protectedApi } from '../../services/authService';
 import ProtectedRoute from '../../components/ProtectedRoute';
 import Navbar from '../../components/Navbar';
 import Footer from '../../components/footer';
+import { DashboardLayout, TabbedContent } from '../../components/common/DashboardLayout';
+import { 
+  Modal, 
+  Field, 
+  Input, 
+  Button, 
+  StatusBadge, 
+  Avatar, 
+  DataTable, 
+  Card, 
+  LoadingSpinner, 
+  EmptyState,
+  MiniCalendar
+} from '../../components/common/DashboardComponents';
 
 const SafariDriverDashboard = () => {
   const { backendUser, user } = useAuthContext();
@@ -33,6 +47,11 @@ const SafariDriverDashboard = () => {
     tourIds: [],
     claimType: 'per-tour' // per-tour, weekly, monthly
   });
+
+  // Modal states
+  const [showRejectionModal, setShowRejectionModal] = useState(false);
+  const [showOdometerModal, setShowOdometerModal] = useState(false);
+  const [showFuelClaimModal, setShowFuelClaimModal] = useState(false);
 
   useEffect(() => {
     fetchDashboardData();
@@ -89,6 +108,7 @@ const SafariDriverDashboard = () => {
     try {
       await protectedApi.rejectTour(rejectionForm.tourId, { reason: rejectionForm.reason });
       setRejectionForm({ tourId: '', reason: '' });
+      setShowRejectionModal(false);
       await fetchDashboardData();
       setError(null);
     } catch (error) {
@@ -109,6 +129,7 @@ const SafariDriverDashboard = () => {
 
       await protectedApi.submitOdometerReading(formData);
       setOdometerForm({ reading: '', image: null, type: 'start' });
+      setShowOdometerModal(false);
       await fetchDashboardData();
       setError(null);
     } catch (error) {
@@ -131,6 +152,7 @@ const SafariDriverDashboard = () => {
     try {
       await protectedApi.submitFuelClaim(fuelClaimForm);
       setFuelClaimForm({ tourIds: [], claimType: 'per-tour' });
+      setShowFuelClaimModal(false);
       await fetchDashboardData();
       setError(null);
     } catch (error) {
@@ -152,16 +174,146 @@ const SafariDriverDashboard = () => {
     }
   };
 
+  // Dashboard configuration
+  const sidebarItems = [
+    { key: 'overview', label: 'Overview', icon: '📊' },
+    { key: 'assignments', label: 'Assignments', icon: '📋' },
+    { key: 'odometer', label: 'Odometer', icon: '🚗' },
+    { key: 'fuelClaims', label: 'Fuel Claims', icon: '⛽' },
+    { key: 'history', label: 'History', icon: '📈' },
+    { key: 'profile', label: 'Profile', icon: '👤' }
+  ];
+
+  const statsCards = [
+    {
+      title: 'Pending Tours',
+      value: assignedTours.filter(t => t.status === 'pending').length,
+      color: 'blue',
+      icon: 'M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z'
+    },
+    {
+      title: 'Completed Tours',
+      value: tourHistory.length,
+      color: 'green',
+      icon: 'M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z'
+    },
+    {
+      title: 'Total Distance',
+      value: `${tourHistory.reduce((sum, tour) => sum + (tour.distance || 0), 0)} km`,
+      color: 'yellow',
+      icon: 'M13 7h8m0 0v8m0-8l-8 8-4-4-6 6'
+    },
+    {
+      title: 'Fuel Claims',
+      value: fuelClaims.length,
+      color: 'purple',
+      icon: 'M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z'
+    }
+  ];
+
+  const tabs = [
+    { key: 'overview', label: 'Overview' },
+    { key: 'assignments', label: 'Tour Assignments' },
+    { key: 'odometer', label: 'Odometer Tracking' },
+    { key: 'fuelClaims', label: 'Fuel Claims' },
+    { key: 'history', label: 'Tour History' },
+    { key: 'profile', label: 'Profile' }
+  ];
+
+  const rightWidgets = [
+    {
+      title: 'Active Tour',
+      content: activeTour ? (
+        <div className="space-y-3">
+          <div className="p-3 bg-blue-50 rounded-lg">
+            <h4 className="font-medium text-blue-900">{activeTour.activityName}</h4>
+            <p className="text-sm text-blue-700">{activeTour.touristName}</p>
+            <div className="mt-2 flex space-x-2">
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={() => setShowOdometerModal(true)}
+              >
+                📊 Submit Reading
+              </Button>
+              <Button
+                size="sm"
+                variant="success"
+                onClick={() => updateTourStatus(activeTour._id, 'completed')}
+              >
+                Complete Tour
+              </Button>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <EmptyState message="No active tour in progress" />
+      )
+    },
+    {
+      title: 'Quick Actions',
+      content: (
+        <div className="space-y-2">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setActiveTab('assignments')}
+            className="w-full"
+          >
+            View Assignments
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setShowFuelClaimModal(true)}
+            className="w-full"
+          >
+            Submit Fuel Claim
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => generateReport('weekly')}
+            className="w-full"
+          >
+            Generate Report
+          </Button>
+        </div>
+      )
+    },
+    {
+      title: 'Profile Status',
+      content: profile ? (
+        <div className="space-y-3">
+          <div className="flex items-center space-x-3">
+            <Avatar name={profile.fullName} />
+            <div>
+              <div className="font-medium text-sm">{profile.fullName}</div>
+              <StatusBadge 
+                status={profile.isAvailable ? 'Available' : 'On Tour'}
+                variant={profile.isAvailable ? 'success' : 'danger'}
+              />
+            </div>
+          </div>
+          <div className="text-sm text-gray-600">
+            <div>⭐ {profile.rating?.toFixed(1) || '0.0'} rating</div>
+            <div>🚗 {profile.vehicleType}</div>
+            <div>📅 {profile.experience} years experience</div>
+          </div>
+        </div>
+      ) : (
+        <EmptyState message="Profile not loaded" />
+      )
+    }
+  ];
+
   if (loading) {
     return (
       <ProtectedRoute allowedRoles={['safariDriver']}>
         <div className="flex flex-col min-h-screen">
           <Navbar />
           <div className="flex-1 flex items-center justify-center pt-32">
-            <div className="text-center">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto"></div>
-              <p className="mt-4 text-gray-600">Loading your dashboard...</p>
-            </div>
+            <LoadingSpinner message="Loading your dashboard..." />
           </div>
           <Footer />
         </div>
@@ -171,620 +323,538 @@ const SafariDriverDashboard = () => {
 
   return (
     <ProtectedRoute allowedRoles={['safariDriver']}>
-      <div className="flex flex-col min-h-screen">
+      <div className="flex flex-col min-h-screen bg-[#F4F6FF]">
         <Navbar />
-        <div className="flex-1 pt-32 pb-16">
-          <div className="container mx-auto px-4">
-            {/* Header */}
-            <div className="bg-gradient-to-r from-orange-600 to-orange-700 rounded-lg p-8 text-white mb-8">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h1 className="text-3xl font-bold">Safari Driver Dashboard</h1>
-                  <p className="text-orange-100 mt-2">Welcome back, {user?.name}!</p>
-                  {profile && (
-                    <div className="flex items-center mt-3 space-x-4">
-                      <div className="flex items-center">
-                        <span className="text-yellow-300 mr-1">⭐</span>
-                        <span>{profile.rating?.toFixed(1) || '0.0'} rating</span>
-                      </div>
-                      <div className={`px-2 py-1 rounded-full text-xs ${
-                        profile.isAvailable ? 'bg-green-500' : 'bg-red-500'
-                      }`}>
-                        {profile.isAvailable ? 'Available' : 'On Tour'}
+        
+        <DashboardLayout
+          sidebarItems={sidebarItems}
+          activeTab={activeTab}
+          setActiveTab={setActiveTab}
+          searchPlaceholder="Search tours, claims..."
+          greetingMessage={`Welcome back, ${user?.name || 'Safari Driver'}!`}
+          statsCards={statsCards}
+          rightWidgets={rightWidgets}
+          headerColor="orange"
+        >
+          <TabbedContent
+            tabs={tabs}
+            activeTab={activeTab}
+            setActiveTab={setActiveTab}
+            headerColor="orange"
+          >
+
+            {/* Overview Tab */}
+            {activeTab === 'overview' && (
+              <div className="space-y-6">
+                <Card title="Dashboard Overview">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                      <h4 className="font-medium text-gray-900 mb-3">Recent Tours</h4>
+                      <div className="space-y-2">
+                        {tourHistory.slice(0, 5).map((tour) => (
+                          <div key={tour._id} className="flex justify-between items-center p-2 bg-gray-50 rounded">
+                            <span className="text-sm">🚗 {tour.activityName}</span>
+                            <span className="text-xs text-gray-500">{tour.distance} km</span>
+                          </div>
+                        ))}
+                        {tourHistory.length === 0 && (
+                          <EmptyState message="No completed tours yet" />
+                        )}
                       </div>
                     </div>
+                    <div>
+                      <h4 className="font-medium text-gray-900 mb-3">Pending Assignments</h4>
+                      <div className="space-y-2">
+                        {assignedTours.filter(t => t.status === 'pending').slice(0, 3).map((tour) => (
+                          <div key={tour._id} className="p-3 bg-yellow-50 rounded-lg">
+                            <div className="font-medium text-sm">{tour.activityName}</div>
+                            <div className="text-xs text-gray-600">{tour.touristName}</div>
+                            <div className="text-xs text-gray-500">
+                              {new Date(tour.date).toLocaleDateString()}
+                            </div>
+                          </div>
+                        ))}
+                        {assignedTours.filter(t => t.status === 'pending').length === 0 && (
+                          <EmptyState message="No pending assignments" />
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </Card>
+              </div>
+            )}
+
+            {/* Tour Assignments Tab */}
+            {activeTab === 'assignments' && (
+              <div className="space-y-6">
+                <Card title="Tour Assignment Panel">
+                  <div className="space-y-4">
+                    {assignedTours.filter(t => t.status === 'pending').map((tour) => (
+                      <div key={tour._id} className="border border-yellow-200 rounded-lg p-4 bg-yellow-50">
+                        <div className="flex justify-between items-start">
+                          <div className="flex-1">
+                            <h4 className="font-medium text-gray-900">{tour.activityName}</h4>
+                            <div className="grid grid-cols-2 gap-2 text-sm text-gray-600 mt-2">
+                              <div>👤 Tourist: {tour.touristName}</div>
+                              <div>📅 Date: {new Date(tour.date).toLocaleDateString()}</div>
+                              <div>🕒 Time: {tour.time}</div>
+                              <div>👥 Participants: {tour.participants}</div>
+                              <div>📍 Pickup: {tour.pickupLocation}</div>
+                              <div>🏁 Destination: {tour.destination}</div>
+                              <div>💰 Fee: ${tour.driverFee}</div>
+                            </div>
+                          </div>
+                          <div className="flex flex-col space-y-2 ml-4">
+                            <Button
+                              variant="success"
+                              onClick={() => acceptTour(tour._id)}
+                            >
+                              Accept Tour
+                            </Button>
+                            <Button
+                              variant="danger"
+                              onClick={() => {
+                                setRejectionForm({ tourId: tour._id, reason: '' });
+                                setShowRejectionModal(true);
+                              }}
+                            >
+                              Reject Tour
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                    {assignedTours.filter(t => t.status === 'pending').length === 0 && (
+                      <EmptyState message="No pending tour assignments" />
+                    )}
+                  </div>
+                </Card>
+              </div>
+            )}
+
+            {/* Odometer Tracking Tab */}
+            {activeTab === 'odometer' && (
+              <div className="space-y-6">
+                <div className="flex justify-between items-center">
+                  <h3 className="text-lg font-semibold text-gray-800">Odometer Tracking</h3>
+                  {activeTour && (
+                    <Button
+                      variant="primary"
+                      onClick={() => setShowOdometerModal(true)}
+                    >
+                      Submit Reading
+                    </Button>
                   )}
                 </div>
-                <div className="text-right">
-                  <div className="text-lg font-semibold">{assignedTours.filter(t => t.status === 'pending').length}</div>
-                  <div className="text-orange-100 text-sm">Pending Tours</div>
-                </div>
-              </div>
-            </div>
 
-            {/* Error Message */}
-            {error && (
-              <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
-                <p className="text-sm text-red-800">{error}</p>
-              </div>
-            )}
-
-            {/* Active Tour Alert */}
-            {activeTour && (
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className="text-lg font-medium text-blue-900">Active Tour in Progress</h3>
-                    <p className="text-blue-700 text-sm">
-                      {activeTour.activityName} - {activeTour.touristName}
-                    </p>
-                    <p className="text-blue-600 text-xs mt-1">
-                      Started: {new Date(activeTour.startTime).toLocaleString()}
-                    </p>
-                  </div>
-                  <div className="flex space-x-2">
-                    <button
-                      onClick={() => setOdometerForm({...odometerForm, type: 'end'})}
-                      className="px-3 py-1 bg-orange-500 text-white rounded hover:bg-orange-600 text-sm"
-                    >
-                      📊 End Reading
-                    </button>
-                    <button
-                      onClick={() => updateTourStatus(activeTour._id, 'completed')}
-                      className="px-3 py-1 bg-green-500 text-white rounded hover:bg-green-600 text-sm"
-                    >
-                      ✅ Complete Tour
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Stats Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-              <div className="bg-white rounded-lg shadow p-6">
-                <div className="flex items-center">
-                  <div className="p-2 bg-blue-100 rounded-lg">
-                    <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                    </svg>
-                  </div>
-                  <div className="ml-4">
-                    <p className="text-sm font-medium text-gray-600">Pending Tours</p>
-                    <p className="text-2xl font-semibold text-gray-900">
-                      {assignedTours.filter(t => t.status === 'pending').length}
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-white rounded-lg shadow p-6">
-                <div className="flex items-center">
-                  <div className="p-2 bg-green-100 rounded-lg">
-                    <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                  </div>
-                  <div className="ml-4">
-                    <p className="text-sm font-medium text-gray-600">Completed Tours</p>
-                    <p className="text-2xl font-semibold text-gray-900">{tourHistory.length}</p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-white rounded-lg shadow p-6">
-                <div className="flex items-center">
-                  <div className="p-2 bg-yellow-100 rounded-lg">
-                    <svg className="w-6 h-6 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
-                    </svg>
-                  </div>
-                  <div className="ml-4">
-                    <p className="text-sm font-medium text-gray-600">Total Distance</p>
-                    <p className="text-2xl font-semibold text-gray-900">
-                      {tourHistory.reduce((sum, tour) => sum + (tour.distance || 0), 0)} km
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-white rounded-lg shadow p-6">
-                <div className="flex items-center">
-                  <div className="p-2 bg-purple-100 rounded-lg">
-                    <svg className="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
-                    </svg>
-                  </div>
-                  <div className="ml-4">
-                    <p className="text-sm font-medium text-gray-600">Fuel Claims</p>
-                    <p className="text-2xl font-semibold text-gray-900">{fuelClaims.length}</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Navigation Tabs */}
-            <div className="bg-white rounded-lg shadow mb-8">
-              <div className="border-b border-gray-200">
-                <nav className="-mb-px flex space-x-8 px-6 overflow-x-auto">
-                  {[
-                    { id: 'overview', name: 'Overview', icon: '📊' },
-                    { id: 'assignments', name: 'Tour Assignments', icon: '📋' },
-                    { id: 'odometer', name: 'Odometer Tracking', icon: '🚗' },
-                    { id: 'fuelClaims', name: 'Fuel Claims', icon: '⛽' },
-                    { id: 'history', name: 'Tour History', icon: '📈' },
-                    { id: 'profile', name: 'Profile', icon: '👤' }
-                  ].map((tab) => (
-                    <button
-                      key={tab.id}
-                      onClick={() => setActiveTab(tab.id)}
-                      className={`py-4 px-1 border-b-2 font-medium text-sm whitespace-nowrap ${
-                        activeTab === tab.id
-                          ? 'border-orange-500 text-orange-600'
-                          : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                      }`}
-                    >
-                      <span className="mr-2">{tab.icon}</span>
-                      {tab.name}
-                    </button>
-                  ))}
-                </nav>
-              </div>
-
-              <div className="p-6">
-                {/* Overview Tab */}
-                {activeTab === 'overview' && (
-                  <div>
-                    <h3 className="text-lg font-medium text-gray-900 mb-4">Dashboard Overview</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      <div className="bg-gray-50 rounded-lg p-4">
-                        <h4 className="font-medium text-gray-900 mb-2">Recent Tours</h4>
-                        <div className="space-y-2 text-sm text-gray-600">
-                          {tourHistory.slice(0, 5).map((tour) => (
-                            <div key={tour._id} className="flex justify-between">
-                              <span>🚗 {tour.activityName}</span>
-                              <span>{tour.distance} km</span>
-                            </div>
-                          ))}
-                          {tourHistory.length === 0 && (
-                            <p className="text-gray-500">No completed tours yet</p>
-                          )}
-                        </div>
-                      </div>
-                      <div className="bg-gray-50 rounded-lg p-4">
-                        <h4 className="font-medium text-gray-900 mb-2">Quick Actions</h4>
-                        <div className="space-y-2">
-                          <button
-                            onClick={() => setActiveTab('assignments')}
-                            className="block w-full text-left px-3 py-2 bg-white border border-gray-300 rounded-md hover:bg-gray-50 text-sm"
-                          >
-                            📋 View Tour Assignments
-                          </button>
-                          <button
-                            onClick={() => setActiveTab('fuelClaims')}
-                            className="block w-full text-left px-3 py-2 bg-white border border-gray-300 rounded-md hover:bg-gray-50 text-sm"
-                          >
-                            ⛽ Submit Fuel Claim
-                          </button>
-                          <button
-                            onClick={() => generateReport('weekly')}
-                            className="block w-full text-left px-3 py-2 bg-white border border-gray-300 rounded-md hover:bg-gray-50 text-sm"
-                          >
-                            📄 Generate Report
-                          </button>
-                        </div>
-                      </div>
+                {activeTour && (
+                  <Card title="Active Tour - Submit Odometer Reading">
+                    <div className="p-4 bg-blue-50 rounded-lg">
+                      <h4 className="font-medium text-blue-900 mb-2">{activeTour.activityName}</h4>
+                      <p className="text-sm text-blue-700">Tourist: {activeTour.touristName}</p>
+                      <p className="text-xs text-blue-600 mt-1">
+                        Started: {new Date(activeTour.startTime).toLocaleString()}
+                      </p>
                     </div>
-                  </div>
+                  </Card>
                 )}
 
-                {/* Tour Assignments Tab */}
-                {activeTab === 'assignments' && (
-                  <div>
-                    <h3 className="text-lg font-medium text-gray-900 mb-4">Tour Assignment Panel</h3>
+                <Card title="Recent Odometer Readings">
+                  <div className="overflow-x-auto">
+                    <table className="min-w-full divide-y divide-gray-200">
+                      <thead className="bg-gray-50">
+                        <tr>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tour</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Reading</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Distance</th>
+                        </tr>
+                      </thead>
+                      <tbody className="bg-white divide-y divide-gray-200">
+                        {odometerReadings.map((reading) => (
+                          <tr key={reading._id}>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{reading.tourName}</td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <StatusBadge 
+                                status={reading.type.toUpperCase()}
+                                variant={reading.type === 'start' ? 'success' : 'primary'}
+                              />
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{reading.reading} km</td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                              {new Date(reading.createdAt).toLocaleDateString()}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                              {reading.distance ? `${reading.distance} km` : '-'}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                    {odometerReadings.length === 0 && (
+                      <EmptyState message="No odometer readings submitted yet" />
+                    )}
+                  </div>
+                </Card>
+              </div>
+            )}
+
+            {/* Fuel Claims Tab */}
+            {activeTab === 'fuelClaims' && (
+              <div className="space-y-6">
+                <div className="flex justify-between items-center">
+                  <h3 className="text-lg font-semibold text-gray-800">Fuel Claims</h3>
+                  <Button
+                    variant="primary"
+                    onClick={() => setShowFuelClaimModal(true)}
+                  >
+                    Submit Fuel Claim
+                  </Button>
+                </div>
+
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  <Card title="Submit Fuel Claim">
                     <div className="space-y-4">
-                      {assignedTours.filter(t => t.status === 'pending').map((tour) => (
-                        <div key={tour._id} className="border border-gray-200 rounded-lg p-4 bg-yellow-50">
+                      <div className="p-4 bg-orange-50 rounded-lg">
+                        <h4 className="font-medium text-orange-900 mb-2">Quick Submit</h4>
+                        <p className="text-sm text-orange-700">
+                          Select tours and submit fuel claims for reimbursement.
+                        </p>
+                        <Button
+                          variant="primary"
+                          onClick={() => setShowFuelClaimModal(true)}
+                          className="mt-3"
+                        >
+                          Open Claim Form
+                        </Button>
+                      </div>
+                    </div>
+                  </Card>
+
+                  <Card title="Fuel Claim Status">
+                    <div className="space-y-4">
+                      {fuelClaims.map((claim) => (
+                        <div key={claim._id} className="border border-gray-200 rounded-lg p-4">
                           <div className="flex justify-between items-start">
                             <div>
-                              <h4 className="font-medium text-gray-900">{tour.activityName}</h4>
+                              <h4 className="font-medium text-gray-900">Claim #{claim.claimNumber}</h4>
                               <div className="text-sm text-gray-600 mt-1 space-y-1">
-                                <div>👤 Tourist: {tour.touristName}</div>
-                                <div>📅 Date: {new Date(tour.date).toLocaleDateString()}</div>
-                                <div>🕒 Time: {tour.time}</div>
-                                <div>👥 Participants: {tour.participants}</div>
-                                <div>📍 Pickup: {tour.pickupLocation}</div>
-                                <div>🏁 Destination: {tour.destination}</div>
-                                <div>💰 Fee: ${tour.driverFee}</div>
+                                <div>💰 Amount: ${claim.amount}</div>
+                                <div>📏 Distance: {claim.totalDistance} km</div>
+                                <div>📅 Submitted: {new Date(claim.createdAt).toLocaleDateString()}</div>
                               </div>
                             </div>
-                            <div className="flex flex-col space-y-2">
-                              <button
-                                onClick={() => acceptTour(tour._id)}
-                                className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 text-sm"
-                              >
-                                Accept Tour
-                              </button>
-                              <button
-                                onClick={() => setRejectionForm({ tourId: tour._id, reason: '' })}
-                                className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 text-sm"
-                              >
-                                Reject Tour
-                              </button>
-                            </div>
+                            <StatusBadge 
+                              status={claim.status.toUpperCase()}
+                              variant={
+                                claim.status === 'pending' ? 'warning' :
+                                claim.status === 'approved' ? 'success' : 'danger'
+                              }
+                            />
                           </div>
                         </div>
                       ))}
-                      {assignedTours.filter(t => t.status === 'pending').length === 0 && (
-                        <div className="text-center py-12">
-                          <div className="text-gray-400 mb-2">
-                            <svg className="w-12 h-12 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                            </svg>
-                          </div>
-                          <p className="text-gray-500">No pending tour assignments</p>
-                        </div>
+                      {fuelClaims.length === 0 && (
+                        <EmptyState message="No fuel claims submitted yet" />
                       )}
                     </div>
-
-                    {/* Rejection Modal */}
-                    {rejectionForm.tourId && (
-                      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-                        <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
-                          <h3 className="text-lg font-medium text-gray-900 mb-4">Reject Tour</h3>
-                          <form onSubmit={rejectTour}>
-                            <div className="mb-4">
-                              <label className="block text-sm font-medium text-gray-700 mb-2">
-                                Reason for Rejection
-                              </label>
-                              <textarea
-                                value={rejectionForm.reason}
-                                onChange={(e) => setRejectionForm({...rejectionForm, reason: e.target.value})}
-                                rows="4"
-                                required
-                                className="w-full border border-gray-300 rounded-md px-3 py-2"
-                                placeholder="Please provide a reason for rejecting this tour..."
-                              />
-                            </div>
-                            <div className="flex space-x-3">
-                              <button
-                                type="button"
-                                onClick={() => setRejectionForm({ tourId: '', reason: '' })}
-                                className="flex-1 px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50"
-                              >
-                                Cancel
-                              </button>
-                              <button
-                                type="submit"
-                                className="flex-1 px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700"
-                              >
-                                Reject Tour
-                              </button>
-                            </div>
-                          </form>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {/* Odometer Tracking Tab */}
-                {activeTab === 'odometer' && (
-                  <div>
-                    <h3 className="text-lg font-medium text-gray-900 mb-4">Odometer Tracking & Fuel Claims</h3>
-
-                    {/* Submit Odometer Reading */}
-                    {activeTour && (
-                      <div className="bg-blue-50 rounded-lg p-6 mb-6">
-                        <h4 className="font-medium text-gray-900 mb-4">Submit Odometer Reading</h4>
-                        <form onSubmit={submitOdometerReading} className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                              Reading Type
-                            </label>
-                            <select
-                              value={odometerForm.type}
-                              onChange={(e) => setOdometerForm({...odometerForm, type: e.target.value})}
-                              className="w-full border border-gray-300 rounded-md px-3 py-2"
-                            >
-                              <option value="start">Start Reading</option>
-                              <option value="end">End Reading</option>
-                            </select>
-                          </div>
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                              Odometer Reading (km)
-                            </label>
-                            <input
-                              type="number"
-                              value={odometerForm.reading}
-                              onChange={(e) => setOdometerForm({...odometerForm, reading: e.target.value})}
-                              required
-                              className="w-full border border-gray-300 rounded-md px-3 py-2"
-                              placeholder="Enter reading"
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                              Upload Photo
-                            </label>
-                            <input
-                              type="file"
-                              accept="image/*"
-                              onChange={(e) => setOdometerForm({...odometerForm, image: e.target.files[0]})}
-                              required
-                              className="w-full border border-gray-300 rounded-md px-3 py-2"
-                            />
-                          </div>
-                          <div className="flex items-end">
-                            <button
-                              type="submit"
-                              className="w-full px-4 py-2 bg-orange-600 text-white rounded-md hover:bg-orange-700"
-                            >
-                              📊 Submit Reading
-                            </button>
-                          </div>
-                        </form>
-                      </div>
-                    )}
-
-                    {/* Odometer History */}
-                    <div>
-                      <h4 className="font-medium text-gray-900 mb-4">Recent Odometer Readings</h4>
-                      <div className="overflow-x-auto">
-                        <table className="min-w-full divide-y divide-gray-200">
-                          <thead className="bg-gray-50">
-                            <tr>
-                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tour</th>
-                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
-                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Reading</th>
-                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
-                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Distance</th>
-                            </tr>
-                          </thead>
-                          <tbody className="bg-white divide-y divide-gray-200">
-                            {odometerReadings.map((reading) => (
-                              <tr key={reading._id}>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{reading.tourName}</td>
-                                <td className="px-6 py-4 whitespace-nowrap">
-                                  <span className={`px-2 py-1 text-xs rounded-full ${
-                                    reading.type === 'start' ? 'bg-green-100 text-green-800' : 'bg-blue-100 text-blue-800'
-                                  }`}>
-                                    {reading.type.toUpperCase()}
-                                  </span>
-                                </td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{reading.reading} km</td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                  {new Date(reading.createdAt).toLocaleDateString()}
-                                </td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                  {reading.distance ? `${reading.distance} km` : '-'}
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* Fuel Claims Tab */}
-                {activeTab === 'fuelClaims' && (
-                  <div>
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                      {/* Submit Fuel Claim */}
-                      <div>
-                        <h3 className="text-lg font-medium text-gray-900 mb-4">Submit Fuel Claim</h3>
-                        <form onSubmit={submitFuelClaim} className="bg-gray-50 rounded-lg p-6">
-                          <div className="mb-4">
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                              Claim Type
-                            </label>
-                            <select
-                              value={fuelClaimForm.claimType}
-                              onChange={(e) => setFuelClaimForm({...fuelClaimForm, claimType: e.target.value})}
-                              className="w-full border border-gray-300 rounded-md px-3 py-2"
-                            >
-                              <option value="per-tour">Per Tour</option>
-                              <option value="weekly">Weekly</option>
-                              <option value="monthly">Monthly</option>
-                            </select>
-                          </div>
-                          {fuelClaimForm.claimType === 'per-tour' && (
-                            <div className="mb-4">
-                              <label className="block text-sm font-medium text-gray-700 mb-2">
-                                Select Tours
-                              </label>
-                              <div className="space-y-2 max-h-40 overflow-y-auto">
-                                {tourHistory.filter(t => !t.fuelClaimed).map((tour) => (
-                                  <label key={tour._id} className="flex items-center">
-                                    <input
-                                      type="checkbox"
-                                      checked={fuelClaimForm.tourIds.includes(tour._id)}
-                                      onChange={(e) => {
-                                        if (e.target.checked) {
-                                          setFuelClaimForm({
-                                            ...fuelClaimForm,
-                                            tourIds: [...fuelClaimForm.tourIds, tour._id]
-                                          });
-                                        } else {
-                                          setFuelClaimForm({
-                                            ...fuelClaimForm,
-                                            tourIds: fuelClaimForm.tourIds.filter(id => id !== tour._id)
-                                          });
-                                        }
-                                      }}
-                                      className="mr-2"
-                                    />
-                                    <span className="text-sm text-gray-700">
-                                      {tour.activityName} - {tour.distance} km
-                                    </span>
-                                  </label>
-                                ))}
-                              </div>
-                            </div>
-                          )}
-                          <button
-                            type="submit"
-                            className="w-full px-4 py-2 bg-orange-600 text-white rounded-md hover:bg-orange-700"
-                          >
-                            ⛽ Submit Claim
-                          </button>
-                        </form>
-                      </div>
-
-                      {/* Fuel Claim Status */}
-                      <div>
-                        <h3 className="text-lg font-medium text-gray-900 mb-4">Fuel Claim Status</h3>
-                        <div className="space-y-4">
-                          {fuelClaims.map((claim) => (
-                            <div key={claim._id} className="border border-gray-200 rounded-lg p-4">
-                              <div className="flex justify-between items-start">
-                                <div>
-                                  <h4 className="font-medium text-gray-900">Claim #{claim.claimNumber}</h4>
-                                  <div className="text-sm text-gray-600 mt-1 space-y-1">
-                                    <div>💰 Amount: ${claim.amount}</div>
-                                    <div>📏 Distance: {claim.totalDistance} km</div>
-                                    <div>📅 Submitted: {new Date(claim.createdAt).toLocaleDateString()}</div>
-                                  </div>
-                                </div>
-                                <span className={`px-2 py-1 text-xs rounded-full ${
-                                  claim.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                                  claim.status === 'approved' ? 'bg-green-100 text-green-800' :
-                                  'bg-red-100 text-red-800'
-                                }`}>
-                                  {claim.status.toUpperCase()}
-                                </span>
-                              </div>
-                            </div>
-                          ))}
-                          {fuelClaims.length === 0 && (
-                            <p className="text-gray-500 text-center py-8">No fuel claims submitted yet</p>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* Tour History Tab */}
-                {activeTab === 'history' && (
-                  <div>
-                    <div className="flex justify-between items-center mb-4">
-                      <h3 className="text-lg font-medium text-gray-900">Tour History</h3>
-                      <div className="flex space-x-2">
-                        <button
-                          onClick={() => generateReport('weekly')}
-                          className="px-3 py-2 bg-orange-600 text-white rounded-md hover:bg-orange-700 text-sm"
-                        >
-                          📄 Weekly Report
-                        </button>
-                        <button
-                          onClick={() => generateReport('monthly')}
-                          className="px-3 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm"
-                        >
-                          📊 Monthly Report
-                        </button>
-                      </div>
-                    </div>
-
-                    <div className="overflow-x-auto">
-                      <table className="min-w-full divide-y divide-gray-200">
-                        <thead className="bg-gray-50">
-                          <tr>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Activity</th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tourist</th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Distance</th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fee</th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fuel Claim</th>
-                          </tr>
-                        </thead>
-                        <tbody className="bg-white divide-y divide-gray-200">
-                          {tourHistory.map((tour) => (
-                            <tr key={tour._id}>
-                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{tour.activityName}</td>
-                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{tour.touristName}</td>
-                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                {new Date(tour.completedAt).toLocaleDateString()}
-                              </td>
-                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{tour.distance} km</td>
-                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${tour.driverFee}</td>
-                              <td className="px-6 py-4 whitespace-nowrap">
-                                <span className={`px-2 py-1 text-xs rounded-full ${
-                                  tour.fuelClaimed ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
-                                }`}>
-                                  {tour.fuelClaimed ? 'CLAIMED' : 'PENDING'}
-                                </span>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                )}
-
-                {/* Profile Tab */}
-                {activeTab === 'profile' && (
-                  <div>
-                    <h3 className="text-lg font-medium text-gray-900 mb-4">Driver Profile</h3>
-                    {profile && (
-                      <div className="max-w-2xl">
-                        <div className="bg-gray-50 rounded-lg p-6">
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div>
-                              <label className="block text-sm font-medium text-gray-700 mb-1">Full Name</label>
-                              <p className="text-gray-900">{profile.fullName}</p>
-                            </div>
-                            <div>
-                              <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-                              <p className="text-gray-900">{profile.email}</p>
-                            </div>
-                            <div>
-                              <label className="block text-sm font-medium text-gray-700 mb-1">Phone</label>
-                              <p className="text-gray-900">{profile.phone}</p>
-                            </div>
-                            <div>
-                              <label className="block text-sm font-medium text-gray-700 mb-1">License Number</label>
-                              <p className="text-gray-900">{profile.licenseNumber}</p>
-                            </div>
-                            <div>
-                              <label className="block text-sm font-medium text-gray-700 mb-1">Vehicle Type</label>
-                              <p className="text-gray-900">{profile.vehicleType}</p>
-                            </div>
-                            <div>
-                              <label className="block text-sm font-medium text-gray-700 mb-1">Experience</label>
-                              <p className="text-gray-900">{profile.experience} years</p>
-                            </div>
-                            <div>
-                              <label className="block text-sm font-medium text-gray-700 mb-1">Rating</label>
-                              <p className="text-gray-900">{profile.rating?.toFixed(1) || '0.0'} ⭐</p>
-                            </div>
-                            <div>
-                              <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
-                              <span className={`px-2 py-1 text-xs rounded-full ${
-                                profile.isAvailable ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                              }`}>
-                                {profile.isAvailable ? 'Available' : 'On Tour'}
-                              </span>
-                            </div>
-                          </div>
-                          <div className="mt-6">
-                            <button className="px-4 py-2 bg-orange-600 text-white rounded-md hover:bg-orange-700">
-                              Edit Profile
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )}
+                  </Card>
+                </div>
               </div>
+            )}
+
+            {/* Tour History Tab */}
+            {activeTab === 'history' && (
+              <div className="space-y-6">
+                <div className="flex justify-between items-center">
+                  <h3 className="text-lg font-semibold text-gray-800">Tour History</h3>
+                  <div className="flex space-x-2">
+                    <Button
+                      size="sm"
+                      variant="primary"
+                      onClick={() => generateReport('weekly')}
+                    >
+                      📄 Weekly Report
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="primary"
+                      onClick={() => generateReport('monthly')}
+                    >
+                      📊 Monthly Report
+                    </Button>
+                  </div>
+                </div>
+
+                <Card title="Tour History">
+                  <div className="overflow-x-auto">
+                    <table className="min-w-full divide-y divide-gray-200">
+                      <thead className="bg-gray-50">
+                        <tr>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Activity</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tourist</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Distance</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fee</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fuel Claim</th>
+                        </tr>
+                      </thead>
+                      <tbody className="bg-white divide-y divide-gray-200">
+                        {tourHistory.map((tour) => (
+                          <tr key={tour._id}>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{tour.activityName}</td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{tour.touristName}</td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                              {new Date(tour.completedAt).toLocaleDateString()}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{tour.distance} km</td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${tour.driverFee}</td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <StatusBadge 
+                                status={tour.fuelClaimed ? 'CLAIMED' : 'PENDING'}
+                                variant={tour.fuelClaimed ? 'success' : 'warning'}
+                              />
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                    {tourHistory.length === 0 && (
+                      <EmptyState message="No tour history available" />
+                    )}
+                  </div>
+                </Card>
+              </div>
+            )}
+
+            {/* Profile Tab */}
+            {activeTab === 'profile' && (
+              <div className="space-y-6">
+                <Card title="Driver Profile">
+                  {profile ? (
+                    <div className="max-w-2xl">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                          <Field label="Full Name">
+                            <Input value={profile.fullName} readOnly />
+                          </Field>
+                        </div>
+                        <div>
+                          <Field label="Email">
+                            <Input value={profile.email} readOnly />
+                          </Field>
+                        </div>
+                        <div>
+                          <Field label="Phone">
+                            <Input value={profile.phone} readOnly />
+                          </Field>
+                        </div>
+                        <div>
+                          <Field label="License Number">
+                            <Input value={profile.licenseNumber} readOnly />
+                          </Field>
+                        </div>
+                        <div>
+                          <Field label="Vehicle Type">
+                            <Input value={profile.vehicleType} readOnly />
+                          </Field>
+                        </div>
+                        <div>
+                          <Field label="Experience">
+                            <Input value={`${profile.experience} years`} readOnly />
+                          </Field>
+                        </div>
+                        <div>
+                          <Field label="Rating">
+                            <Input value={`${profile.rating?.toFixed(1) || '0.0'} ⭐`} readOnly />
+                          </Field>
+                        </div>
+                        <div>
+                          <Field label="Status">
+                            <StatusBadge 
+                              status={profile.isAvailable ? 'Available' : 'On Tour'}
+                              variant={profile.isAvailable ? 'success' : 'danger'}
+                            />
+                          </Field>
+                        </div>
+                      </div>
+                      <div className="mt-6">
+                        <Button variant="primary">
+                          Edit Profile
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <EmptyState message="Profile not loaded" />
+                  )}
+                </Card>
+              </div>
+            )}
+          </TabbedContent>
+        </DashboardLayout>
+
+        {/* Rejection Modal */}
+        <Modal
+          isOpen={showRejectionModal}
+          onClose={() => setShowRejectionModal(false)}
+          title="Reject Tour"
+        >
+          <form onSubmit={rejectTour} className="space-y-4">
+            <Field label="Reason for Rejection">
+              <textarea
+                value={rejectionForm.reason}
+                onChange={(e) => setRejectionForm({...rejectionForm, reason: e.target.value})}
+                rows="4"
+                required
+                className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-orange-200"
+                placeholder="Please provide a reason for rejecting this tour..."
+              />
+            </Field>
+            <div className="flex space-x-3">
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => setShowRejectionModal(false)}
+                className="flex-1"
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                variant="danger"
+                className="flex-1"
+              >
+                Reject Tour
+              </Button>
             </div>
-          </div>
-        </div>
+          </form>
+        </Modal>
+
+        {/* Odometer Reading Modal */}
+        <Modal
+          isOpen={showOdometerModal}
+          onClose={() => setShowOdometerModal(false)}
+          title="Submit Odometer Reading"
+        >
+          <form onSubmit={submitOdometerReading} className="space-y-4">
+            <Field label="Reading Type">
+              <select
+                value={odometerForm.type}
+                onChange={(e) => setOdometerForm({...odometerForm, type: e.target.value})}
+                className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-orange-200"
+              >
+                <option value="start">Start Reading</option>
+                <option value="end">End Reading</option>
+              </select>
+            </Field>
+            <Field label="Odometer Reading (km)">
+              <Input
+                type="number"
+                value={odometerForm.reading}
+                onChange={(e) => setOdometerForm({...odometerForm, reading: e.target.value})}
+                placeholder="Enter reading"
+                required
+              />
+            </Field>
+            <Field label="Upload Photo">
+              <input
+                type="file"
+                accept="image/*"
+                onChange={(e) => setOdometerForm({...odometerForm, image: e.target.files[0]})}
+                required
+                className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-orange-200"
+              />
+            </Field>
+            <div className="flex space-x-3">
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => setShowOdometerModal(false)}
+                className="flex-1"
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                variant="primary"
+                className="flex-1"
+              >
+                Submit Reading
+              </Button>
+            </div>
+          </form>
+        </Modal>
+
+        {/* Fuel Claim Modal */}
+        <Modal
+          isOpen={showFuelClaimModal}
+          onClose={() => setShowFuelClaimModal(false)}
+          title="Submit Fuel Claim"
+        >
+          <form onSubmit={submitFuelClaim} className="space-y-4">
+            <Field label="Claim Type">
+              <select
+                value={fuelClaimForm.claimType}
+                onChange={(e) => setFuelClaimForm({...fuelClaimForm, claimType: e.target.value})}
+                className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-orange-200"
+              >
+                <option value="per-tour">Per Tour</option>
+                <option value="weekly">Weekly</option>
+                <option value="monthly">Monthly</option>
+              </select>
+            </Field>
+            {fuelClaimForm.claimType === 'per-tour' && (
+              <Field label="Select Tours">
+                <div className="space-y-2 max-h-40 overflow-y-auto border border-gray-300 rounded-md p-3">
+                  {tourHistory.filter(t => !t.fuelClaimed).map((tour) => (
+                    <label key={tour._id} className="flex items-center">
+                      <input
+                        type="checkbox"
+                        checked={fuelClaimForm.tourIds.includes(tour._id)}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setFuelClaimForm({
+                              ...fuelClaimForm,
+                              tourIds: [...fuelClaimForm.tourIds, tour._id]
+                            });
+                          } else {
+                            setFuelClaimForm({
+                              ...fuelClaimForm,
+                              tourIds: fuelClaimForm.tourIds.filter(id => id !== tour._id)
+                            });
+                          }
+                        }}
+                        className="mr-2"
+                      />
+                      <span className="text-sm text-gray-700">
+                        {tour.activityName} - {tour.distance} km
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              </Field>
+            )}
+            <div className="flex space-x-3">
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => setShowFuelClaimModal(false)}
+                className="flex-1"
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                variant="primary"
+                className="flex-1"
+              >
+                Submit Claim
+              </Button>
+            </div>
+          </form>
+        </Modal>
+
         <Footer />
       </div>
     </ProtectedRoute>
