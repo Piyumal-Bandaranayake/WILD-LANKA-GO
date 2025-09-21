@@ -4,6 +4,20 @@ import { protectedApi } from '../../services/authService';
 import ProtectedRoute from '../../components/ProtectedRoute';
 import Navbar from '../../components/Navbar';
 import Footer from '../../components/footer';
+import { DashboardLayout, TabbedContent } from '../../components/common/DashboardLayout';
+import { 
+  Modal, 
+  Field, 
+  Input, 
+  Button, 
+  StatusBadge, 
+  Avatar, 
+  DataTable, 
+  Card, 
+  LoadingSpinner, 
+  EmptyState,
+  MiniCalendar
+} from '../../components/common/DashboardComponents';
 
 const VetDashboard = () => {
   const { backendUser, user } = useAuthContext();
@@ -176,7 +190,7 @@ const VetDashboard = () => {
           <Navbar />
           <div className="flex-1 flex items-center justify-center pt-32">
             <div className="text-center">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto"></div>
+              <LoadingSpinner size="lg" />
               <p className="mt-4 text-gray-600">Loading veterinary dashboard...</p>
             </div>
           </div>
@@ -186,155 +200,216 @@ const VetDashboard = () => {
     );
   }
 
+  // Define sidebar navigation items
+  const sidebarItems = [
+    { 
+      key: 'overview', 
+      label: 'Overview', 
+      icon: (
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0h6" />
+        </svg>
+      )
+    },
+    { 
+      key: 'cases', 
+      label: 'Animal Cases', 
+      icon: (
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636 10.682 6.318a4.5 4.5 0 00-6.364 0z" />
+        </svg>
+      )
+    },
+    { 
+      key: 'treatments', 
+      label: 'Treatments', 
+      icon: (
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+        </svg>
+      )
+    },
+    { 
+      key: 'inventory', 
+      label: 'Inventory', 
+      icon: (
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+        </svg>
+      )
+    },
+    { 
+      key: 'collaboration', 
+      label: 'Collaboration', 
+      icon: (
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+        </svg>
+      )
+    },
+    { 
+      key: 'reports', 
+      label: 'Reports', 
+      icon: (
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+        </svg>
+      )
+    }
+  ];
+
+  // Define stats cards
+  const statsCards = [
+    {
+      title: "Total Cases",
+      value: stats.totalCases,
+      color: "blue",
+      iconPath: "M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+    },
+    {
+      title: "Active Cases",
+      value: stats.activeCases,
+      color: "yellow",
+      iconPath: "M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+    },
+    {
+      title: "Recovered",
+      value: stats.recoveredAnimals,
+      color: "green",
+      iconPath: "M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+    },
+    {
+      title: "Critical",
+      value: stats.criticalCases,
+      color: "red",
+      iconPath: "M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"
+    }
+  ];
+
+  // Define tabs for main content
+  const tabs = [
+    { id: 'overview', name: 'Overview', icon: '📊' },
+    { id: 'cases', name: 'Animal Cases', icon: '🐾' },
+    { id: 'treatments', name: 'Treatments', icon: '💊' },
+    { id: 'inventory', name: 'Medication Inventory', icon: '📦' },
+    { id: 'collaboration', name: 'Collaboration', icon: '🤝' },
+    { id: 'reports', name: 'Reports', icon: '📄' }
+  ];
+
+  // Right widgets
+  const rightWidgets = [
+    <MiniCalendar />,
+    <div>
+      <div className="flex items-center justify-between mb-3">
+        <h4 className="font-semibold text-gray-800">Quick Actions</h4>
+      </div>
+      <div className="space-y-2">
+        <Button 
+          variant="outline" 
+          size="sm" 
+          className="w-full justify-start"
+          onClick={() => setActiveTab('cases')}
+        >
+          🐾 Register New Case
+        </Button>
+        <Button 
+          variant="outline" 
+          size="sm" 
+          className="w-full justify-start"
+          onClick={() => setActiveTab('inventory')}
+        >
+          📦 Check Inventory
+        </Button>
+        <Button 
+          variant="outline" 
+          size="sm" 
+          className="w-full justify-start"
+          onClick={() => generateReport('monthly')}
+        >
+          📄 Generate Report
+        </Button>
+      </div>
+    </div>
+  ];
+
   return (
     <ProtectedRoute allowedRoles={['vet']}>
-      <div className="flex flex-col min-h-screen">
+      <div className="flex flex-col min-h-screen bg-[#F4F6FF]">
         <Navbar />
-        <div className="flex-1 pt-32 pb-16">
-          <div className="container mx-auto px-4">
-            {/* Header */}
-            <div className="bg-gradient-to-r from-green-600 to-green-700 rounded-lg p-8 text-white mb-8">
-              <h1 className="text-3xl font-bold">Veterinarian Dashboard</h1>
-              <p className="text-green-100 mt-2">Animal Care & Treatment Management</p>
-            </div>
+        
+        {/* Error Message */}
+        {error && (
+          <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6 mx-4 mt-28">
+            <p className="text-sm text-red-800">{error}</p>
+          </div>
+        )}
 
-            {/* Error Message */}
-            {error && (
-              <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
-                <p className="text-sm text-red-800">{error}</p>
+        <DashboardLayout
+          sidebarItems={sidebarItems}
+          activeTab={activeTab}
+          setActiveTab={setActiveTab}
+          searchPlaceholder="Search cases, treatments..."
+          greetingMessage={`Animal Care & Treatment Management`}
+          statsCards={statsCards}
+          rightWidgets={rightWidgets}
+          headerColor="green"
+        >
+
+          <TabbedContent
+            tabs={tabs}
+            activeTab={activeTab}
+            setActiveTab={setActiveTab}
+            headerColor="green"
+          >
+            {/* Overview Tab */}
+            {activeTab === 'overview' && (
+              <div>
+                <h3 className="text-lg font-medium text-gray-900 mb-4">Veterinary Dashboard Overview</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <Card title="Recent Critical Cases">
+                    <div className="space-y-2 text-sm text-gray-600">
+                      {animalCases.filter(c => c.urgencyLevel === 'critical').slice(0, 5).map((case_) => (
+                        <div key={case_._id} className="flex justify-between">
+                          <span className="text-red-600">🚨 {case_.species} - {case_.condition}</span>
+                          <span>{case_.animalId}</span>
+                        </div>
+                      ))}
+                      {animalCases.filter(c => c.urgencyLevel === 'critical').length === 0 && (
+                        <p className="text-gray-500">No critical cases at the moment</p>
+                      )}
+                    </div>
+                  </Card>
+                  <Card title="Quick Actions">
+                    <div className="space-y-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-full justify-start"
+                        onClick={() => setActiveTab('cases')}
+                      >
+                        🐾 Register New Animal Case
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-full justify-start"
+                        onClick={() => setActiveTab('inventory')}
+                      >
+                        📦 Check Medication Inventory
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-full justify-start"
+                        onClick={() => generateReport('monthly')}
+                      >
+                        📄 Generate Monthly Report
+                      </Button>
+                    </div>
+                  </Card>
+                </div>
               </div>
             )}
-
-            {/* Stats Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-              <div className="bg-white rounded-lg shadow p-6">
-                <div className="flex items-center">
-                  <div className="p-2 bg-blue-100 rounded-lg">
-                    <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                    </svg>
-                  </div>
-                  <div className="ml-4">
-                    <p className="text-sm font-medium text-gray-600">Total Cases</p>
-                    <p className="text-2xl font-semibold text-gray-900">{stats.totalCases}</p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-white rounded-lg shadow p-6">
-                <div className="flex items-center">
-                  <div className="p-2 bg-yellow-100 rounded-lg">
-                    <svg className="w-6 h-6 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                  </div>
-                  <div className="ml-4">
-                    <p className="text-sm font-medium text-gray-600">Active Cases</p>
-                    <p className="text-2xl font-semibold text-gray-900">{stats.activeCases}</p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-white rounded-lg shadow p-6">
-                <div className="flex items-center">
-                  <div className="p-2 bg-green-100 rounded-lg">
-                    <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                  </div>
-                  <div className="ml-4">
-                    <p className="text-sm font-medium text-gray-600">Recovered</p>
-                    <p className="text-2xl font-semibold text-gray-900">{stats.recoveredAnimals}</p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-white rounded-lg shadow p-6">
-                <div className="flex items-center">
-                  <div className="p-2 bg-red-100 rounded-lg">
-                    <svg className="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
-                    </svg>
-                  </div>
-                  <div className="ml-4">
-                    <p className="text-sm font-medium text-gray-600">Critical</p>
-                    <p className="text-2xl font-semibold text-gray-900">{stats.criticalCases}</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Navigation Tabs */}
-            <div className="bg-white rounded-lg shadow mb-8">
-              <div className="border-b border-gray-200">
-                <nav className="-mb-px flex space-x-8 px-6 overflow-x-auto">
-                  {[
-                    { id: 'overview', name: 'Overview', icon: '📊' },
-                    { id: 'cases', name: 'Animal Cases', icon: '🐾' },
-                    { id: 'treatments', name: 'Treatments', icon: '💊' },
-                    { id: 'inventory', name: 'Medication Inventory', icon: '📦' },
-                    { id: 'collaboration', name: 'Collaboration', icon: '🤝' },
-                    { id: 'reports', name: 'Reports', icon: '📄' }
-                  ].map((tab) => (
-                    <button
-                      key={tab.id}
-                      onClick={() => setActiveTab(tab.id)}
-                      className={`py-4 px-1 border-b-2 font-medium text-sm whitespace-nowrap ${
-                        activeTab === tab.id
-                          ? 'border-green-500 text-green-600'
-                          : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                      }`}
-                    >
-                      <span className="mr-2">{tab.icon}</span>
-                      {tab.name}
-                    </button>
-                  ))}
-                </nav>
-              </div>
-
-              <div className="p-6">
-                {/* Overview Tab */}
-                {activeTab === 'overview' && (
-                  <div>
-                    <h3 className="text-lg font-medium text-gray-900 mb-4">Veterinary Dashboard Overview</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      <div className="bg-gray-50 rounded-lg p-4">
-                        <h4 className="font-medium text-gray-900 mb-2">Recent Critical Cases</h4>
-                        <div className="space-y-2 text-sm text-gray-600">
-                          {animalCases.filter(c => c.urgencyLevel === 'critical').slice(0, 5).map((case_) => (
-                            <div key={case_._id} className="flex justify-between">
-                              <span className="text-red-600">🚨 {case_.species} - {case_.condition}</span>
-                              <span>{case_.animalId}</span>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                      <div className="bg-gray-50 rounded-lg p-4">
-                        <h4 className="font-medium text-gray-900 mb-2">Quick Actions</h4>
-                        <div className="space-y-2">
-                          <button
-                            onClick={() => setActiveTab('cases')}
-                            className="block w-full text-left px-3 py-2 bg-white border border-gray-300 rounded-md hover:bg-gray-50 text-sm"
-                          >
-                            🐾 Register New Animal Case
-                          </button>
-                          <button
-                            onClick={() => setActiveTab('inventory')}
-                            className="block w-full text-left px-3 py-2 bg-white border border-gray-300 rounded-md hover:bg-gray-50 text-sm"
-                          >
-                            📦 Check Medication Inventory
-                          </button>
-                          <button
-                            onClick={() => generateReport('monthly')}
-                            className="block w-full text-left px-3 py-2 bg-white border border-gray-300 rounded-md hover:bg-gray-50 text-sm"
-                          >
-                            📄 Generate Monthly Report
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
 
                 {/* Animal Cases Tab */}
                 {activeTab === 'cases' && (
@@ -783,10 +858,8 @@ const VetDashboard = () => {
                     </div>
                   </div>
                 )}
-              </div>
-            </div>
-          </div>
-        </div>
+          </TabbedContent>
+        </DashboardLayout>
         <Footer />
       </div>
     </ProtectedRoute>
