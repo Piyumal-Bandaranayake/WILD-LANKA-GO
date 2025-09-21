@@ -9,7 +9,7 @@ export default function AboutUs() {
 
       {/* Hero Section */}
       <section
-        className="relative h-[70vh] bg-cover bg-center flex items-center justify-center"
+        className="relative h-[50vh] bg-cover bg-center flex items-center justify-center"
         style={{
           backgroundImage:
             "url('https://images.unsplash.com/photo-1598387993214-f22e0c2d4523?q=80&w=1200&auto=format&fit=crop')",
@@ -185,6 +185,7 @@ export default function AboutUs() {
           <button className="bg-white text-green-700 font-semibold px-6 py-3 rounded-lg shadow hover:bg-gray-100 transition">
             📞 Contact Us
           </button>
+          <p className="mt-4 text-lg">Or call us at: +94 77 886 8965</p>
         </div>
       </section>
 
