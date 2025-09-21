@@ -4,6 +4,20 @@ import { protectedApi } from '../../services/authService';
 import ProtectedRoute from '../../components/ProtectedRoute';
 import Navbar from '../../components/Navbar';
 import Footer from '../../components/footer';
+import { DashboardLayout, TabbedContent } from '../../components/common/DashboardLayout';
+import { 
+  Modal, 
+  Field, 
+  Input, 
+  Button, 
+  StatusBadge, 
+  Avatar, 
+  DataTable, 
+  Card, 
+  LoadingSpinner, 
+  EmptyState,
+  MiniCalendar
+} from '../../components/common/DashboardComponents';
 
 const TouristDashboard = () => {
   const { backendUser, user } = useAuthContext();
@@ -69,11 +83,11 @@ const TouristDashboard = () => {
       ] = await Promise.all([
         protectedApi.getActivities(),
         protectedApi.getEvents(),
-        protectedApi.getMyBookings(),
-        protectedApi.getMyEventRegistrations(),
-        protectedApi.getMyDonations(),
-        protectedApi.getMyFeedback(),
-        protectedApi.getMyComplaints()
+        protectedApi.getBookings(),
+        protectedApi.getEvents(),
+        protectedApi.getDonations(),
+        protectedApi.getFeedbacks(),
+        protectedApi.getComplaints()
       ]);
 
       setActivities(activitiesRes.data || []);
@@ -131,7 +145,7 @@ const TouristDashboard = () => {
   const handleDonation = async (e) => {
     e.preventDefault();
     try {
-      await protectedApi.makeDonation(donationForm);
+      await protectedApi.createDonation(donationForm);
       setDonationForm({ amount: '', message: '' });
       await fetchDashboardData();
       setError(null);
@@ -143,7 +157,7 @@ const TouristDashboard = () => {
   const handleFeedbackSubmit = async (e) => {
     e.preventDefault();
     try {
-      await protectedApi.submitFeedback(feedbackForm);
+      await protectedApi.createFeedback(feedbackForm);
       setFeedbackForm({ subject: '', message: '', rating: 5 });
       await fetchDashboardData();
       setError(null);
@@ -155,7 +169,7 @@ const TouristDashboard = () => {
   const handleComplaintSubmit = async (e) => {
     e.preventDefault();
     try {
-      await protectedApi.submitComplaint(complaintForm);
+      await protectedApi.createComplaint(complaintForm);
       setComplaintForm({ subject: '', description: '' });
       await fetchDashboardData();
       setError(null);
@@ -167,7 +181,7 @@ const TouristDashboard = () => {
   const handleEmergencyReport = async (e) => {
     e.preventDefault();
     try {
-      await protectedApi.reportEmergency(emergencyForm);
+      await protectedApi.createEmergency(emergencyForm);
       setEmergencyForm({ type: '', description: '', location: '' });
       setError(null);
       alert('Emergency reported successfully. Help is on the way!');
@@ -178,7 +192,8 @@ const TouristDashboard = () => {
 
   const updateEventRegistration = async (registrationId, participants) => {
     try {
-      await protectedApi.updateEventRegistration(registrationId, { participants });
+      // TODO: Implement updateEventRegistration API endpoint
+      console.log('Update event registration:', registrationId, participants);
       await fetchDashboardData();
     } catch (error) {
       setError('Failed to update registration.');
@@ -187,7 +202,8 @@ const TouristDashboard = () => {
 
   const cancelEventRegistration = async (registrationId) => {
     try {
-      await protectedApi.cancelEventRegistration(registrationId);
+      // TODO: Implement cancelEventRegistration API endpoint
+      console.log('Cancel event registration:', registrationId);
       await fetchDashboardData();
     } catch (error) {
       setError('Failed to cancel registration.');
@@ -196,7 +212,7 @@ const TouristDashboard = () => {
 
   const updateDonationMessage = async (donationId, message) => {
     try {
-      await protectedApi.updateDonationMessage(donationId, { message });
+      await protectedApi.updateDonation(donationId, { message });
       await fetchDashboardData();
     } catch (error) {
       setError('Failed to update donation message.');
@@ -228,7 +244,7 @@ const TouristDashboard = () => {
           <Navbar />
           <div className="flex-1 flex items-center justify-center pt-32">
             <div className="text-center">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto"></div>
+              <LoadingSpinner size="lg" />
               <p className="mt-4 text-gray-600">Loading your portal...</p>
             </div>
           </div>
@@ -238,297 +254,362 @@ const TouristDashboard = () => {
     );
   }
 
+  // Define sidebar navigation items
+  const sidebarItems = [
+    { 
+      key: 'overview', 
+      label: 'Overview', 
+      icon: (
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0h6" />
+        </svg>
+      )
+    },
+    { 
+      key: 'activities', 
+      label: 'Activities', 
+      icon: (
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+        </svg>
+      )
+    },
+    { 
+      key: 'events', 
+      label: 'Events', 
+      icon: (
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+        </svg>
+      )
+    },
+    { 
+      key: 'donations', 
+      label: 'Donations', 
+      icon: (
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636 10.682 6.318a4.5 4.5 0 00-6.364 0z" />
+        </svg>
+      )
+    },
+    { 
+      key: 'feedback', 
+      label: 'Feedback', 
+      icon: (
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+        </svg>
+      )
+    },
+    { 
+      key: 'emergency', 
+      label: 'Emergency', 
+      icon: (
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+        </svg>
+      )
+    }
+  ];
+
+  // Define stats cards
+  const statsCards = [
+    {
+      title: "My Bookings",
+      value: myBookings.length,
+      color: "green",
+      iconPath: "M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+    },
+    {
+      title: "Event Registrations",
+      value: myRegistrations.length,
+      color: "purple",
+      iconPath: "M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"
+    },
+    {
+      title: "Total Donations",
+      value: `$${myDonations.reduce((sum, d) => sum + d.amount, 0)}`,
+      color: "yellow",
+      iconPath: "M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1"
+    },
+    {
+      title: "Emergency",
+      value: "REPORT",
+      color: "red",
+      iconPath: "M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"
+    }
+  ];
+
+  // Define tabs for main content
+  const tabs = [
+    { id: 'overview', name: 'Overview', icon: '🏠' },
+    { id: 'activities', name: 'Book Activities', icon: '🏃' },
+    { id: 'events', name: 'Register Events', icon: '🎪' },
+    { id: 'donations', name: 'Donations', icon: '💝' },
+    { id: 'feedback', name: 'Feedback', icon: '💬' },
+    { id: 'emergency', name: 'Emergency', icon: '🚨' },
+    { id: 'myBookings', name: 'My Bookings', icon: '📅' }
+  ];
+
+  // Right widgets
+  const rightWidgets = [
+    <MiniCalendar />,
+    <div>
+      <div className="flex items-center justify-between mb-3">
+        <h4 className="font-semibold text-gray-800">Quick Actions</h4>
+      </div>
+      <div className="space-y-2">
+        <Button 
+          variant="outline" 
+          size="sm" 
+          className="w-full justify-start"
+          onClick={() => setActiveTab('activities')}
+        >
+          🏃 Book Activity
+        </Button>
+        <Button 
+          variant="outline" 
+          size="sm" 
+          className="w-full justify-start"
+          onClick={() => setActiveTab('events')}
+        >
+          🎪 Register Event
+        </Button>
+        <Button 
+          variant="outline" 
+          size="sm" 
+          className="w-full justify-start"
+          onClick={() => setActiveTab('donations')}
+        >
+          💝 Make Donation
+        </Button>
+        <Button 
+          variant="danger" 
+          size="sm" 
+          className="w-full justify-start"
+          onClick={() => setActiveTab('emergency')}
+        >
+          🚨 Emergency
+        </Button>
+      </div>
+    </div>
+  ];
+
   return (
     <ProtectedRoute allowedRoles={['tourist']}>
-      <div className="flex flex-col min-h-screen">
+      <div className="flex flex-col min-h-screen bg-[#F4F6FF]">
         <Navbar />
-        <div className="flex-1 pt-32 pb-16">
-          <div className="container mx-auto px-4">
-            {/* Header */}
-            <div className="bg-gradient-to-r from-blue-600 to-blue-700 rounded-lg p-8 text-white mb-8">
-              <h1 className="text-3xl font-bold">Tourist Portal</h1>
-              <p className="text-blue-100 mt-2">Welcome to Wild Lanka Go, {user?.name}!</p>
-            </div>
+        
+        {/* Error Message */}
+        {error && (
+          <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6 mx-4 mt-28">
+            <p className="text-sm text-red-800">{error}</p>
+          </div>
+        )}
 
-            {/* Error Message */}
-            {error && (
-              <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
-                <p className="text-sm text-red-800">{error}</p>
-              </div>
-            )}
+        <DashboardLayout
+          sidebarItems={sidebarItems}
+          activeTab={activeTab}
+          setActiveTab={setActiveTab}
+          searchPlaceholder="Search activities, events..."
+          greetingMessage={`Welcome to Wild Lanka Go!`}
+          statsCards={statsCards}
+          rightWidgets={rightWidgets}
+          headerColor="blue"
+        >
 
-            {/* Quick Stats */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-              <div className="bg-white rounded-lg shadow p-6">
-                <div className="flex items-center">
-                  <div className="p-2 bg-green-100 rounded-lg">
-                    <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                    </svg>
-                  </div>
-                  <div className="ml-4">
-                    <p className="text-sm font-medium text-gray-600">My Bookings</p>
-                    <p className="text-2xl font-semibold text-gray-900">{myBookings.length}</p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-white rounded-lg shadow p-6">
-                <div className="flex items-center">
-                  <div className="p-2 bg-purple-100 rounded-lg">
-                    <svg className="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                    </svg>
-                  </div>
-                  <div className="ml-4">
-                    <p className="text-sm font-medium text-gray-600">Event Registrations</p>
-                    <p className="text-2xl font-semibold text-gray-900">{myRegistrations.length}</p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-white rounded-lg shadow p-6">
-                <div className="flex items-center">
-                  <div className="p-2 bg-yellow-100 rounded-lg">
-                    <svg className="w-6 h-6 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
-                    </svg>
-                  </div>
-                  <div className="ml-4">
-                    <p className="text-sm font-medium text-gray-600">Total Donations</p>
-                    <p className="text-2xl font-semibold text-gray-900">
-                      ${myDonations.reduce((sum, d) => sum + d.amount, 0)}
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-white rounded-lg shadow p-6">
-                <div className="flex items-center">
-                  <div className="p-2 bg-red-100 rounded-lg">
-                    <svg className="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
-                    </svg>
-                  </div>
-                  <div className="ml-4">
-                    <p className="text-sm font-medium text-gray-600">Emergency</p>
-                    <p className="text-xl font-semibold text-red-600">REPORT</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Navigation Tabs */}
-            <div className="bg-white rounded-lg shadow mb-8">
-              <div className="border-b border-gray-200">
-                <nav className="-mb-px flex space-x-8 px-6 overflow-x-auto">
-                  {[
-                    { id: 'overview', name: 'Overview', icon: '🏠' },
-                    { id: 'activities', name: 'Book Activities', icon: '🏃' },
-                    { id: 'events', name: 'Register Events', icon: '🎪' },
-                    { id: 'donations', name: 'Donations', icon: '💝' },
-                    { id: 'feedback', name: 'Feedback', icon: '💬' },
-                    { id: 'complaints', name: 'Complaints', icon: '📝' },
-                    { id: 'emergency', name: 'Emergency', icon: '🚨' },
-                    { id: 'myBookings', name: 'My Bookings', icon: '📅' }
-                  ].map((tab) => (
-                    <button
-                      key={tab.id}
-                      onClick={() => setActiveTab(tab.id)}
-                      className={`py-4 px-1 border-b-2 font-medium text-sm whitespace-nowrap ${
-                        activeTab === tab.id
-                          ? 'border-blue-500 text-blue-600'
-                          : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                      }`}
-                    >
-                      <span className="mr-2">{tab.icon}</span>
-                      {tab.name}
-                    </button>
-                  ))}
-                </nav>
-              </div>
-
-              <div className="p-6">
-                {/* Overview Tab */}
-                {activeTab === 'overview' && (
-                  <div>
-                    <h3 className="text-lg font-medium text-gray-900 mb-4">Welcome to Your Portal</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      <div className="bg-gray-50 rounded-lg p-4">
-                        <h4 className="font-medium text-gray-900 mb-2">Quick Actions</h4>
-                        <div className="space-y-2">
-                          <button
-                            onClick={() => setActiveTab('activities')}
-                            className="block w-full text-left px-3 py-2 bg-white border border-gray-300 rounded-md hover:bg-gray-50 text-sm"
-                          >
-                            🏃 Book New Activity
-                          </button>
-                          <button
-                            onClick={() => setActiveTab('events')}
-                            className="block w-full text-left px-3 py-2 bg-white border border-gray-300 rounded-md hover:bg-gray-50 text-sm"
-                          >
-                            🎪 Register for Event
-                          </button>
-                          <button
-                            onClick={() => setActiveTab('donations')}
-                            className="block w-full text-left px-3 py-2 bg-white border border-gray-300 rounded-md hover:bg-gray-50 text-sm"
-                          >
-                            💝 Make a Donation
-                          </button>
-                          <button
-                            onClick={() => setActiveTab('emergency')}
-                            className="block w-full text-left px-3 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 text-sm"
-                          >
-                            🚨 Report Emergency
-                          </button>
-                        </div>
-                      </div>
-                      <div className="bg-gray-50 rounded-lg p-4">
-                        <h4 className="font-medium text-gray-900 mb-2">Recent Activity</h4>
-                        <div className="space-y-2 text-sm text-gray-600">
-                          {myBookings.slice(0, 3).map((booking) => (
-                            <div key={booking._id} className="flex justify-between">
-                              <span>🏃 {booking.activityName}</span>
-                              <span>{new Date(booking.date).toLocaleDateString()}</span>
-                            </div>
-                          ))}
-                          {myDonations.slice(0, 2).map((donation) => (
-                            <div key={donation._id} className="flex justify-between">
-                              <span>💝 Donation</span>
-                              <span>${donation.amount}</span>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
+          <TabbedContent
+            tabs={tabs}
+            activeTab={activeTab}
+            setActiveTab={setActiveTab}
+            headerColor="blue"
+          >
+            {/* Overview Tab */}
+            {activeTab === 'overview' && (
+              <div>
+                <h3 className="text-lg font-medium text-gray-900 mb-4">Welcome to Your Portal</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <Card title="Quick Actions">
+                    <div className="space-y-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-full justify-start"
+                        onClick={() => setActiveTab('activities')}
+                      >
+                        🏃 Book New Activity
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-full justify-start"
+                        onClick={() => setActiveTab('events')}
+                      >
+                        🎪 Register for Event
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-full justify-start"
+                        onClick={() => setActiveTab('donations')}
+                      >
+                        💝 Make a Donation
+                      </Button>
+                      <Button
+                        variant="danger"
+                        size="sm"
+                        className="w-full justify-start"
+                        onClick={() => setActiveTab('emergency')}
+                      >
+                        🚨 Report Emergency
+                      </Button>
                     </div>
-                  </div>
-                )}
-
-                {/* Activities Tab */}
-                {activeTab === 'activities' && (
-                  <div>
-                    <h3 className="text-lg font-medium text-gray-900 mb-4">Available Activities</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                      {activities.map((activity) => (
-                        <div key={activity._id} className="border border-gray-200 rounded-lg p-4">
-                          {activity.image && (
-                            <img
-                              src={activity.image}
-                              alt={activity.title}
-                              className="w-full h-40 object-cover rounded-md mb-3"
-                            />
-                          )}
-                          <h4 className="font-medium text-gray-900">{activity.title}</h4>
-                          <p className="text-sm text-gray-600 mt-1">{activity.description}</p>
-                          <div className="mt-3 flex justify-between items-center">
-                            <span className="font-bold text-green-600">${activity.price}</span>
-                            <span className="text-sm text-gray-500">{activity.duration}</span>
-                          </div>
-                          <div className="mt-2 text-sm text-gray-500">
-                            Max participants: {activity.maxParticipants}
-                          </div>
-                          <button
-                            onClick={() => setSelectedActivity(activity)}
-                            className="mt-3 w-full px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-                          >
-                            Book Now
-                          </button>
+                  </Card>
+                  <Card title="Recent Activity">
+                    <div className="space-y-2 text-sm text-gray-600">
+                      {myBookings.slice(0, 3).map((booking) => (
+                        <div key={booking._id} className="flex justify-between">
+                          <span>🏃 {booking.activityName}</span>
+                          <span>{new Date(booking.date).toLocaleDateString()}</span>
+                        </div>
+                      ))}
+                      {myDonations.slice(0, 2).map((donation) => (
+                        <div key={donation._id} className="flex justify-between">
+                          <span>💝 Donation</span>
+                          <span>${donation.amount}</span>
                         </div>
                       ))}
                     </div>
+                  </Card>
+                </div>
+              </div>
+            )}
 
-                    {/* Booking Modal */}
-                    {selectedActivity && (
-                      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-                        <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
-                          <h3 className="text-lg font-medium text-gray-900 mb-4">
-                            Book: {selectedActivity.title}
-                          </h3>
-                          <form onSubmit={handleActivityBooking}>
-                            <div className="mb-4">
-                              <label className="block text-sm font-medium text-gray-700 mb-2">
-                                Select Date
-                              </label>
-                              <input
-                                type="date"
-                                value={bookingForm.date}
-                                onChange={(e) => setBookingForm({...bookingForm, date: e.target.value})}
-                                min={new Date().toISOString().split('T')[0]}
-                                required
-                                className="w-full border border-gray-300 rounded-md px-3 py-2"
-                              />
-                            </div>
-                            <div className="mb-4">
-                              <label className="block text-sm font-medium text-gray-700 mb-2">
-                                Number of Participants
-                              </label>
-                              <input
-                                type="number"
-                                value={bookingForm.participants}
-                                onChange={(e) => setBookingForm({...bookingForm, participants: parseInt(e.target.value)})}
-                                min="1"
-                                max={selectedActivity.maxParticipants}
-                                required
-                                className="w-full border border-gray-300 rounded-md px-3 py-2"
-                              />
-                            </div>
-                            <div className="mb-4">
-                              <label className="flex items-center">
-                                <input
-                                  type="checkbox"
-                                  checked={bookingForm.requestGuide}
-                                  onChange={(e) => setBookingForm({...bookingForm, requestGuide: e.target.checked})}
-                                  className="mr-2"
-                                />
-                                <span className="text-sm text-gray-700">Request Tour Guide (+$25)</span>
-                              </label>
-                            </div>
-                            <div className="mb-4 p-3 bg-gray-50 rounded-md">
-                              <div className="text-sm text-gray-600">
-                                <div className="flex justify-between">
-                                  <span>Activity Price:</span>
-                                  <span>${selectedActivity.price} × {bookingForm.participants}</span>
-                                </div>
-                                {bookingForm.requestGuide && (
-                                  <div className="flex justify-between">
-                                    <span>Tour Guide:</span>
-                                    <span>$25</span>
-                                  </div>
-                                )}
-                                <div className="flex justify-between font-bold border-t pt-2">
-                                  <span>Total:</span>
-                                  <span>
-                                    ${(selectedActivity.price * bookingForm.participants) + (bookingForm.requestGuide ? 25 : 0)}
-                                  </span>
-                                </div>
-                              </div>
-                            </div>
-                            <div className="bg-yellow-50 border border-yellow-200 rounded-md p-3 mb-4">
-                              <p className="text-sm text-yellow-800">
-                                ⚠️ Important: Once confirmed, bookings cannot be updated or cancelled.
-                              </p>
-                            </div>
-                            <div className="flex space-x-3">
-                              <button
-                                type="button"
-                                onClick={() => setSelectedActivity(null)}
-                                className="flex-1 px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50"
-                              >
-                                Cancel
-                              </button>
-                              <button
-                                type="submit"
-                                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-                              >
-                                Confirm Booking
-                              </button>
-                            </div>
-                          </form>
+            {/* Activities Tab */}
+            {activeTab === 'activities' && (
+              <div>
+                <h3 className="text-lg font-medium text-gray-900 mb-4">Available Activities</h3>
+                {activities.length === 0 ? (
+                  <EmptyState
+                    icon="🏃"
+                    title="No Activities"
+                    description="No activities are currently available."
+                  />
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {activities.map((activity) => (
+                      <Card key={activity._id}>
+                        {activity.image && (
+                          <img
+                            src={activity.image}
+                            alt={activity.title}
+                            className="w-full h-40 object-cover rounded-md mb-3"
+                          />
+                        )}
+                        <h4 className="font-medium text-gray-900">{activity.title}</h4>
+                        <p className="text-sm text-gray-600 mt-1">{activity.description}</p>
+                        <div className="mt-3 flex justify-between items-center">
+                          <span className="font-bold text-green-600">${activity.price}</span>
+                          <span className="text-sm text-gray-500">{activity.duration}</span>
                         </div>
-                      </div>
-                    )}
+                        <div className="mt-2 text-sm text-gray-500">
+                          Max participants: {activity.maxParticipants}
+                        </div>
+                        <Button
+                          variant="primary"
+                          className="mt-3 w-full"
+                          onClick={() => setSelectedActivity(activity)}
+                        >
+                          Book Now
+                        </Button>
+                      </Card>
+                    ))}
                   </div>
                 )}
+
+                {/* Booking Modal */}
+                {selectedActivity && (
+                  <Modal
+                    title={`Book: ${selectedActivity.title}`}
+                    onClose={() => setSelectedActivity(null)}
+                    size="md"
+                  >
+                    <form onSubmit={handleActivityBooking} className="space-y-4">
+                      <Field label="Select Date" required>
+                        <Input
+                          type="date"
+                          value={bookingForm.date}
+                          onChange={(e) => setBookingForm({...bookingForm, date: e.target.value})}
+                          min={new Date().toISOString().split('T')[0]}
+                          required
+                        />
+                      </Field>
+                      <Field label="Number of Participants" required>
+                        <Input
+                          type="number"
+                          value={bookingForm.participants}
+                          onChange={(e) => setBookingForm({...bookingForm, participants: parseInt(e.target.value)})}
+                          min="1"
+                          max={selectedActivity.maxParticipants}
+                          required
+                        />
+                      </Field>
+                      <div className="flex items-center">
+                        <input
+                          type="checkbox"
+                          checked={bookingForm.requestGuide}
+                          onChange={(e) => setBookingForm({...bookingForm, requestGuide: e.target.checked})}
+                          className="mr-2"
+                        />
+                        <span className="text-sm text-gray-700">Request Tour Guide (+$25)</span>
+                      </div>
+                      <div className="p-3 bg-gray-50 rounded-md">
+                        <div className="text-sm text-gray-600">
+                          <div className="flex justify-between">
+                            <span>Activity Price:</span>
+                            <span>${selectedActivity.price} × {bookingForm.participants}</span>
+                          </div>
+                          {bookingForm.requestGuide && (
+                            <div className="flex justify-between">
+                              <span>Tour Guide:</span>
+                              <span>$25</span>
+                            </div>
+                          )}
+                          <div className="flex justify-between font-bold border-t pt-2">
+                            <span>Total:</span>
+                            <span>
+                              ${(selectedActivity.price * bookingForm.participants) + (bookingForm.requestGuide ? 25 : 0)}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="bg-yellow-50 border border-yellow-200 rounded-md p-3">
+                        <p className="text-sm text-yellow-800">
+                          ⚠️ Important: Once confirmed, bookings cannot be updated or cancelled.
+                        </p>
+                      </div>
+                      <div className="flex space-x-3">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          className="flex-1"
+                          onClick={() => setSelectedActivity(null)}
+                        >
+                          Cancel
+                        </Button>
+                        <Button
+                          type="submit"
+                          variant="primary"
+                          className="flex-1"
+                        >
+                          Confirm Booking
+                        </Button>
+                      </div>
+                    </form>
+                  </Modal>
+                )}
+              </div>
+            )}
 
                 {/* Events Tab */}
                 {activeTab === 'events' && (
@@ -1099,10 +1180,8 @@ const TouristDashboard = () => {
                     </div>
                   </div>
                 )}
-              </div>
-            </div>
-          </div>
-        </div>
+          </TabbedContent>
+        </DashboardLayout>
         <Footer />
       </div>
     </ProtectedRoute>
