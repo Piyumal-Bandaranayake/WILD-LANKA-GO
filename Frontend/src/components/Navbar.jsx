@@ -16,14 +16,16 @@ const NavBar = () => {
     logout 
   } = useAuthContext();
 
-  const navLinks = [
+  const publicNavLinks = [
     { name: 'Home', path: '/' },
     { name: 'About', path: '/about' },
+    { name: 'Activity', path: '/activities' },
+    { name: 'Event', path: '/events' },
+    { name: 'Contact', path: '/contact' },
+    { name: 'Donation', path: '/donation' },
   ];
 
   const protectedNavLinks = [
-    { name: 'Activity', path: '/activities' },
-    { name: 'Event', path: '/events' },
     { name: 'Dashboard', path: '/dashboard' },
     { name: 'Profile', path: '/profile' },
   ];
@@ -54,20 +56,29 @@ const NavBar = () => {
 
       {/* Desktop Nav */}
       <ul className="md:flex hidden items-center gap-10">
-        {navLinks.map((link, index) => (
+        {!isFullyAuthenticated && publicNavLinks.map((link, index) => (
           <li key={index}>
             <Link to={link.path} className="hover:text-green-600 transition-colors">
               {link.name}
             </Link>
           </li>
         ))}
-        {isFullyAuthenticated && protectedNavLinks.map((link, index) => (
-          <li key={`protected-${index}`}>
-            <Link to={link.path} className="hover:text-green-600 transition-colors">
-              {link.name}
-            </Link>
-          </li>
-        ))}
+        {isFullyAuthenticated && [
+          ...publicNavLinks.map((link, index) => (
+            <li key={`public-${index}`}>
+              <Link to={link.path} className="hover:text-green-600 transition-colors">
+                {link.name}
+              </Link>
+            </li>
+          )),
+          ...protectedNavLinks.map((link, index) => (
+            <li key={`protected-${index}`}>
+              <Link to={link.path} className="hover:text-green-600 transition-colors">
+                {link.name}
+              </Link>
+            </li>
+          ))
+        ]}
       </ul>
 
       {/* Right Buttons */}
@@ -113,20 +124,29 @@ const NavBar = () => {
       {isMenuOpen && (
         <div className="absolute top-[70px] left-0 w-full bg-white p-6 md:hidden z-40 rounded-b-2xl shadow">
           <ul className="flex flex-col space-y-4 text-lg">
-            {navLinks.map((link, index) => (
+            {!isFullyAuthenticated && publicNavLinks.map((link, index) => (
               <li key={index}>
                 <Link to={link.path} className="text-sm hover:text-green-600 transition-colors">
                   {link.name}
                 </Link>
               </li>
             ))}
-            {isFullyAuthenticated && protectedNavLinks.map((link, index) => (
-              <li key={`mobile-protected-${index}`}>
-                <Link to={link.path} className="text-sm hover:text-green-600 transition-colors">
-                  {link.name}
-                </Link>
-              </li>
-            ))}
+            {isFullyAuthenticated && [
+              ...publicNavLinks.map((link, index) => (
+                <li key={`mobile-public-${index}`}>
+                  <Link to={link.path} className="text-sm hover:text-green-600 transition-colors">
+                    {link.name}
+                  </Link>
+                </li>
+              )),
+              ...protectedNavLinks.map((link, index) => (
+                <li key={`mobile-protected-${index}`}>
+                  <Link to={link.path} className="text-sm hover:text-green-600 transition-colors">
+                    {link.name}
+                  </Link>
+                </li>
+              ))
+            ]}
           </ul>
 
           {/* Mobile Login/Logout */}
