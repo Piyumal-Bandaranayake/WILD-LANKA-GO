@@ -18,7 +18,10 @@ const ActivityList = () => {
         date: '',
         participants: 1,
         requestTourGuide: false,
-        specialRequests: ''
+        specialRequests: '',
+        touristName: '',
+        touristEmail: '',
+        touristPhone: ''
     });
 
     const [newActivity, setNewActivity] = useState({
@@ -121,7 +124,10 @@ const ActivityList = () => {
             date: '',
             participants: 1,
             requestTourGuide: false,
-            specialRequests: ''
+            specialRequests: '',
+            touristName: backendUser?.name || user?.name || '',
+            touristEmail: backendUser?.email || user?.email || '',
+            touristPhone: backendUser?.phone || user?.phone || ''
         });
         setShowBookingModal(true);
     };
@@ -256,9 +262,111 @@ const ActivityList = () => {
 
             {showBookingModal && selectedActivity && (
                 <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-                    <div className="bg-white rounded-lg p-8 w-full max-w-md shadow-xl">
-                        <h2 className="text-2xl font-bold mb-6">Book Activity</h2>
-                        {/* Booking form... */}
+                    <div
+                        className="bg-white rounded-lg p-8 w-full max-w-md shadow-xl bg-cover bg-center"
+                        style={{
+                            backgroundImage:
+                                "url('https://images.unsplash.com/photo-1501785888041-af3ba6f60060?q=80&w=1970&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D')",
+                        }}
+                    >
+                        <h2 className="text-2xl font-bold mb-6">Book Activity: {selectedActivity.title}</h2>
+                        <form onSubmit={handleBookActivity}>
+                            <div className="mb-4">
+                                <label htmlFor="touristName" className="block text-gray-700 text-sm font-bold mb-2">Your Name:</label>
+                                <input
+                                    type="text"
+                                    id="touristName"
+                                    className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+                                    value={bookingData.touristName}
+                                    onChange={(e) => setBookingData({ ...bookingData, touristName: e.target.value })}
+                                    required
+                                />
+                            </div>
+                            <div className="mb-4">
+                                <label htmlFor="touristEmail" className="block text-gray-700 text-sm font-bold mb-2">Your Email:</label>
+                                <input
+                                    type="email"
+                                    id="touristEmail"
+                                    className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+                                    value={bookingData.touristEmail}
+                                    onChange={(e) => setBookingData({ ...bookingData, touristEmail: e.target.value })}
+                                    required
+                                />
+                            </div>
+                            <div className="mb-4">
+                                <label htmlFor="touristPhone" className="block text-gray-700 text-sm font-bold mb-2">Your Phone:</label>
+                                <input
+                                    type="tel"
+                                    id="touristPhone"
+                                    className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+                                    value={bookingData.touristPhone}
+                                    onChange={(e) => setBookingData({ ...bookingData, touristPhone: e.target.value })}
+                                    required
+                                />
+                            </div>
+                            <div className="mb-4">
+                                <label htmlFor="date" className="block text-gray-700 text-sm font-bold mb-2">Date:</label>
+                                <input
+                                    type="date"
+                                    id="date"
+                                    className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+                                    value={bookingData.date}
+                                    onChange={(e) => setBookingData({ ...bookingData, date: e.target.value })}
+                                    required
+                                />
+                            </div>
+                            <div className="mb-4">
+                                <label htmlFor="participants" className="block text-gray-700 text-sm font-bold mb-2">Participants:</label>
+                                <input
+                                    type="number"
+                                    id="participants"
+                                    className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+                                    value={bookingData.participants}
+                                    onChange={(e) => setBookingData({ ...bookingData, participants: parseInt(e.target.value) })}
+                                    min="1"
+                                    required
+                                />
+                            </div>
+                            <div className="mb-4 flex items-center">
+                                <input
+                                    type="checkbox"
+                                    id="requestTourGuide"
+                                    className="mr-2 leading-tight"
+                                    checked={bookingData.requestTourGuide}
+                                    onChange={(e) => setBookingData({ ...bookingData, requestTourGuide: e.target.checked })}
+                                />
+                                <label htmlFor="requestTourGuide" className="text-sm text-gray-700">Request Tour Guide</label>
+                            </div>
+                            <div className="mb-4">
+                                <label htmlFor="specialRequests" className="block text-gray-700 text-sm font-bold mb-2">Special Requests:</label>
+                                <textarea
+                                    id="specialRequests"
+                                    rows="3"
+                                    className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+                                    value={bookingData.specialRequests}
+                                    onChange={(e) => setBookingData({ ...bookingData, specialRequests: e.target.value })}
+                                ></textarea>
+                            </div>
+                            <div className="mb-4 text-lg font-bold text-gray-800">
+                                <p>Price per person: ${selectedActivity.price}</p>
+                                <p>Total Amount: ${selectedActivity.price * bookingData.participants}</p>
+                            </div>
+                            <div className="flex items-center justify-between">
+                                <button
+                                    type="submit"
+                                    className="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline"
+                                >
+                                    Confirm Booking
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setShowBookingModal(false)}
+                                    className="bg-gray-500 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline"
+                                >
+                                    Cancel
+                                </button>
+                            </div>
+                        </form>
                     </div>
                 </div>
             )}
