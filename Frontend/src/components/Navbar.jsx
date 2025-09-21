@@ -18,24 +18,14 @@ const NavBar = () => {
 
   const navLinks = [
     { name: 'Home', path: '/' },
-    { name: 'Activities', path: '/activities' },
-    { name: 'Events', path: '/events' },
     { name: 'About', path: '/about' },
-    { name: 'Donations', path: '/donations' },
   ];
 
   const protectedNavLinks = [
+    { name: 'Activity', path: '/activities' },
+    { name: 'Event', path: '/events' },
     { name: 'Dashboard', path: '/dashboard' },
-    { name: 'Animal Care', path: '/animal-care' },
-    { name: 'Feedback', path: '/feedback' },
-    { name: 'Complaints', path: '/complaints' },
     { name: 'Profile', path: '/profile' },
-  ];
-
-  const adminNavLinks = [
-    { name: 'User Management', path: '/user-management' },
-    { name: 'Emergency Officer', path: '/emergency/officer' },
-    { name: 'Tour Management', path: '/AllToursPage' },
   ];
 
   // Scroll listener to detect if the page has been scrolled
