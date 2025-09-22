@@ -1,4 +1,4 @@
-import Event from '../../models/Activity Management/event.js'
+import Event from '../../models/Event.js'; // Use the main comprehensive Event model
 
 // 1. CREATE: Admin creates a new event (with image upload)
 export const createEvent = async (req, res) => {
@@ -11,15 +11,35 @@ export const createEvent = async (req, res) => {
       imagesArray = req.files.map(file => `/uploads/events/${file.filename}`);
     }
 
+    // Map the simple schema to the comprehensive Event model
     const newEvent = new Event({
-      name,
+      title: name, // Map name to title
       description,
-      date,
-      location,
-      duration,
-      availableSlots,
-      eventType,
-      images: imagesArray,  // Store images as an array
+      category: 'Educational Program', // Default category
+      eventType: 'Public', // Default event type for main schema
+      dateTime: {
+        startDate: new Date(date),
+        endDate: new Date(date), // Same day event
+        startTime: '09:00', // Default times
+        endTime: '17:00',
+      },
+      location: {
+        venue: location,
+        address: location,
+      },
+      capacity: {
+        maxSlots: availableSlots,
+        availableSlots: availableSlots,
+      },
+      pricing: {
+        basePrice: 0, // Default free event
+        currency: 'LKR',
+      },
+      media: {
+        images: imagesArray,
+      },
+      status: 'Active',
+      visibility: 'Public',
     });
 
     await newEvent.save();
@@ -42,19 +62,29 @@ export const updateEvent = async (req, res) => {
       return res.status(404).json({ message: 'Event not found' });
     }
 
-    // Update the event with new details, including image if provided
-    event.name = name || event.name;
+    // Update the event with new details using comprehensive schema mapping
+    event.title = name || event.title;
     event.description = description || event.description;
-    event.date = date || event.date;
-    event.location = location || event.location;
-    event.duration = duration || event.duration;
-    event.availableSlots = availableSlots || event.availableSlots;
-    event.eventType = eventType || event.eventType;
+    
+    if (date) {
+      event.dateTime.startDate = new Date(date);
+      event.dateTime.endDate = new Date(date);
+    }
+    
+    if (location) {
+      event.location.venue = location;
+      event.location.address = location;
+    }
+    
+    if (availableSlots) {
+      event.capacity.availableSlots = availableSlots;
+      event.capacity.maxSlots = availableSlots;
+    }
 
     // Handle images if provided
     if (req.files && req.files.length > 0) {
       const newImages = req.files.map(file => `/uploads/events/${file.filename}`);
-      event.images = [...event.images, ...newImages];  // Append new images
+      event.media.images = [...(event.media.images || []), ...newImages];  // Append new images
     }
 
     await event.save();

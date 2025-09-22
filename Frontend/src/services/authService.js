@@ -9,9 +9,17 @@ const api = axios.create({
 
 // Add request interceptor to include auth token
 let getTokenFunction = null;
+let isDevelopmentMode = false;
 
 export const setTokenProvider = (tokenProvider) => {
   getTokenFunction = tokenProvider;
+};
+
+export const setDevelopmentMode = (mode) => {
+  isDevelopmentMode = mode;
+  if (mode) {
+    console.log('Development mode enabled');
+  }
 };
 
 // Request interceptor to add auth token

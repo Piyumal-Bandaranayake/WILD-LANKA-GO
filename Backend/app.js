@@ -38,6 +38,7 @@ import emergencyReportRoutes from './src/routes/emergency/emergencyReportRoute.j
 import connectDB from './src/config/DB.js';
 import medicationRoutes from './src/routes/Animal Care Management/medicationRoutes.js';
 import authRoutes from './src/routes/auth/auth.js';
+import touristRoutes from './src/routes/tourist.js';
 import { scheduleCleanup } from './src/utils/cacheCleanup.js';
 
 // Load environment variables
@@ -100,6 +101,10 @@ app.use('/api/feedbacks', feedbackRoutes);
 app.use('/api/complaints', complaintRoutes);
 app.use('/api/chatbot', chatbotRoutes);
 app.use('/api/auth', authRoutes);
+
+// Add middleware for tourist routes (needs authentication)
+import flexibleAuthMiddleware from './src/middleware/flexibleAuthMiddleware.js';
+app.use('/api/tourist', flexibleAuthMiddleware, touristRoutes);
 
 // Management Routes
 app.use('/api/tour-rejection', tourRejectionRoutes);

@@ -3,6 +3,10 @@ node_modules/
 */node_modules/
 **/node_modules/
 
+# Package lock files
+package-lock.json
+*/package-lock.json
+
 # Environment variables
 .env
 .env.local
@@ -31,11 +35,9 @@ pids
 *.seed
 *.pid.lock
 
-# Coverage directory used by tools like istanbul
+# Coverage directories
 coverage/
 *.lcov
-
-# nyc test coverage
 .nyc_output
 
 # Dependency directories
@@ -47,25 +49,35 @@ jspm_packages/
 # Optional eslint cache
 .eslintcache
 
-# Optional VS Code files
+# IDE files
 .vscode/
 !.vscode/extensions.json
-
-# IDE files
 .idea/
-.DS_Store
+*.swp
+*.swo
 *.suo
 *.ntvs*
 *.njsproj
 *.sln
 *.sw?
 
-# Temporary files
-*.tmp
-*.temp
-*.cache
-
 # OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
 Thumbs.db
 ehthumbs.db
 Desktop.ini
+ehthumbs.db
+
+# Cache files
+.cache/
+.parcel-cache/
+
+# Temporary files and folders
+*.tmp
+*.temp
+tmp/
+temp/

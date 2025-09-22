@@ -6,13 +6,17 @@ import {
   updateEmergencyOfficer,
   deleteEmergencyOfficer,
   toggleAvailability,
-  getAvailableOfficers
+  getAvailableOfficers,
+  createEmergencyOfficerAuth0User
 } from '../../controllers/user/EmergencyOfficercontroller.js';
 
 const router = express.Router();
 
 // Register route for emergency officer
 router.post('/register', registerEmergencyOfficer);
+
+// Create Emergency Officer user in main User model for Auth0 integration
+router.post('/create-auth0-user', createEmergencyOfficerAuth0User);
 
 // Get all emergency officers
 router.get('/', getEmergencyOfficers);

@@ -1,4 +1,5 @@
 import EmergencyOfficer from '../../models/User/EmergencyOfficer.js';
+import User from '../../models/User.js';
 
 // ✅ Register Emergency Officer
 const registerEmergencyOfficer = async (req, res) => {
@@ -215,6 +216,89 @@ const getAvailableOfficers = async (req, res) => {
   }
 };
 
+// Create Emergency Officer user in main User model for Auth0 integration
+const createEmergencyOfficerAuth0User = async (req, res) => {
+  try {
+    const { email, name, auth0Id } = req.body;
+
+    if (!email || !name) {
+      return res.status(400).json({ message: 'Email and name are required' });
+    }
+
+    // Check if emergency officer exists in separate model
+    const emergencyOfficer = await EmergencyOfficer.findOne({ Email: email });
+    if (!emergencyOfficer) {
+      return res.status(404).json({ 
+        message: 'Emergency Officer not found in system. Please register first.' 
+      });
+    }
+
+    // Check if user already exists in main User model
+    let user = await User.findOne({ email });
+    if (user) {
+      // Update role if needed
+      if (user.role !== 'EmergencyOfficer') {
+        user.role = 'EmergencyOfficer';
+        await user.save();
+        return res.status(200).json({ 
+          message: 'User role updated to EmergencyOfficer', 
+          user: {
+            _id: user._id,
+            email: user.email,
+            name: user.name,
+            role: user.role
+          }
+        });
+      }
+      return res.status(200).json({ 
+        message: 'User already exists with EmergencyOfficer role', 
+        user: {
+          _id: user._id,
+          email: user.email,
+          name: user.name,
+          role: user.role
+        }
+      });
+    }
+
+    // Create new user in main User model
+    user = new User({
+      auth0Id: auth0Id || `temp_${Date.now()}`, // Temporary auth0Id if not provided
+      email: email,
+      name: name || emergencyOfficer.Fullname,
+      role: 'EmergencyOfficer',
+      status: 'active',
+      email_verified: true,
+      phone: emergencyOfficer.PhoneNumber,
+      auth_metadata: {
+        last_login: new Date(),
+        login_count: 0,
+        auth_provider: 'manual',
+      }
+    });
+
+    await user.save();
+
+    res.status(201).json({ 
+      message: 'Emergency Officer user created successfully in main system', 
+      user: {
+        _id: user._id,
+        email: user.email,
+        name: user.name,
+        role: user.role,
+        phone: user.phone
+      }
+    });
+
+  } catch (error) {
+    console.error('Error creating Emergency Officer Auth0 user:', error);
+    res.status(500).json({ 
+      message: 'Error creating Emergency Officer user', 
+      error: error.message 
+    });
+  }
+};
+
 export {
   registerEmergencyOfficer,
   getEmergencyOfficers,
@@ -222,5 +306,6 @@ export {
   updateEmergencyOfficer,
   deleteEmergencyOfficer,
   toggleAvailability,
-  getAvailableOfficers
+  getAvailableOfficers,
+  createEmergencyOfficerAuth0User
 };
