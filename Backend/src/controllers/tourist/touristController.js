@@ -11,18 +11,22 @@ import mongoose from 'mongoose';
 export const getMyBookings = async (req, res) => {
   try {
     const userId = req.user._id; // From auth middleware
+    console.log('🔍 Fetching bookings for user:', userId);
     
     const bookings = await Booking.find({ userId })
       .populate('activityId', 'name description location price images')
       .sort({ createdAt: -1 });
 
+    console.log('📊 Found bookings:', bookings.length);
+    console.log('📋 Bookings data:', bookings);
+
     res.status(200).json({
       success: true,
       data: bookings,
-      message: 'Bookings retrieved successfully'
+      message: `Bookings retrieved successfully (${bookings.length} found)`
     });
   } catch (error) {
-    console.error('Error fetching user bookings:', error);
+    console.error('❌ Error fetching user bookings:', error);
     res.status(500).json({
       success: false,
       message: 'Failed to fetch bookings',
@@ -154,8 +158,9 @@ export const createBooking = async (req, res) => {
       });
     }
 
-    // Check if activity is active
-    if (activity.status !== 'Active') {
+    // Check if activity is active (default to Active if status is not set)
+    const activityStatus = activity.status || 'Active';
+    if (activityStatus !== 'Active') {
       return res.status(400).json({
         success: false,
         message: 'Activity is not currently available for booking'
@@ -195,7 +200,8 @@ export const createBooking = async (req, res) => {
     ]);
 
     const bookedParticipants = existingBookingsOnDate.length > 0 ? existingBookingsOnDate[0].totalParticipants : 0;
-    const availableSlots = activity.capacity - bookedParticipants;
+    const activityCapacity = activity.capacity || 20; // Default capacity if not set
+    const availableSlots = activityCapacity - bookedParticipants;
 
     if (numberOfParticipants > availableSlots) {
       return res.status(400).json({

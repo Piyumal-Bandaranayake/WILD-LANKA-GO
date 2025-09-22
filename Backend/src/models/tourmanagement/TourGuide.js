@@ -245,6 +245,6 @@ tourGuideSchema.index({ 'employment.status': 1 });
 tourGuideSchema.index({ 'availability.isAvailable': 1 });
 tourGuideSchema.index({ 'certification.specializations': 1 });
 
-const TourGuide = mongoose.model('TourGuide', tourGuideSchema);
+const TourGuideProfile = mongoose.model('TourGuideProfile', tourGuideSchema);
 
-export default TourGuide;
+export default TourGuideProfile;

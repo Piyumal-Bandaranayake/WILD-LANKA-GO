@@ -283,26 +283,31 @@ const AnimalCaseList = () => {
                                 </div>
 
                                 {/* Animal Images */}
-                                {animalCase.images && animalCase.images.length > 0 && (
+                                {((animalCase.photosDocumentation && animalCase.photosDocumentation.length > 0) || (animalCase.images && animalCase.images.length > 0) || (animalCase.photos && animalCase.photos.length > 0)) && (
                                     <div className="mb-4">
                                         <h4 className="font-medium text-sm text-gray-700 mb-2">Animal Images</h4>
                                         <div className="grid grid-cols-2 gap-2">
-                                            {animalCase.images.slice(0, 4).map((image, index) => (
-                                                <div key={index} className="relative group">
-                                                    <img
-                                                        src={image.url || image.secure_url}
-                                                        alt={`Animal case ${index + 1}`}
-                                                        className="w-full h-24 object-cover rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
-                                                        onClick={() => window.open(image.url || image.secure_url, '_blank')}
-                                                    />
-                                                    <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-all rounded-lg flex items-center justify-center">
-                                                        <span className="text-white text-xs opacity-0 group-hover:opacity-100">Click to enlarge</span>
+                                            {(animalCase.photosDocumentation || animalCase.images || animalCase.photos).slice(0, 4).map((image, index) => {
+                                                const src = typeof image === 'string' 
+                                                    ? image 
+                                                    : (image.thumbnail_url || image.url || image.secure_url);
+                                                return (
+                                                    <div key={index} className="relative group">
+                                                        <img
+                                                            src={src}
+                                                            alt={`Animal case ${index + 1}`}
+                                                            className="w-full h-24 object-cover rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
+                                                            onClick={() => window.open(src, '_blank')}
+                                                        />
+                                                        <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-all rounded-lg flex items-center justify-center">
+                                                            <span className="text-white text-xs opacity-0 group-hover:opacity-100">Click to enlarge</span>
+                                                        </div>
                                                     </div>
-                                                </div>
-                                            ))}
-                                            {animalCase.images.length > 4 && (
-                                                <div className="w-full h-24 bg-gray-100 rounded-lg flex items-center justify-center text-gray-500 text-sm">
-                                                    +{animalCase.images.length - 4} more
+                                                );
+                                            })}
+                                            {((animalCase.photosDocumentation || animalCase.images || animalCase.photos).length > 4) && (
+                                                <div className="flex items-center justify-center text-xs text-gray-600">
+                                                    +{(animalCase.photosDocumentation || animalCase.images || animalCase.photos).length - 4} more
                                                 </div>
                                             )}
                                         </div>

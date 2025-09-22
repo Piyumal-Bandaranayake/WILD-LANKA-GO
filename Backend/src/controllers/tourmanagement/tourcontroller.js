@@ -1,5 +1,5 @@
 import Tour from '../../models/tourmanagement/tour.js';
-import TourGuide from '../../models/User/tourGuide.js';
+import TourGuide from '../../models/User/tourGuide.js';  // Use the User model consistently
 import SafariDriver from '../../models/User/safariDriver.js';
 import Notification from '../../models/tourmanagement/tourGuideNotification.js'; // ✅ Correct model
 import Booking from '../../models/Activity Management/Booking.js';
@@ -129,7 +129,23 @@ const assignDriverAndGuide = async (req, res) => {
 // Get all tours
 const getAllTours = async (req, res) => {
   try {
-    const tours = await Tour.find().populate('bookingId').sort({ createdAt: -1 });
+    let filter = {};
+    
+    // If request comes from a tour guide, filter by assigned guide
+    if (req.user && req.user.role === 'tourGuide') {
+      // Find the tour guide document to get the ID
+      const tourGuide = await TourGuide.findOne({ email: req.user.email });
+      if (tourGuide) {
+        filter.assignedTourGuide = tourGuide._id;
+      }
+    }
+    
+    const tours = await Tour.find(filter)
+      .populate('bookingId')
+      .populate('assignedTourGuide', 'firstname lastname email')
+      .populate('assignedDriver', 'firstname lastname email')
+      .sort({ createdAt: -1 });
+      
     res.status(200).json(tours);
   } catch (error) {
     res.status(500).json({ message: 'Failed to fetch tours', error: error.message });
@@ -169,6 +185,81 @@ const getToursByDriver = async (req, res) => {
   }
 };
 
+// Accept tour by tour guide
+const acceptTour = async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    const tour = await Tour.findById(id);
+    if (!tour) {
+      return res.status(404).json({ message: 'Tour not found' });
+    }
+
+    // Update tour status
+    tour.status = 'Accepted';
+    await tour.save();
+
+    // Update tour guide status
+    if (tour.assignedTourGuide) {
+      await TourGuide.findByIdAndUpdate(
+        tour.assignedTourGuide,
+        { currentTourStatus: 'Accepted' },
+        { new: true }
+      );
+    }
+
+    res.status(200).json({ 
+      message: 'Tour accepted successfully', 
+      tour 
+    });
+  } catch (error) {
+    res.status(500).json({ 
+      message: 'Error accepting tour', 
+      error: error.message 
+    });
+  }
+};
+
+// Reject tour by tour guide
+const rejectTour = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { reason } = req.body;
+    
+    const tour = await Tour.findById(id);
+    if (!tour) {
+      return res.status(404).json({ message: 'Tour not found' });
+    }
+
+    // Update tour status
+    tour.status = 'Rejected';
+    tour.rejectionReason = reason;
+    await tour.save();
+
+    // Update tour guide status back to available
+    if (tour.assignedTourGuide) {
+      await TourGuide.findByIdAndUpdate(
+        tour.assignedTourGuide,
+        { 
+          availability: 'Available',
+          currentTourStatus: 'Available' 
+        },
+        { new: true }
+      );
+    }
+
+    res.status(200).json({ 
+      message: 'Tour rejected successfully', 
+      tour 
+    });
+  } catch (error) {
+    res.status(500).json({ 
+      message: 'Error rejecting tour', 
+      error: error.message 
+    });
+  }
+};
+
 export {
   createTour,
   assignDriverAndGuide,
@@ -176,4 +267,6 @@ export {
   getTourById,
   getToursByGuide,
   getToursByDriver,
+  acceptTour,
+  rejectTour,
 };

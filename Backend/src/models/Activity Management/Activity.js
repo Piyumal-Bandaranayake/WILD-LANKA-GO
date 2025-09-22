@@ -8,6 +8,8 @@ const activitySchema = new mongoose.Schema({
   duration: { type: String, required: true },  // Duration of the activity (e.g., "2 hours")
   activityType: { type: String, enum: ['Safari', 'Bird Watching', 'Photography', 'Accommodations','Tree house', 'Other'], required: true },  // Activity type
   price: { type: Number, required: true, min: [0, 'Price must be a positive value']  },  // Ensure the price is a positive number // Price of the activity (if applicable)
+  status: { type: String, enum: ['Active', 'Inactive', 'Draft'], default: 'Active' },  // Activity status
+  capacity: { type: Number, default: 20 },  // Maximum participants per activity
     images: { 
     type: [String], 
     default: [] 

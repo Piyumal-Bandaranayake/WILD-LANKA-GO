@@ -38,6 +38,23 @@ export const API_ENDPOINTS = {
 
   // Chatbot
   CHATBOT: '/chatbot',
+
+  // Tourist-specific endpoints
+  TOURIST: {
+    DASHBOARD: '/tourist/dashboard/stats',
+    MY_BOOKINGS: '/tourist/my-bookings',
+    MY_REGISTRATIONS: '/tourist/my-registrations', 
+    MY_DONATIONS: '/tourist/my-donations',
+    MY_FEEDBACK: '/tourist/my-feedback',
+    MY_COMPLAINTS: '/tourist/my-complaints',
+    BOOKINGS: '/tourist/bookings',
+    CHECK_SLOTS: '/tourist/activities/check-slots',
+    REGISTRATIONS: '/tourist/registrations',
+    DONATIONS: '/tourist/donations',
+    FEEDBACK: '/tourist/feedback',
+    COMPLAINTS: '/tourist/complaints',
+    EMERGENCY: '/tourist/emergency',
+  },
 };
 
 // Helper function to build full API URL

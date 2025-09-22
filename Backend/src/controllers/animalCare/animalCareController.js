@@ -117,7 +117,7 @@ export const createAnimalCase = async (req, res) => {
           url: uploadResult.url,
           thumbnail_url: getThumbnailUrl(uploadResult.public_id, 300, 300),
           description: file.originalname,
-          uploaded_by: req.auth.payload.name || 'Unknown',
+          uploaded_by: req.user?.name || req.auth?.payload?.name || 'Unknown',
           file_size: uploadResult.bytes,
           dimensions: {
             width: uploadResult.width,
@@ -173,7 +173,7 @@ export const updateAnimalCase = async (req, res) => {
           url: uploadResult.url,
           thumbnail_url: getThumbnailUrl(uploadResult.public_id, 300, 300),
           description: file.originalname,
-          uploaded_by: req.auth.payload.name || 'Unknown',
+          uploaded_by: req.user?.name || req.auth?.payload?.name || 'Unknown',
           file_size: uploadResult.bytes,
           dimensions: {
             width: uploadResult.width,
@@ -295,10 +295,15 @@ export const deleteImageFromCase = async (req, res) => {
 // Get dashboard statistics for vets
 export const getVetDashboardStats = async (req, res) => {
   try {
-    const { sub: auth0Id } = req.auth.payload;
+    // Try to get user from req.user first (flexibleAuth), then fall back to auth payload
+    let currentUser = req.user;
     
-    // Get current user
-    const currentUser = await User.findOne({ auth0Id });
+    if (!currentUser && req.auth?.payload?.sub) {
+      // Fallback for auth0UserInfoMiddleware
+      const auth0Id = req.auth.payload.sub;
+      currentUser = await User.findOne({ auth0Id });
+    }
+    
     if (!currentUser) {
       return res.status(404).json({ message: 'User not found' });
     }
@@ -358,10 +363,15 @@ export const getVetDashboardStats = async (req, res) => {
 // Get all treatments for dashboard
 export const getAllTreatments = async (req, res) => {
   try {
-    const { sub: auth0Id } = req.auth.payload;
+    // Try to get user from req.user first (flexibleAuth), then fall back to auth payload
+    let currentUser = req.user;
     
-    // Get current user
-    const currentUser = await User.findOne({ auth0Id });
+    if (!currentUser && req.auth?.payload?.sub) {
+      // Fallback for auth0UserInfoMiddleware
+      const auth0Id = req.auth.payload.sub;
+      currentUser = await User.findOne({ auth0Id });
+    }
+    
     if (!currentUser) {
       return res.status(404).json({ message: 'User not found' });
     }
