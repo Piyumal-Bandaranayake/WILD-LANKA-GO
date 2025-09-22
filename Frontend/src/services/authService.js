@@ -277,6 +277,53 @@ export const protectedApi = {
   deactivateUser: (id) => api.put(`/admin/users/${id}/deactivate`),
   getAdminStats: () => api.get('/admin/stats'),
 
+  // Wildlife Officer specific endpoints
+  getBookings: () => api.get('/bookings'),
+  assignDriver: (bookingId, driverId) => api.put(`/bookings/${bookingId}/assign-driver`, { driverId }),
+  assignGuide: (bookingId, guideId) => api.put(`/bookings/${bookingId}/assign-guide`, { guideId }),
+  getAvailableDrivers: () => api.get('/wildlife-officer/available-drivers'),
+  getAvailableGuides: () => api.get('/wildlife-officer/available-guides'),
+  getDailyBookings: () => api.get('/wildlife-officer/daily-bookings'),
+  
+  // Enhanced complaints management
+  getComplaints: () => api.get('/complaints'),
+  updateComplaintStatus: (id, status) => api.put(`/complaints/${id}/status`, { status }),
+  deleteComplaint: (id) => api.delete(`/complaints/${id}`),
+  generateComplaintReport: (params) => api.get('/reports/complaints', { params, responseType: 'blob' }),
+  
+  // Job applications management
+  getApplications: () => api.get('/applications'),
+  approveApplication: (id, data) => api.put(`/applications/${id}/approve`, data),
+  rejectApplication: (id, data) => api.put(`/applications/${id}/reject`, data),
+  
+  // Enhanced fuel claims management
+  getFuelClaims: () => api.get('/fuel-claims'),
+  approveFuelClaim: (id) => api.put(`/fuel-claims/${id}/approve`),
+  rejectFuelClaim: (id, reason) => api.put(`/fuel-claims/${id}/reject`, { reason }),
+  getFuelClaimDetails: (id) => api.get(`/fuel-claims/${id}`),
+  
+  // Financial reports
+  generateMonthlyReport: (month, year) => api.get('/reports/monthly-income', { 
+    params: { month, year }, 
+    responseType: 'blob' 
+  }),
+  getMonthlyStats: (month, year) => api.get('/reports/monthly-stats', { params: { month, year } }),
+  
+  // Emergency management
+  getEmergencies: () => api.get('/emergencies'),
+  assignEmergencyStaff: (emergencyId, staffId, staffType) => api.put(`/emergencies/${emergencyId}/assign`, { 
+    staffId, 
+    staffType 
+  }),
+  updateEmergencyStatus: (emergencyId, status) => api.put(`/emergencies/${emergencyId}/status`, { status }),
+  
+  // Medication inventory access
+  getMedicationInventory: () => api.get('/medication-inventory'),
+  getMedicationAlerts: () => api.get('/medication-inventory/alerts'),
+  
+  // Dashboard statistics
+  getWildlifeOfficerStats: () => api.get('/wildlife-officer/dashboard-stats'),
+
   // Fuel claims
   getFuelClaims: () => api.get('/fuel-claims'),
   submitFuelClaim: (data) => api.post('/fuel-claims', data),
@@ -300,6 +347,50 @@ export const protectedApi = {
   generateActivityReport: (params) => api.get('/reports/activities', { params }),
   generateEmergencyReport: (params) => api.get('/reports/emergencies', { params }),
   generateComplaintReport: (params) => api.get('/reports/complaints', { params }),
+
+  // Tour Guide specific endpoints
+  getTourGuideProfile: () => api.get('/tour-guide/profile'),
+  updateTourGuideProfile: (data) => api.put('/tour-guide/profile', data),
+  getAssignedTours: () => api.get('/tour-guide/assigned-tours'),
+  getTourHistory: () => api.get('/tour-guide/tour-history'),
+  getTourMaterials: () => api.get('/tour-guide/materials'),
+  getTourGuideRatings: () => api.get('/tour-guide/ratings'),
+  getTourGuideReviews: () => api.get('/tour-guide/reviews'),
+  acceptTour: (tourId) => api.put(`/tour-guide/tours/${tourId}/accept`),
+  rejectTour: (tourId, data) => api.put(`/tour-guide/tours/${tourId}/reject`, data),
+  updateTourStatus: (tourId, status) => api.put(`/tour-guide/tours/${tourId}/status`, { status }),
+  uploadTourMaterial: (formData) => api.post('/tour-guide/materials', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+  }),
+  deleteTourMaterial: (materialId) => api.delete(`/tour-guide/materials/${materialId}`),
+  downloadTourMaterial: (materialId) => api.get(`/tour-guide/materials/${materialId}/download`, {
+    responseType: 'blob'
+  }),
+  generateTourGuideReport: (type) => api.get(`/tour-guide/reports/${type}`, {
+    responseType: 'blob'
+  }),
+
+  // Safari Driver specific endpoints
+  getDriverProfile: () => api.get('/safari-driver/profile'),
+  updateDriverProfile: (data) => api.put('/safari-driver/profile', data),
+  getDriverAssignedTours: () => api.get('/safari-driver/assigned-tours'),
+  getDriverTourHistory: () => api.get('/safari-driver/tour-history'),
+  getDriverRatings: () => api.get('/safari-driver/ratings'),
+  getDriverReviews: () => api.get('/safari-driver/reviews'),
+  acceptDriverTour: (tourId, data) => api.put(`/safari-driver/tours/${tourId}/accept`, data),
+  rejectDriverTour: (tourId, data) => api.put(`/safari-driver/tours/${tourId}/reject`, data),
+  updateDriverTourStatus: (tourId, status, data) => api.put(`/safari-driver/tours/${tourId}/status`, { status, ...data }),
+  uploadOdometerReading: (tourId, type, formData) => api.post(`/safari-driver/tours/${tourId}/odometer/${type}`, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+  }),
+  getFuelClaims: () => api.get('/safari-driver/fuel-claims'),
+  submitFuelClaim: (data) => api.post('/safari-driver/fuel-claims', data),
+  getFuelClaimDetails: (claimId) => api.get(`/safari-driver/fuel-claims/${claimId}`),
+  generateDriverReport: (type) => api.get(`/safari-driver/reports/${type}`, {
+    responseType: 'blob'
+  }),
+  getTourRoute: (tourId) => api.get(`/safari-driver/tours/${tourId}/route`),
+  updateDriverLocation: (tourId, location) => api.put(`/safari-driver/tours/${tourId}/location`, location),
 };
 
 export default api;
