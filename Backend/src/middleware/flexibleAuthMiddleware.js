@@ -25,13 +25,13 @@ const flexibleAuthMiddleware = async (req, res, next) => {
 
     // Development fallback when no Authorization header
     if (!authHeader) {
-        console.warn('No authorization header provided. Using development vet user.');
-        req.auth = { payload: { sub: 'dev-user', email: 'dev.vet@wildlanka.com', name: 'Development Vet' } };
+        console.warn('No authorization header provided. Using development tourist user.');
+        req.auth = { payload: { sub: 'dev-user', email: 'dev.tourist@wildlanka.com', name: 'Development Tourist' } };
         req.user = {
-            _id: new mongoose.Types.ObjectId(),
-            name: 'Development Vet',
-            email: 'dev.vet@wildlanka.com',
-            role: 'vet',
+            _id: new mongoose.Types.ObjectId('68d14b791a7acd76045bebd1'), // Fixed user ID for development
+            name: 'Development Tourist',
+            email: 'dev.tourist@wildlanka.com',
+            role: 'tourist', // Changed from 'vet' to 'tourist' for testing
             isActive: true,
             isDevelopmentMode: true
         };
@@ -44,7 +44,7 @@ const flexibleAuthMiddleware = async (req, res, next) => {
         console.warn('No token provided in Authorization header. Using development vet user.');
         req.auth = { payload: { sub: 'dev-user', email: 'dev.vet@wildlanka.com', name: 'Development Vet' } };
         req.user = {
-            _id: new mongoose.Types.ObjectId(),
+            _id: new mongoose.Types.ObjectId('68d14b791a7acd76045bebd1'), // Fixed user ID for development
             name: 'Development Vet',
             email: 'dev.vet@wildlanka.com',
             role: 'vet',
@@ -74,7 +74,7 @@ const flexibleAuthMiddleware = async (req, res, next) => {
                 // For JWE tokens, we'll set a default admin user since we can't decrypt
                 // In production, you'd want to decrypt the token properly
                 req.user = {
-                    _id: new mongoose.Types.ObjectId(),
+                    _id: new mongoose.Types.ObjectId('68d14b791a7acd76045bebd1'), // Fixed user ID for development
                     name: 'Admin User',
                     email: 'admin@example.com',
                     role: 'admin',
@@ -95,7 +95,7 @@ const flexibleAuthMiddleware = async (req, res, next) => {
             console.warn('Invalid token format. Using development vet user.');
             req.auth = { payload: { sub: 'dev-user', email: 'dev.vet@wildlanka.com', name: 'Development Vet' } };
             req.user = {
-                _id: new mongoose.Types.ObjectId(),
+                _id: new mongoose.Types.ObjectId('68d14b791a7acd76045bebd1'), // Fixed user ID for development
                 name: 'Development Vet',
                 email: 'dev.vet@wildlanka.com',
                 role: 'vet',
@@ -117,7 +117,7 @@ const flexibleAuthMiddleware = async (req, res, next) => {
                 // Fallback to development user instead of blocking
                 req.auth = { payload: { sub: 'dev-user', email: 'dev.vet@wildlanka.com', name: 'Development Vet' } };
                 req.user = {
-                    _id: new mongoose.Types.ObjectId(),
+                    _id: new mongoose.Types.ObjectId('68d14b791a7acd76045bebd1'), // Fixed user ID for development
                     name: 'Development Vet',
                     email: 'dev.vet@wildlanka.com',
                     role: 'vet',
@@ -172,7 +172,7 @@ const flexibleAuthMiddleware = async (req, res, next) => {
                     // For development: create a default vet user if not found
                     console.log('Creating default vet user for development');
                     req.user = {
-                        _id: new mongoose.Types.ObjectId(),
+                        _id: new mongoose.Types.ObjectId('68d14b791a7acd76045bebd1'), // Fixed user ID for development
                         name: email || 'Development Vet',
                         email: email || 'dev.vet@wildlanka.com',
                         role: 'vet',
@@ -192,7 +192,7 @@ const flexibleAuthMiddleware = async (req, res, next) => {
         // Fallback to development user instead of blocking
         req.auth = { payload: { sub: 'dev-user', email: 'dev.vet@wildlanka.com', name: 'Development Vet' } };
         req.user = {
-            _id: new mongoose.Types.ObjectId(),
+            _id: new mongoose.Types.ObjectId('68d14b791a7acd76045bebd1'), // Fixed user ID for development
             name: 'Development Vet',
             email: 'dev.vet@wildlanka.com',
             role: 'vet',

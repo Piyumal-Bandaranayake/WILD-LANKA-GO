@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { protectedApi } from '../../services/authService';
+import { touristService } from '../../services/touristService';
 import { useAuthContext } from '../../contexts/AuthContext';
 import Navbar from '../../components/Navbar';
 import Footer from '../../components/footer';
@@ -191,29 +192,90 @@ const ActivityList = () => {
     const handleBookActivity = async (e) => {
         e.preventDefault();
         try {
-            const payload = {
+            // Validate required fields
+            if (!bookingData.activityId || !bookingData.date || !bookingData.participants) {
+                setError('Please fill in all required fields');
+                return;
+            }
+
+            // Check available slots first
+            try {
+                const slotsResponse = await touristService.checkAvailableSlots(
+                    bookingData.activityId, 
+                    bookingData.date
+                );
+                
+                if (slotsResponse.data.data.availableSlots < bookingData.participants) {
+                    setError(`Only ${slotsResponse.data.data.availableSlots} slots available for this date`);
+                    return;
+                }
+            } catch (slotError) {
+                console.warn('Could not check slots, proceeding with booking:', slotError);
+            }
+
+            // Create booking using tourist service
+            const bookingPayload = {
                 activityId: bookingData.activityId,
-                bookingDate: bookingData.date, // yyyy-mm-dd from input
-                numberOfParticipants: bookingData.participants,
-                requestTourGuide: bookingData.requestTourGuide,
+                bookingDate: bookingData.date, // YYYY-MM-DD format
+                numberOfParticipants: parseInt(bookingData.participants),
+                requestTourGuide: Boolean(bookingData.requestTourGuide),
                 preferredDate: bookingData.date,
-                paymentMethod: 'Credit Card'
+                // Note: paymentMethod is optional and will be handled by backend
             };
 
-            await protectedApi.bookActivity(payload);
+            console.log('Sending booking request:', bookingPayload);
+
+            const response = await touristService.createBooking(bookingPayload);
+            
+            // Success handling
             setShowBookingModal(false);
             setBookingData({
                 activityId: '',
                 date: '',
                 participants: 1,
                 requestTourGuide: false,
-                specialRequests: ''
+                specialRequests: '',
+                touristName: '',
+                touristEmail: '',
+                touristPhone: ''
             });
             setSelectedActivity(null);
-            alert('Activity booked successfully! Payment confirmation will be sent to your email.');
+            setError(null);
+            
+            alert(`Booking created successfully! 
+Total Amount: LKR ${response.data.data.payment.totalAmount}
+Booking ID: ${response.data.data.booking._id}
+Status: ${response.data.data.booking.status}
+
+Please proceed with payment to confirm your booking.`);
         } catch (error) {
             console.error('Failed to book activity:', error);
-            setError(error?.response?.data?.message || 'Failed to book activity');
+            
+            // Enhanced error handling
+            let errorMessage = 'Failed to book activity';
+            
+            if (error.response) {
+                // Server responded with error status
+                const serverError = error.response.data;
+                errorMessage = serverError.message || errorMessage;
+                
+                // Log detailed error for debugging
+                console.error('Server error response:', {
+                    status: error.response.status,
+                    data: serverError,
+                    headers: error.response.headers
+                });
+            } else if (error.request) {
+                // Network error
+                errorMessage = 'Network error. Please check your connection.';
+                console.error('Network error:', error.request);
+            } else {
+                // Other error
+                errorMessage = error.message || errorMessage;
+                console.error('Booking error:', error.message);
+            }
+            
+            setError(errorMessage);
         }
     };
 
@@ -381,7 +443,9 @@ const ActivityList = () => {
                                     />
                                     <div className="absolute top-4 right-4">
                                         <div className="bg-emerald-500 text-white px-4 py-2 rounded-full text-sm font-bold shadow-lg">
-                                            ${activity.price}/person
+                                                                                <div className="bg-emerald-500 text-white px-4 py-2 rounded-full text-sm font-bold shadow-lg">
+                                        LKR {activity.price}/person
+                                    </div>
                                         </div>
                                     </div>
                                     <div className="absolute bottom-4 left-4">
@@ -641,6 +705,7 @@ const ActivityList = () => {
                                         value={bookingData.date}
                                         onChange={(e) => setBookingData({ ...bookingData, date: e.target.value })}
                                         className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 transition-all"
+                                        min={new Date().toISOString().split('T')[0]} // Prevent past dates
                                         required
                                     />
                                 </div>
@@ -668,7 +733,7 @@ const ActivityList = () => {
                                     className="w-5 h-5 text-blue-600 border-2 border-gray-300 rounded focus:ring-blue-500"
                                 />
                                 <label htmlFor="requestTourGuide" className="ml-3 text-blue-800 font-medium">
-                                    Request Professional Tour Guide (+$20)
+                                    Request Professional Tour Guide (+LKR 1500)
                                 </label>
                             </div>
                             
@@ -686,11 +751,11 @@ const ActivityList = () => {
                             <div className="bg-gradient-to-r from-emerald-50 to-teal-50 rounded-2xl p-6 border border-emerald-100">
                                 <div className="flex justify-between items-center text-lg font-bold text-emerald-800">
                                     <span>Total Amount:</span>
-                                    <span>${(selectedActivity.price * bookingData.participants + (bookingData.requestTourGuide ? 20 : 0)).toFixed(2)}</span>
+                                    <span>LKR {(selectedActivity.price * bookingData.participants + (bookingData.requestTourGuide ? 1500 : 0)).toFixed(2)}</span>
                                 </div>
                                 <div className="text-sm text-emerald-600 mt-1">
-                                    ${selectedActivity.price} × {bookingData.participants} participants
-                                    {bookingData.requestTourGuide && ' + $20 tour guide'}
+                                    LKR {selectedActivity.price} × {bookingData.participants} participants
+                                    {bookingData.requestTourGuide && ' + LKR 1500 tour guide'}
                                 </div>
                             </div>
                             

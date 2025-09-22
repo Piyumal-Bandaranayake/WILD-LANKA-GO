@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuthContext } from '../../contexts/AuthContext';
 import { protectedApi } from '../../services/authService';
+import { touristService } from '../../services/touristService';
 import ProtectedRoute from '../../components/ProtectedRoute';
 import Navbar from '../../components/Navbar';
 import Footer from '../../components/footer';
@@ -69,19 +70,22 @@ const TouristDashboard = () => {
       ] = await Promise.all([
         protectedApi.getActivities(),
         protectedApi.getEvents(),
-        protectedApi.getMyBookings(),
-        protectedApi.getMyEventRegistrations(),
-        protectedApi.getMyDonations(),
-        protectedApi.getMyFeedback(),
-        protectedApi.getMyComplaints()
+        touristService.getMyBookings(),
+        touristService.getMyEventRegistrations(),
+        touristService.getMyDonations(),
+        touristService.getMyFeedback(),
+        touristService.getMyComplaints()
       ]);
 
       const pick = (resp) => (resp?.data?.data ?? resp?.data ?? []);
 
+      const bookingsData = pick(bookingsRes);
+      const registrationsData = pick(registrationsRes);
+
       setActivities(pick(activitiesRes));
       setEvents(pick(eventsRes));
-      setMyBookings(pick(bookingsRes));
-      setMyRegistrations(pick(registrationsRes));
+      setMyBookings(bookingsData);
+      setMyRegistrations(registrationsData);
       setMyDonations(pick(donationsRes));
       setMyFeedback(pick(feedbackRes));
       setMyComplaints(pick(complaintsRes));
@@ -99,15 +103,27 @@ const TouristDashboard = () => {
     if (!selectedActivity) return;
 
     try {
-      await protectedApi.bookActivity({
+      // Use tourist service with proper data structure
+      const bookingData = {
         activityId: selectedActivity._id,
-        ...bookingForm
-      });
+        bookingDate: bookingForm.date,
+        numberOfParticipants: parseInt(bookingForm.participants),
+        requestTourGuide: Boolean(bookingForm.requestGuide),
+        preferredDate: bookingForm.date
+      };
+
+      console.log('📅 Booking data being sent:', bookingData);
+      console.log('🏃 Selected activity:', selectedActivity);
+      console.log('📋 Form data:', bookingForm);
+
+      await touristService.createBooking(bookingData);
       setSelectedActivity(null);
       setBookingForm({ date: '', participants: 1, requestGuide: false });
       await fetchDashboardData();
       setError(null);
     } catch (error) {
+      console.error('Booking error:', error);
+      console.error('📋 Error response:', error.response?.data);
       setError('Failed to book activity. Please try again.');
     }
   };
@@ -117,15 +133,19 @@ const TouristDashboard = () => {
     if (!selectedEvent) return;
 
     try {
-      await protectedApi.registerForEvent({
+      // Use tourist service with proper data structure
+      const registrationData = {
         eventId: selectedEvent._id,
-        ...registrationForm
-      });
+        numberOfParticipants: parseInt(registrationForm.participants)
+      };
+
+      await touristService.createEventRegistration(registrationData);
       setSelectedEvent(null);
       setRegistrationForm({ participants: 1 });
       await fetchDashboardData();
       setError(null);
     } catch (error) {
+      console.error('Event registration error:', error);
       setError('Failed to register for event. Please try again.');
     }
   };
@@ -133,11 +153,12 @@ const TouristDashboard = () => {
   const handleDonation = async (e) => {
     e.preventDefault();
     try {
-      await protectedApi.makeDonation(donationForm);
+      await touristService.createDonation(donationForm);
       setDonationForm({ amount: '', message: '' });
       await fetchDashboardData();
       setError(null);
     } catch (error) {
+      console.error('Donation error:', error);
       setError('Failed to process donation. Please try again.');
     }
   };
@@ -145,11 +166,12 @@ const TouristDashboard = () => {
   const handleFeedbackSubmit = async (e) => {
     e.preventDefault();
     try {
-      await protectedApi.submitFeedback(feedbackForm);
+      await touristService.createFeedback(feedbackForm);
       setFeedbackForm({ subject: '', message: '', rating: 5 });
       await fetchDashboardData();
       setError(null);
     } catch (error) {
+      console.error('Feedback error:', error);
       setError('Failed to submit feedback. Please try again.');
     }
   };
@@ -157,11 +179,12 @@ const TouristDashboard = () => {
   const handleComplaintSubmit = async (e) => {
     e.preventDefault();
     try {
-      await protectedApi.submitComplaint(complaintForm);
+      await touristService.createComplaint(complaintForm);
       setComplaintForm({ subject: '', description: '' });
       await fetchDashboardData();
       setError(null);
     } catch (error) {
+      console.error('Complaint error:', error);
       setError('Failed to submit complaint. Please try again.');
     }
   };
@@ -169,57 +192,77 @@ const TouristDashboard = () => {
   const handleEmergencyReport = async (e) => {
     e.preventDefault();
     try {
-      await protectedApi.reportEmergency(emergencyForm);
+      await touristService.reportEmergency(emergencyForm);
       setEmergencyForm({ type: '', description: '', location: '' });
       setError(null);
       alert('Emergency reported successfully. Help is on the way!');
     } catch (error) {
+      console.error('Emergency report error:', error);
       setError('Failed to report emergency. Please try calling directly.');
     }
   };
 
   const updateEventRegistration = async (registrationId, participants) => {
     try {
-      await protectedApi.updateEventRegistration(registrationId, { participants });
+      await touristService.modifyEventRegistration(registrationId, { participants });
       await fetchDashboardData();
     } catch (error) {
+      console.error('Update registration error:', error);
       setError('Failed to update registration.');
     }
   };
 
   const cancelEventRegistration = async (registrationId) => {
     try {
-      await protectedApi.cancelEventRegistration(registrationId);
+      await touristService.cancelEventRegistration(registrationId);
       await fetchDashboardData();
     } catch (error) {
+      console.error('Cancel registration error:', error);
       setError('Failed to cancel registration.');
     }
   };
 
   const updateDonationMessage = async (donationId, message) => {
     try {
-      await protectedApi.updateDonationMessage(donationId, { message });
+      await touristService.updateDonationMessage(donationId, message);
       await fetchDashboardData();
     } catch (error) {
+      console.error('Update donation error:', error);
       setError('Failed to update donation message.');
     }
   };
 
   const deleteFeedback = async (feedbackId) => {
     try {
-      await protectedApi.deleteFeedback(feedbackId);
+      await touristService.deleteFeedback(feedbackId);
       await fetchDashboardData();
     } catch (error) {
+      console.error('Delete feedback error:', error);
       setError('Failed to delete feedback.');
     }
   };
 
   const deleteComplaint = async (complaintId) => {
     try {
-      await protectedApi.deleteComplaint(complaintId);
+      await touristService.deleteComplaint(complaintId);
       await fetchDashboardData();
     } catch (error) {
+      console.error('Delete complaint error:', error);
       setError('Failed to delete complaint.');
+    }
+  };
+
+  const handleCancelBooking = async (bookingId) => {
+    try {
+      const confirmCancel = window.confirm('Are you sure you want to cancel this booking?');
+      if (!confirmCancel) return;
+
+      await touristService.cancelBooking(bookingId);
+      await fetchDashboardData();
+      setError(null);
+    } catch (error) {
+      console.error('Cancel booking error:', error);
+      setError('Failed to cancel booking. Please try again.');
     }
   };
 
@@ -1054,28 +1097,74 @@ const TouristDashboard = () => {
                             <div key={booking._id} className="border border-gray-200 rounded-lg p-4">
                               <div className="flex justify-between items-start">
                                 <div>
-                                  <h5 className="font-medium text-gray-900">{booking.activityName}</h5>
+                                  <h5 className="font-medium text-gray-900">
+                                    {booking.activityId?.name || 'Activity Name'}
+                                  </h5>
                                   <div className="text-sm text-gray-600 mt-1 space-y-1">
-                                    <div>📅 {new Date(booking.date).toLocaleDateString()}</div>
-                                    <div>👥 {booking.participants} participants</div>
-                                    <div>💰 ${booking.totalAmount}</div>
-                                    {booking.guideRequested && (
+                                    <div className="flex items-center space-x-4">
+                                      <span className="font-medium text-gray-800">
+                                        🆔 ID: {booking._id.slice(-8).toUpperCase()}
+                                      </span>
+                                      <span className={`px-2 py-1 text-xs rounded-full font-medium ${
+                                        booking.status === 'Confirmed' ? 'bg-green-100 text-green-800' :
+                                        booking.status === 'Pending' ? 'bg-yellow-100 text-yellow-800' :
+                                        'bg-red-100 text-red-800'
+                                      }`}>
+                                        {booking.status.toUpperCase()}
+                                      </span>
+                                    </div>
+                                    <div>📅 {new Date(booking.bookingDate).toLocaleDateString()}</div>
+                                    <div>👥 {booking.numberOfParticipants} participants</div>
+                                    <div>💰 ${booking.activityId?.price * booking.numberOfParticipants || 'N/A'}</div>
+                                    <div>📍 {booking.activityId?.location || 'Location TBD'}</div>
+                                    {booking.requestTourGuide && (
                                       <div>🎯 Tour guide requested</div>
                                     )}
                                   </div>
                                 </div>
-                                <span className={`px-2 py-1 text-xs rounded-full ${
-                                  booking.status === 'confirmed' ? 'bg-green-100 text-green-800' :
-                                  booking.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                                  'bg-red-100 text-red-800'
-                                }`}>
-                                  {booking.status.toUpperCase()}
-                                </span>
+                                <div className="text-right">
+                                  <button 
+                                    onClick={() => navigator.clipboard.writeText(booking._id)}
+                                    className="text-xs bg-gray-100 hover:bg-gray-200 px-2 py-1 rounded mb-2 transition-colors"
+                                    title="Copy booking ID"
+                                  >
+                                    Copy ID
+                                  </button>
+                                  {booking.status === 'Pending' && (
+                                    <div className="space-y-1">
+                                      <button className="block w-full text-xs bg-blue-100 hover:bg-blue-200 text-blue-800 px-2 py-1 rounded transition-colors">
+                                        Complete Payment
+                                      </button>
+                                      <button 
+                                        onClick={() => handleCancelBooking(booking._id)}
+                                        className="block w-full text-xs bg-red-100 hover:bg-red-200 text-red-800 px-2 py-1 rounded transition-colors"
+                                      >
+                                        Cancel
+                                      </button>
+                                    </div>
+                                  )}
+                                </div>
                               </div>
                             </div>
                           ))}
                           {myBookings.length === 0 && (
-                            <p className="text-gray-500 text-center py-8">No activity bookings yet</p>
+                            <div className="text-center py-8">
+                              <div className="text-gray-500 mb-4">
+                                <svg className="mx-auto h-12 w-12 text-gray-400 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                                </svg>
+                                <p className="text-lg font-medium text-gray-900">No bookings yet</p>
+                                <p className="text-sm text-gray-500 mt-2">
+                                  Your activity bookings will appear here after you make a reservation.
+                                </p>
+                              </div>
+                              <button 
+                                onClick={() => setActiveTab('activities')}
+                                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700"
+                              >
+                                Browse Activities
+                              </button>
+                            </div>
                           )}
                         </div>
                       </div>
