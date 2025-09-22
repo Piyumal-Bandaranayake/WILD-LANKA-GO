@@ -13,24 +13,25 @@ import {
   deleteMedication,
   bulkUpdateQuantities
 } from '../../controllers/animalCare/medicationController.js';
-import auth0UserInfoMiddleware from '../../middleware/auth0UserInfoMiddleware.js';
+import flexibleAuth from '../../middleware/flexibleAuthMiddleware.js';
+import { authorizeRoles } from '../../middleware/rolesMiddleware.js';
 
 const router = express.Router();
 
 // Medication CRUD routes
-router.get('/', auth0UserInfoMiddleware, getMedications);
-router.get('/alerts', auth0UserInfoMiddleware, getMedicationAlerts);
-router.get('/restock-requests', auth0UserInfoMiddleware, getRestockRequests);
-router.get('/usage-report', auth0UserInfoMiddleware, generateUsageReport);
-router.get('/:id', auth0UserInfoMiddleware, getMedicationById);
-router.post('/', auth0UserInfoMiddleware, createMedication);
-router.put('/:id', auth0UserInfoMiddleware, updateMedication);
-router.delete('/:id', auth0UserInfoMiddleware, deleteMedication);
+router.get('/', flexibleAuth, getMedications);
+router.get('/alerts', flexibleAuth, authorizeRoles('vet', 'WildlifeOfficer', 'admin'), getMedicationAlerts);
+router.get('/restock-requests', flexibleAuth, authorizeRoles('vet', 'WildlifeOfficer', 'admin'), getRestockRequests);
+router.get('/usage-report', flexibleAuth, authorizeRoles('vet', 'WildlifeOfficer', 'admin'), generateUsageReport);
+router.get('/:id', flexibleAuth, getMedicationById);
+router.post('/', flexibleAuth, authorizeRoles('vet', 'WildlifeOfficer', 'admin'), createMedication);
+router.put('/:id', flexibleAuth, authorizeRoles('vet', 'WildlifeOfficer', 'admin'), updateMedication);
+router.delete('/:id', flexibleAuth, authorizeRoles('WildlifeOfficer', 'admin'), deleteMedication);
 
 // Medication usage and inventory management
-router.post('/:id/use', auth0UserInfoMiddleware, useMedication);
-router.post('/:id/restock-request', auth0UserInfoMiddleware, requestRestock);
-router.put('/:id/restock-requests/:requestId', auth0UserInfoMiddleware, handleRestockRequest);
-router.post('/bulk-update', auth0UserInfoMiddleware, bulkUpdateQuantities);
+router.post('/:id/use', flexibleAuth, authorizeRoles('vet', 'admin'), useMedication);
+router.post('/:id/restock-request', flexibleAuth, authorizeRoles('vet', 'WildlifeOfficer', 'admin'), requestRestock);
+router.put('/:id/restock-requests/:requestId', flexibleAuth, authorizeRoles('WildlifeOfficer', 'admin'), handleRestockRequest);
+router.post('/bulk-update', flexibleAuth, authorizeRoles('WildlifeOfficer', 'admin'), bulkUpdateQuantities);
 
 export default router;

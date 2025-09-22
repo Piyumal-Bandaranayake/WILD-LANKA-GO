@@ -20,7 +20,8 @@ import {
     deleteTreatmentImage,
     generateTreatmentReport
 } from '../../controllers/animalCare/treatmentController.js';
-import auth0UserInfoMiddleware from '../../middleware/auth0UserInfoMiddleware.js';
+import flexibleAuth from '../../middleware/flexibleAuthMiddleware.js';
+import { authorizeRoles } from '../../middleware/rolesMiddleware.js';
 
 const router = express.Router();
 
@@ -56,21 +57,42 @@ const upload = multer({
 });
 
 // Animal Case Routes
-router.get('/', auth0UserInfoMiddleware, getAnimalCases);
-router.get('/dashboard/stats', auth0UserInfoMiddleware, getVetDashboardStats);
-router.get('/treatments', auth0UserInfoMiddleware, getAllTreatments);
-router.get('/:id', auth0UserInfoMiddleware, getAnimalCaseById);
-router.post('/', auth0UserInfoMiddleware, upload.array('images', 10), createAnimalCase);
-router.put('/:id', auth0UserInfoMiddleware, upload.array('images', 10), updateAnimalCase);
-router.put('/:id/assign', auth0UserInfoMiddleware, assignCaseToVet);
-router.delete('/:id/images/:imageId', auth0UserInfoMiddleware, deleteImageFromCase);
+router.get('/', flexibleAuth, getAnimalCases);
+router.get('/dashboard/stats', flexibleAuth, getVetDashboardStats);
+router.get('/treatments', flexibleAuth, getAllTreatments);
+router.get('/:id', flexibleAuth, getAnimalCaseById);
+router.post('/', flexibleAuth, authorizeRoles('vet', 'WildlifeOfficer', 'admin'), upload.array('images', 10), createAnimalCase);
+router.put('/:id', flexibleAuth, authorizeRoles('vet', 'WildlifeOfficer', 'admin'), upload.array('images', 10), updateAnimalCase);
+router.put('/:id/with-images', flexibleAuth, authorizeRoles('vet', 'WildlifeOfficer', 'admin'), upload.array('images', 10), updateAnimalCase);
+router.put('/:id/assign', flexibleAuth, authorizeRoles('WildlifeOfficer', 'admin'), assignCaseToVet);
+router.delete('/:id/images/:imageId', flexibleAuth, authorizeRoles('vet', 'WildlifeOfficer', 'admin'), deleteImageFromCase);
 
 // Treatment Routes
-router.get('/:caseId/treatments', auth0UserInfoMiddleware, getTreatmentsByCase);
-router.post('/:caseId/treatments', auth0UserInfoMiddleware, upload.array('treatmentImages', 10), createTreatment);
-router.get('/treatments/:id', auth0UserInfoMiddleware, getTreatmentById);
-router.put('/treatments/:id', auth0UserInfoMiddleware, upload.array('treatmentImages', 10), updateTreatment);
-router.delete('/treatments/:id/images/:imageId', auth0UserInfoMiddleware, deleteTreatmentImage);
-router.get('/:caseId/treatments/report', auth0UserInfoMiddleware, generateTreatmentReport);
+router.get('/:caseId/treatments', flexibleAuth, getTreatmentsByCase);
+router.post('/:caseId/treatments', flexibleAuth, authorizeRoles('vet', 'admin'), upload.array('treatmentImages', 10), createTreatment);
+router.get('/treatments/:id', flexibleAuth, getTreatmentById);
+router.put('/treatments/:id', flexibleAuth, authorizeRoles('vet', 'admin'), upload.array('treatmentImages', 10), updateTreatment);
+router.delete('/treatments/:id/images/:imageId', flexibleAuth, authorizeRoles('vet', 'admin'), deleteTreatmentImage);
+router.get('/:caseId/treatments/report', flexibleAuth, generateTreatmentReport);
+
+// Treatment Plan Routes
+router.post('/treatment-plans', flexibleAuth, authorizeRoles('vet', 'admin'), (req, res) => {
+  // For now, treatment plans are stored as treatments with special type
+  const treatmentPlanData = {
+    ...req.body,
+    treatmentType: 'Treatment Plan',
+    treatmentStatus: 'Planned'
+  };
+  req.body = treatmentPlanData;
+  
+  // Since createTreatment expects caseId in params, we need to handle it differently
+  if (req.body.caseId) {
+    req.params.caseId = req.body.caseId;
+    createTreatment(req, res);
+  } else {
+    res.status(400).json({ message: 'Case ID is required for treatment plan' });
+  }
+});
+router.get('/treatment-plans', flexibleAuth, getAllTreatments);
 
 export default router;

@@ -1,7 +1,13 @@
 const authorizeRoles = (...allowedRoles) => {
   return (req, res, next) => {
+    console.log('Role authorization check:', {
+      user: req.user ? { id: req.user._id, role: req.user.role, email: req.user.email } : null,
+      allowedRoles
+    });
+
     // Check if user is authenticated
     if (!req.user) {
+      console.log('❌ Authorization failed: No user found');
       return res.status(401).json({
         message: 'Authentication required',
         code: 'AUTH_REQUIRED'
@@ -10,6 +16,7 @@ const authorizeRoles = (...allowedRoles) => {
 
     // Check if user has a role
     if (!req.user.role) {
+      console.log('❌ Authorization failed: User role not defined');
       return res.status(403).json({
         message: 'User role not defined',
         code: 'ROLE_UNDEFINED'
@@ -18,11 +25,16 @@ const authorizeRoles = (...allowedRoles) => {
 
     // Admin has access to everything
     if (req.user.role === 'admin') {
+      console.log('✅ Authorization success: Admin access');
       return next();
     }
 
     // Check if user's role is in allowed roles
     if (!allowedRoles.includes(req.user.role)) {
+      console.log('❌ Authorization failed: Insufficient permissions', {
+        userRole: req.user.role,
+        allowedRoles
+      });
       return res.status(403).json({
         message: 'Insufficient permissions',
         code: 'INSUFFICIENT_PERMISSIONS',
@@ -32,6 +44,7 @@ const authorizeRoles = (...allowedRoles) => {
       });
     }
 
+    console.log('✅ Authorization success: Role matched');
     next();
   };
 };

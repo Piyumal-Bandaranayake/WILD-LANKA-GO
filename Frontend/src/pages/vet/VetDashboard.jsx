@@ -130,6 +130,20 @@ const VetDashboard = () => {
     dosageInstructions: ''
   });
 
+  const [treatmentPlanForm, setTreatmentPlanForm] = useState({
+    caseId: '',
+    diagnosis: '',
+    condition: '',
+    treatmentType: '',
+    medications: [],
+    surgicalPlan: '',
+    recoveryPlan: '',
+    followUpSchedule: '',
+    specialInstructions: '',
+    estimatedDuration: '',
+    progressImages: []
+  });
+
   // Search and filter states
   const [searchFilters, setSearchFilters] = useState({
     caseSearch: '',
@@ -296,7 +310,7 @@ const VetDashboard = () => {
     try {
       switch (bulkAction) {
         case 'updateStatus':
-          await bulkUpdateStatus(selectedCases, 'in-treatment');
+          await bulkUpdateStatus(selectedCases, 'In Progress');
           break;
         case 'assignVet':
           await bulkAssignVet(selectedCases, backendUser?._id || user?.sub);
@@ -367,6 +381,7 @@ const VetDashboard = () => {
     try {
       setLoading(true);
       setError('');
+      console.log('🚀 Starting dashboard data fetch...');
 
       // Fetch data from all endpoints in parallel
       const [
@@ -388,72 +403,88 @@ const VetDashboard = () => {
       // Handle animal cases
       if (animalCasesResult.status === 'fulfilled') {
         const cases = animalCasesResult.value.data?.cases || animalCasesResult.value.data || [];
+        console.log('✅ Animal cases fetched successfully:', cases.length, 'cases');
+        console.log('📋 Cases data:', cases);
         setAnimalCases(cases);
       } else {
-        console.error('Failed to fetch animal cases:', animalCasesResult.reason);
+        console.error('❌ Failed to fetch animal cases:', animalCasesResult.reason);
+        console.error('📋 Error details:', animalCasesResult.reason?.response?.data);
         setAnimalCases([]);
       }
 
       // Handle treatments
       if (treatmentsResult.status === 'fulfilled') {
         const treatments = treatmentsResult.value.data || [];
+        console.log('✅ Treatments fetched successfully:', treatments.length, 'treatments');
+        console.log('🏥 Treatments data:', treatments);
         setTreatments(treatments);
       } else {
-        console.error('Failed to fetch treatments:', treatmentsResult.reason);
+        console.error('❌ Failed to fetch treatments:', treatmentsResult.reason);
+        console.error('🏥 Error details:', treatmentsResult.reason?.response?.data);
         setTreatments([]);
       }
 
       // Handle medications
       if (medicationsResult.status === 'fulfilled') {
-        const medications = medicationsResult.value.data || [];
+        const medications = medicationsResult.value.data?.medications || medicationsResult.value.data || [];
+        console.log('✅ Medications fetched successfully:', medications.length, 'medications');
+        console.log('💊 Medications data:', medications);
         setMedications(medications);
       } else {
-        console.error('Failed to fetch medications:', medicationsResult.reason);
+        console.error('❌ Failed to fetch medications:', medicationsResult.reason);
+        console.error('💊 Error details:', medicationsResult.reason?.response?.data);
         setMedications([]);
       }
 
       // Handle inventory (transform medications for inventory view)
       if (inventoryResult.status === 'fulfilled') {
-        const inventory = inventoryResult.value.data || [];
+        const inventory = inventoryResult.value.data?.medications || inventoryResult.value.data || [];
+        console.log('✅ Inventory fetched successfully:', inventory.length, 'items');
+        console.log('📦 Inventory data:', inventory);
         // Transform medications into inventory format
         const inventoryItems = inventory.map(med => ({
           ...med,
-          minimumStock: med.minimumStock || 10, // Default minimum stock
-          lowStock: med.quantity < (med.minimumStock || 10)
+          minimumStock: med.threshold || med.minimumStock || 10, // Use threshold from backend
+          lowStock: med.quantity < (med.threshold || med.minimumStock || 10)
         }));
         setInventory(inventoryItems);
       } else {
-        console.error('Failed to fetch inventory:', inventoryResult.reason);
+        console.error('❌ Failed to fetch inventory:', inventoryResult.reason);
+        console.error('📦 Error details:', inventoryResult.reason?.response?.data);
         setInventory([]);
       }
 
       // Handle collaborations
       if (collaborationsResult.status === 'fulfilled') {
         const collaborations = collaborationsResult.value.data || [];
+        console.log('✅ Collaborations fetched successfully:', collaborations.length, 'collaborations');
         setCollaborations(collaborations);
       } else {
-        console.error('Failed to fetch collaborations:', collaborationsResult.reason);
+        console.error('❌ Failed to fetch collaborations:', collaborationsResult.reason);
+        console.error('🤝 Error details:', collaborationsResult.reason?.response?.data);
         setCollaborations([]);
       }
 
       // Handle dashboard stats
       if (statsResult.status === 'fulfilled') {
         const dashboardStats = statsResult.value.data || {};
+        console.log('✅ Dashboard stats fetched successfully:', dashboardStats);
         setStats({
-          totalCases: dashboardStats.totalCases || 0,
-          activeCases: dashboardStats.activeCases || 0,
-          criticalCases: dashboardStats.criticalCases || 0,
-          recoveredAnimals: dashboardStats.recoveredAnimals || 0
+          totalCases: dashboardStats.total_cases || dashboardStats.assigned_cases || 0,
+          activeCases: dashboardStats.in_progress_cases || dashboardStats.active_treatments || 0,
+          criticalCases: dashboardStats.high_priority_cases || dashboardStats.follow_ups_required || 0,
+          recoveredAnimals: dashboardStats.completed_cases || dashboardStats.completed_treatments || 0
         });
       } else {
-        console.error('Failed to fetch dashboard stats:', statsResult.reason);
+        console.error('❌ Failed to fetch dashboard stats:', statsResult.reason);
+        console.error('📊 Error details:', statsResult.reason?.response?.data);
         // Calculate stats from animal cases if stats endpoint fails
         const cases = animalCases;
         setStats({
           totalCases: cases.length,
-          activeCases: cases.filter(c => c.status === 'in-treatment' || c.status === 'rescued').length,
+          activeCases: cases.filter(c => c.status === 'In Progress' || c.status === 'Assigned').length,
           criticalCases: cases.filter(c => c.urgencyLevel === 'critical').length,
-          recoveredAnimals: cases.filter(c => c.status === 'released' || c.status === 'ready-for-release').length
+          recoveredAnimals: cases.filter(c => c.status === 'Completed').length
         });
       }
 
@@ -498,25 +529,76 @@ const VetDashboard = () => {
       
       try {
         const formData = new FormData();
+        
+        // Map frontend form fields to backend model fields
+        const backendFieldMapping = {
+          species: 'animalType',
+          condition: 'primaryCondition',
+          foundLocation: 'location',
+          sex: 'gender',
+          age: 'ageSize'
+        };
+        
+        // Helper function to map age to enum values
+        const mapAgeToEnum = (age) => {
+          if (!age) return 'Adult';
+          const ageLower = age.toLowerCase();
+          if (ageLower.includes('juvenile') || ageLower.includes('young')) return 'Juvenile';
+          if (ageLower.includes('calf') || ageLower.includes('baby')) return 'Calf';
+          return 'Adult';
+        };
+        
+        // Add mapped fields
         Object.keys(caseForm).forEach(key => {
           if (key === 'images') {
             caseForm.images.forEach(image => formData.append('images', image));
           } else {
-            formData.append(key, caseForm[key]);
+            let value = caseForm[key];
+            const backendField = backendFieldMapping[key] || key;
+            
+            // Special handling for age mapping
+            if (key === 'age') {
+              value = mapAgeToEnum(value);
+            }
+            
+            formData.append(backendField, value);
           }
         });
+        
+        // Add required fields that aren't in the form
+        if (caseForm.species) {
+          formData.append('speciesScientificName', getScientificName(caseForm.species));
+        }
+        formData.append('reportedBy', user?.name || 'Veterinarian');
+        formData.append('symptomsObservations', caseForm.condition || 'Initial observation');
+        formData.append('initialTreatmentPlan', 'To be determined after assessment');
+        formData.append('priority', caseForm.urgencyLevel === 'high' ? 'High' : caseForm.urgencyLevel === 'low' ? 'Low' : 'Medium');
+        
         await protectedApi.createAnimalCase(formData);
+        console.log('✅ Animal case successfully created in database');
         await fetchDashboardData();
+        
+        setCaseForm({ animalId: '', species: '', sex: '', age: '', condition: '', foundLocation: '', urgencyLevel: 'medium', images: [] });
+        closeAllModals();
+        setError(null);
       } catch (apiError) {
-        console.log('API not available, adding to local state');
-        setAnimalCases(prev => [...prev, newCase]);
+        console.error('❌ Failed to create animal case in database:', apiError);
+        
+        // Check if it's a network error (no backend connection)
+        if (!apiError.response) {
+          setError('Cannot connect to server. Please check if the backend is running and try again.');
+        } else if (apiError.response.status >= 400) {
+          setError(`Failed to create animal case: ${apiError.response.data?.message || apiError.message}`);
+        } else {
+          setError('An unexpected error occurred while creating the animal case.');
+        }
+        
+        // Don't add to local state - require successful API call
+        return;
       }
-      
-      setCaseForm({ animalId: '', species: '', sex: '', age: '', condition: '', foundLocation: '', urgencyLevel: 'medium', images: [] });
-      closeAllModals();
-      setError(null);
     } catch (error) {
-      setError('Failed to create animal case.');
+      console.error('❌ Form validation or processing error:', error);
+      setError('Failed to create animal case. Please check your form data and try again.');
     }
   };
 
@@ -1052,6 +1134,19 @@ const VetDashboard = () => {
     const timestamp = Date.now().toString().slice(-6);
     const random = Math.random().toString(36).substr(2, 4).toUpperCase();
     return `${prefix}-${timestamp}-${random}`;
+  };
+
+  const getScientificName = (species) => {
+    const scientificNames = {
+      'Elephant': 'Elephas maximus',
+      'Leopard': 'Panthera pardus',
+      'Monkey': 'Macaca sinica',
+      'Bird': 'Aves',
+      'Deer': 'Cervidae',
+      'Bear': 'Ursidae',
+      'Other': 'Unknown species'
+    };
+    return scientificNames[species] || 'Unknown species';
   };
 
   const handleCaseImageUpload = (e) => {
@@ -1857,11 +1952,10 @@ const VetDashboard = () => {
                               className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
                             >
                               <option value="">All Status</option>
-                              <option value="rescued">Rescued</option>
-                              <option value="in-treatment">In Treatment</option>
-                              <option value="recovering">Recovering</option>
-                              <option value="ready-for-release">Ready for Release</option>
-                              <option value="released">Released</option>
+                              <option value="Unassigned">Unassigned</option>
+                              <option value="Assigned">Assigned</option>
+                              <option value="In Progress">In Progress</option>
+                              <option value="Completed">Completed</option>
                             </select>
                           </div>
                           <div>
@@ -2157,9 +2251,10 @@ const VetDashboard = () => {
                                         {case_.urgencyLevel ? case_.urgencyLevel.toUpperCase() : 'N/A'}
                                       </span>
                                       <span className={`px-2 py-1 text-xs rounded-full ${
-                                        case_.status === 'new' ? 'bg-blue-100 text-blue-800' :
-                                        case_.status === 'in-treatment' ? 'bg-yellow-100 text-yellow-800' :
-                                        case_.status === 'recovered' ? 'bg-green-100 text-green-800' :
+                                        case_.status === 'Unassigned' ? 'bg-red-100 text-red-800' :
+                                        case_.status === 'Assigned' ? 'bg-blue-100 text-blue-800' :
+                                        case_.status === 'In Progress' ? 'bg-yellow-100 text-yellow-800' :
+                                        case_.status === 'Completed' ? 'bg-green-100 text-green-800' :
                                         'bg-gray-100 text-gray-800'
                                       }`}>
                                         {case_.status ? case_.status.toUpperCase() : 'N/A'}
@@ -2167,29 +2262,32 @@ const VetDashboard = () => {
                                     </div>
                                   </div>
                                   <div className="flex flex-col space-y-1">
-                                    {case_.status === 'new' && (
+                                    {case_.status === 'Unassigned' && (
                                       <button
-                                        onClick={() => updateCaseStatus(case_._id, 'in-treatment')}
+                                        onClick={() => updateCaseStatus(case_._id, 'Assigned')}
                                         className="px-2 py-1 bg-blue-600 text-white rounded text-xs hover:bg-blue-700"
+                                        title="Assign Case"
+                                      >
+                                        Assign
+                                      </button>
+                                    )}
+                                    {case_.status === 'Assigned' && (
+                                      <button
+                                        onClick={() => updateCaseStatus(case_._id, 'In Progress')}
+                                        className="px-2 py-1 bg-yellow-600 text-white rounded text-xs hover:bg-yellow-700"
+                                        title="Start Treatment"
                                       >
                                         Start Treatment
                                       </button>
                                     )}
-                                    {case_.status === 'in-treatment' && (
-                                      <>
-                                        <button
-                                          onClick={() => updateCaseStatus(case_._id, 'recovered')}
-                                          className="px-2 py-1 bg-green-600 text-white rounded text-xs hover:bg-green-700"
-                                        >
-                                          Mark Recovered
-                                        </button>
-                                        <button
-                                          onClick={() => updateCaseStatus(case_._id, 'deceased')}
-                                          className="px-2 py-1 bg-gray-600 text-white rounded text-xs hover:bg-gray-700"
-                                        >
-                                          Mark Deceased
-                                        </button>
-                                      </>
+                                    {case_.status === 'In Progress' && (
+                                      <button
+                                        onClick={() => updateCaseStatus(case_._id, 'Completed')}
+                                        className="px-2 py-1 bg-green-600 text-white rounded text-xs hover:bg-green-700"
+                                        title="Mark as Completed"
+                                      >
+                                        Complete
+                                      </button>
                                     )}
                                     <button 
                                       onClick={() => {
@@ -2229,10 +2327,12 @@ const VetDashboard = () => {
                                     />
                                     {/* Animal Image */}
                                     <div className="h-32 bg-gradient-to-br from-emerald-100 to-blue-100 flex items-center justify-center">
-                                      {case_.images && case_.images.length > 0 ? (
+                                      {((case_.photosDocumentation && case_.photosDocumentation.length > 0) || (case_.images && case_.images.length > 0)) ? (
                                         <img 
-                                          src={case_.images[0]} 
-                                          alt={`${case_.species} ${case_.animalId}`}
+                                          src={(case_.images && case_.images.length > 0) 
+                                            ? case_.images[0] 
+                                            : (case_.photosDocumentation[0]?.thumbnail_url || case_.photosDocumentation[0]?.url)} 
+                                          alt={`${case_.species || case_.animalType || 'Animal'} ${case_.animalId || case_.caseId || ''}`}
                                           className="h-full w-full object-cover"
                                         />
                                       ) : (
@@ -2270,9 +2370,10 @@ const VetDashboard = () => {
                                     
                                     <div className="flex items-center justify-between mb-3">
                                       <span className={`px-2 py-1 text-xs rounded-full ${
-                                        case_.status === 'recovered' ? 'bg-green-100 text-green-800' :
-                                        case_.status === 'in-treatment' ? 'bg-blue-100 text-blue-800' :
-                                        case_.status === 'new' ? 'bg-yellow-100 text-yellow-800' :
+                                        case_.status === 'Completed' ? 'bg-green-100 text-green-800' :
+                                        case_.status === 'In Progress' ? 'bg-blue-100 text-blue-800' :
+                                        case_.status === 'Assigned' ? 'bg-yellow-100 text-yellow-800' :
+                                        case_.status === 'Unassigned' ? 'bg-red-100 text-red-800' :
                                         'bg-gray-100 text-gray-800'
                                       }`}>
                                         {case_.status ? case_.status.toUpperCase() : 'N/A'}
@@ -2352,7 +2453,7 @@ const VetDashboard = () => {
                                 className="w-full border border-gray-300 rounded-md px-3 py-2"
                               >
                                 <option value="">Select an animal case</option>
-                                {animalCases.filter(c => c.status === 'in-treatment').map((case_) => (
+                                {animalCases.filter(c => c.status === 'In Progress').map((case_) => (
                                   <option key={case_._id} value={case_._id}>
                                     {case_.species} - {case_.animalId}
                                   </option>
@@ -3087,7 +3188,9 @@ const VetDashboard = () => {
                         value={caseForm.species}
                         onChange={(e) => setCaseForm({...caseForm, species: e.target.value})}
                         required
-                        className="w-full border border-gray-300 rounded-md px-3 py-2"
+                        className={`w-full border rounded-md px-3 py-2 ${
+                          formErrors.case_species ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 focus:ring-emerald-500'
+                        }`}
                       >
                         <option value="">Select Species</option>
                         <option value="Elephant">🐘 Elephant</option>
@@ -3098,6 +3201,9 @@ const VetDashboard = () => {
                         <option value="Bear">🐻 Bear</option>
                         <option value="Other">🐾 Other</option>
                       </select>
+                      {formErrors.case_species && (
+                        <p className="text-red-500 text-sm mt-1">{formErrors.case_species}</p>
+                      )}
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">Sex</label>
@@ -3144,11 +3250,10 @@ const VetDashboard = () => {
                         onChange={(e) => setCaseForm({...caseForm, status: e.target.value})}
                         className="w-full border border-gray-300 rounded-md px-3 py-2"
                       >
-                        <option value="rescued">🚨 Rescued</option>
-                        <option value="in-treatment">🏥 In Treatment</option>
-                        <option value="recovering">💊 Recovering</option>
-                        <option value="ready-for-release">✅ Ready for Release</option>
-                        <option value="released">🌿 Released</option>
+                        <option value="Unassigned">🚨 Unassigned</option>
+                        <option value="Assigned">📋 Assigned</option>
+                        <option value="In Progress">🏥 In Progress</option>
+                        <option value="Completed">✅ Completed</option>
                       </select>
                     </div>
                   </div>
@@ -3160,9 +3265,14 @@ const VetDashboard = () => {
                       onChange={(e) => setCaseForm({...caseForm, condition: e.target.value})}
                       required
                       rows="4"
-                      className="w-full border border-gray-300 rounded-md px-3 py-2"
+                      className={`w-full border rounded-md px-3 py-2 ${
+                        formErrors.case_condition ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 focus:ring-emerald-500'
+                      }`}
                       placeholder="Detailed description of the animal's condition, injuries, or illness..."
                     />
+                    {formErrors.case_condition && (
+                      <p className="text-red-500 text-sm mt-1">{formErrors.case_condition}</p>
+                    )}
                   </div>
                   
                   <div>
@@ -3172,9 +3282,14 @@ const VetDashboard = () => {
                       onChange={(e) => setCaseForm({...caseForm, foundLocation: e.target.value})}
                       required
                       rows="2"
-                      className="w-full border border-gray-300 rounded-md px-3 py-2"
+                      className={`w-full border rounded-md px-3 py-2 ${
+                        formErrors.case_foundLocation ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 focus:ring-emerald-500'
+                      }`}
                       placeholder="Specific location details, GPS coordinates if available..."
                     />
+                    {formErrors.case_foundLocation && (
+                      <p className="text-red-500 text-sm mt-1">{formErrors.case_foundLocation}</p>
+                    )}
                   </div>
                   
                   <div>
