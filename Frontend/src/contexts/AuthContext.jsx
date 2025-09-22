@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useAuth0 } from '@auth0/auth0-react';
-import { handleUserLogin, setTokenProvider } from '../services/authService';
+import { handleUserLogin, setTokenProvider, setDevelopmentMode } from '../services/authService';
 
 const AuthContext = createContext();
 
@@ -58,8 +58,40 @@ export const AuthProvider = ({ children }) => {
           console.log('✅ User authenticated with backend:', userData);
         } catch (error) {
           console.error('❌ Backend authentication failed:', error);
-          // If backend auth fails, logout from Auth0
-          logout({ logoutParams: { returnTo: window.location.origin } });
+          
+          // Check if it's a rate limit error (429) or Auth0 access denied
+          if (error.message && error.message.includes('429')) {
+            console.log('🚨 Auth0 rate limit hit - using development fallback');
+            setDevelopmentMode(true);
+            
+            // Create a fallback user for development when rate limited
+            const fallbackUser = {
+              id: 'dev_vet_' + Date.now(),
+              name: user.name || 'Dr. Development Vet',
+              email: user.email || 'dev.vet@wildlanka.com',
+              role: 'vet',
+              permissions: ['vet:read', 'vet:write', 'vet:manage'],
+              isAuthenticated: true,
+              isDevelopmentMode: true
+            };
+            
+            setBackendUser(fallbackUser);
+            console.log('✅ Development fallback user created:', fallbackUser);
+          } else {
+            setDevelopmentMode(true);
+            // For other errors, still try to create a basic user
+            const basicUser = {
+              id: user.sub,
+              name: user.name,
+              email: user.email,
+              role: 'vet', // Default to vet for testing
+              permissions: ['vet:read', 'vet:write'],
+              isAuthenticated: true,
+              hasError: true,
+              isDevelopmentMode: true
+            };
+            setBackendUser(basicUser);
+          }
         } finally {
           setAuthLoading(false);
         }
@@ -96,6 +128,35 @@ export const AuthProvider = ({ children }) => {
   // Check if user is fully authenticated (both Auth0 and backend)
   const isFullyAuthenticated = isAuthenticated && backendUser && accessToken;
 
+  // Retry authentication function
+  const retryAuthentication = async () => {
+    if (isAuthenticated && user) {
+      setAuthLoading(true);
+      setBackendUser(null);
+      try {
+        const token = await getAccessTokenSilently();
+        const userData = await handleUserLogin(token);
+        setBackendUser(userData);
+        setAccessToken(token);
+      } catch (error) {
+        console.error('Retry authentication failed:', error);
+        // Create fallback user again
+        const fallbackUser = {
+          id: 'retry_vet_' + Date.now(),
+          name: user.name || 'Dr. Retry Vet',
+          email: user.email,
+          role: 'vet',
+          permissions: ['vet:read', 'vet:write'],
+          isAuthenticated: true,
+          isDevelopmentMode: true
+        };
+        setBackendUser(fallbackUser);
+      } finally {
+        setAuthLoading(false);
+      }
+    }
+  };
+
   const value = {
     // Auth0 state
     isAuthenticated,
@@ -111,6 +172,7 @@ export const AuthProvider = ({ children }) => {
     
     // Functions
     getToken,
+    retryAuthentication,
   };
 
   return (

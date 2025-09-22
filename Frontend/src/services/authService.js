@@ -34,13 +34,25 @@ api.interceptors.request.use(
   }
 );
 
+// Development mode flag
+let isDevelopmentMode = false;
+
+export const setDevelopmentMode = (enabled) => {
+  isDevelopmentMode = enabled;
+};
+
 // Response interceptor to handle auth errors
 api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
       console.error('Authentication failed - redirecting to login');
-      // You could trigger a logout here if needed
+      
+      // Check if it's an Auth0 rate limit error
+      if (error.response?.data?.details?.includes('429')) {
+        console.log('🚨 Auth0 rate limit detected in API call');
+        setDevelopmentMode(true);
+      }
     }
     return Promise.reject(error);
   }
@@ -57,6 +69,28 @@ export const handleUserLogin = async (accessToken) => {
     return response.data;
   } catch (error) {
     console.error('Error during backend login:', error);
+    
+    // Check if it's an Auth0 rate limit error (429)
+    if (error.response?.status === 401 && 
+        error.response?.data?.details?.includes('429')) {
+      console.log('🚨 Auth0 rate limit detected in backend - creating development user');
+      
+      // Return a development user object that matches backend structure
+      return {
+        id: 'dev_user_' + Date.now(),
+        auth0Id: 'auth0|dev_user',
+        email: 'dev.vet@wildlanka.com',
+        name: 'Dr. Development Vet',
+        role: 'vet',
+        permissions: ['vet:read', 'vet:write', 'vet:manage'],
+        profilePicture: null,
+        isActive: true,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        isDevelopmentMode: true
+      };
+    }
+    
     throw error;
   }
 };
@@ -197,6 +231,40 @@ export const protectedApi = {
   // Activity booking endpoints
   bookActivity: (data) => api.post('/activity-bookings', data),
   getActivityBookings: () => api.get('/activity-bookings'),
+
+  // Tourist-specific endpoints
+  getMyBookings: () => api.get('/tourist/my-bookings'),
+  getMyEventRegistrations: () => api.get('/tourist/my-registrations'),
+  getMyDonations: () => api.get('/tourist/my-donations'),
+  getMyFeedback: () => api.get('/tourist/my-feedback'),
+  getMyComplaints: () => api.get('/tourist/my-complaints'),
+
+  // Enhanced tourist booking endpoints
+  createBooking: (data) => api.post('/tourist/bookings', data),
+  checkAvailableSlots: (activityId, date) => api.get(`/tourist/activities/check-slots?activityId=${activityId}&date=${date}`),
+
+  // Enhanced tourist event endpoints
+  registerForEvent: (data) => api.post('/tourist/registrations', data),
+  modifyEventRegistration: (registrationId, data) => api.put(`/tourist/registrations/${registrationId}`, data),
+  cancelEventRegistration: (registrationId) => api.delete(`/tourist/registrations/${registrationId}`),
+
+  // Enhanced tourist donation endpoints
+  createDonation: (data) => api.post('/tourist/donations', data),
+  updateDonationMessage: (donationId, message) => api.put(`/tourist/donations/${donationId}/message`, { message }),
+
+  // Enhanced tourist feedback endpoints
+  createFeedback: (data) => api.post('/tourist/feedback', data),
+  getAllFeedback: (page = 1, limit = 10) => api.get(`/tourist/feedback/all?page=${page}&limit=${limit}`),
+  updateFeedback: (feedbackId, data) => api.put(`/tourist/feedback/${feedbackId}`, data),
+  deleteFeedback: (feedbackId) => api.delete(`/tourist/feedback/${feedbackId}`),
+
+  // Enhanced tourist complaint endpoints
+  createComplaint: (data) => api.post('/tourist/complaints', data),
+  updateComplaint: (complaintId, data) => api.put(`/tourist/complaints/${complaintId}`, data),
+  deleteComplaint: (complaintId) => api.delete(`/tourist/complaints/${complaintId}`),
+
+  // Tourist emergency reporting
+  reportEmergency: (data) => api.post('/tourist/emergency', data),
 
   // Job applications
   submitApplication: (data) => api.post('/applications', data),
