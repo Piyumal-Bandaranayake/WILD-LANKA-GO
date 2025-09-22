@@ -17,7 +17,7 @@ import {
 } from 'react-icons/fa';
 
 const VetDashboard = () => {
-  const { backendUser, user, retryAuthentication } = useAuthContext();
+  const { backendUser, user } = useAuthContext();
   const [activeTab, setActiveTab] = useState('overview');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -366,237 +366,100 @@ const VetDashboard = () => {
   const fetchDashboardData = async () => {
     try {
       setLoading(true);
+      setError('');
 
-      // If we're in development mode due to rate limiting, use sample data
-      if (backendUser?.isDevelopmentMode || import.meta.env.DEV) {
-        console.log('🚧 Development mode active - using sample data');
-        
-        // Set sample data directly
-        setAnimalCases([
-          {
-            _id: 'sample1',
-            animalId: 'ANIMAL-001',
-            species: 'Elephant',
-            condition: 'Injured leg',
-            status: 'in-treatment',
-            urgencyLevel: 'high',
-            foundLocation: 'Yala National Park',
-            age: 'Adult',
-            sex: 'Female'
-          },
-          {
-            _id: 'sample2',
-            animalId: 'ANIMAL-002',
-            species: 'Leopard',
-            condition: 'Dehydration',
-            status: 'recovering',
-            urgencyLevel: 'medium',
-            foundLocation: 'Wilpattu National Park',
-            age: '3 years',
-            sex: 'Male'
-          },
-          {
-            _id: 'sample3',
-            animalId: 'ANIMAL-003',
-            species: 'Monkey',
-            condition: 'Broken arm',
-            status: 'rescued',
-            urgencyLevel: 'critical',
-            foundLocation: 'Sinharaja Forest',
-            age: 'Juvenile',
-            sex: 'Male'
-          }
-        ]);
+      // Fetch data from all endpoints in parallel
+      const [
+        animalCasesResult,
+        treatmentsResult,
+        medicationsResult,
+        inventoryResult,
+        collaborationsResult,
+        statsResult
+      ] = await Promise.allSettled([
+        protectedApi.getAnimalCases(),
+        protectedApi.getTreatments(),
+        protectedApi.getMedicationInventory(),
+        protectedApi.getMedicationInventory(), // Using same endpoint for now
+        protectedApi.getVetCollaborations(),
+        protectedApi.getVetDashboardStats()
+      ]);
 
-        setMedications([
-          { _id: 'med1', name: 'Antibiotics', quantity: 50, expiryDate: '2025-12-31', batchNumber: 'B001' },
-          { _id: 'med2', name: 'Pain Relief', quantity: 30, expiryDate: '2025-11-15', batchNumber: 'B002' },
-          { _id: 'med3', name: 'IV Fluids', quantity: 25, expiryDate: '2025-10-20', batchNumber: 'B003' }
-        ]);
-
-        setTreatments([
-          { _id: 'treat1', caseId: 'sample1', diagnosis: 'Leg Fracture', medication: 'Pain Relief + Antibiotics', status: 'ongoing' },
-          { _id: 'treat2', caseId: 'sample2', diagnosis: 'Severe Dehydration', medication: 'IV Fluids', status: 'completed' },
-          { _id: 'treat3', caseId: 'sample3', diagnosis: 'Compound Fracture', medication: 'Surgery Required', status: 'planned' }
-        ]);
-
-        setInventory([
-          { _id: 'inv1', name: 'Antibiotics', quantity: 50, expiryDate: '2025-12-31', batchNumber: 'B001', minimumStock: 10 },
-          { _id: 'inv2', name: 'Pain Relief', quantity: 30, expiryDate: '2025-11-15', batchNumber: 'B002', minimumStock: 15 },
-          { _id: 'inv3', name: 'IV Fluids', quantity: 8, expiryDate: '2025-10-20', batchNumber: 'B003', minimumStock: 20 },
-          { _id: 'inv4', name: 'Sedatives', quantity: 5, expiryDate: '2025-09-30', batchNumber: 'B004', minimumStock: 10 }
-        ]);
-
-        setCollaborations([
-          { _id: 'collab1', caseId: 'sample1', targetVet: 'Dr. Sarah Johnson', message: 'Need consultation on elephant treatment', status: 'pending' },
-          { _id: 'collab2', caseId: 'sample2', targetVet: 'Dr. Michael Chen', message: 'Leopard recovery successful', status: 'completed' },
-          { _id: 'collab3', caseId: 'sample3', targetVet: 'Dr. Emily Rodriguez', message: 'Emergency surgery required for monkey', status: 'urgent' }
-        ]);
-
-        // Calculate stats from sample data
-        const currentCases = [
-          {
-            _id: 'sample1',
-            animalId: 'ANIMAL-001',
-            species: 'Elephant',
-            condition: 'Injured leg',
-            status: 'in-treatment',
-            urgencyLevel: 'high',
-            foundLocation: 'Yala National Park',
-            age: 'Adult',
-            sex: 'Female'
-          },
-          {
-            _id: 'sample2',
-            animalId: 'ANIMAL-002',
-            species: 'Leopard',
-            condition: 'Dehydration',
-            status: 'recovering',
-            urgencyLevel: 'medium',
-            foundLocation: 'Wilpattu National Park',
-            age: '3 years',
-            sex: 'Male'
-          },
-          {
-            _id: 'sample3',
-            animalId: 'ANIMAL-003',
-            species: 'Monkey',
-            condition: 'Broken arm',
-            status: 'rescued',
-            urgencyLevel: 'critical',
-            foundLocation: 'Sinharaja Forest',
-            age: 'Juvenile',
-            sex: 'Male'
-          }
-        ];
-
-        const totalCases = currentCases.length;
-        const activeCases = currentCases.filter(c => c.status === 'in-treatment' || c.status === 'rescued').length;
-        const criticalCases = currentCases.filter(c => c.urgencyLevel === 'critical').length;
-        const recoveredAnimals = currentCases.filter(c => c.status === 'released' || c.status === 'ready-for-release').length;
-
-        setStats({
-          totalCases,
-          activeCases,
-          criticalCases,
-          recoveredAnimals
-        });
-
-        return; // Skip API calls in development mode
-      }
-
-      // Normal API flow for production
-
-      // Fetch animal cases first (most important)
-      try {
-        const casesRes = await protectedApi.getAnimalCases();
-        const cases = casesRes.data?.cases || casesRes.data || [];
+      // Handle animal cases
+      if (animalCasesResult.status === 'fulfilled') {
+        const cases = animalCasesResult.value.data?.cases || animalCasesResult.value.data || [];
         setAnimalCases(cases);
-      } catch (error) {
-        console.log('Animal cases not available, using sample data');
-        setAnimalCases([
-          {
-            _id: 'sample1',
-            animalId: 'ANIMAL-001',
-            species: 'Elephant',
-            condition: 'Injured leg',
-            status: 'in-treatment',
-            urgencyLevel: 'high',
-            foundLocation: 'Yala National Park',
-            age: 'Adult',
-            sex: 'Female'
-          },
-          {
-            _id: 'sample2',
-            animalId: 'ANIMAL-002',
-            species: 'Leopard',
-            condition: 'Dehydration',
-            status: 'recovering',
-            urgencyLevel: 'medium',
-            foundLocation: 'Wilpattu National Park',
-            age: '3 years',
-            sex: 'Male'
-          }
-        ]);
+      } else {
+        console.error('Failed to fetch animal cases:', animalCasesResult.reason);
+        setAnimalCases([]);
       }
 
-      // Try to fetch other data with individual error handling
-      try {
-        const medicationsRes = await protectedApi.getMedications();
-        setMedications(medicationsRes.data || []);
-      } catch (error) {
-        console.log('Medications endpoint not available, using sample data');
-        setMedications([
-          { _id: 'med1', name: 'Antibiotics', quantity: 50, expiryDate: '2025-12-31', batchNumber: 'B001' },
-          { _id: 'med2', name: 'Pain Relief', quantity: 30, expiryDate: '2025-11-15', batchNumber: 'B002' }
-        ]);
+      // Handle treatments
+      if (treatmentsResult.status === 'fulfilled') {
+        const treatments = treatmentsResult.value.data || [];
+        setTreatments(treatments);
+      } else {
+        console.error('Failed to fetch treatments:', treatmentsResult.reason);
+        setTreatments([]);
       }
 
-      try {
-        const treatmentsRes = await protectedApi.getTreatments();
-        setTreatments(treatmentsRes.data || []);
-      } catch (error) {
-        console.log('Treatments endpoint not available, using sample data');
-        setTreatments([
-          { _id: 'treat1', caseId: 'sample1', diagnosis: 'Fracture', medication: 'Pain Relief', status: 'ongoing' },
-          { _id: 'treat2', caseId: 'sample2', diagnosis: 'Dehydration', medication: 'IV Fluids', status: 'completed' }
-        ]);
+      // Handle medications
+      if (medicationsResult.status === 'fulfilled') {
+        const medications = medicationsResult.value.data || [];
+        setMedications(medications);
+      } else {
+        console.error('Failed to fetch medications:', medicationsResult.reason);
+        setMedications([]);
       }
 
-      // Set inventory same as medications for now
-      setInventory([
-        { _id: 'inv1', name: 'Antibiotics', quantity: 50, expiryDate: '2025-12-31', batchNumber: 'B001', minimumStock: 10 },
-        { _id: 'inv2', name: 'Pain Relief', quantity: 30, expiryDate: '2025-11-15', batchNumber: 'B002', minimumStock: 15 },
-        { _id: 'inv3', name: 'IV Fluids', quantity: 8, expiryDate: '2025-10-20', batchNumber: 'B003', minimumStock: 20 }
-      ]);
+      // Handle inventory (transform medications for inventory view)
+      if (inventoryResult.status === 'fulfilled') {
+        const inventory = inventoryResult.value.data || [];
+        // Transform medications into inventory format
+        const inventoryItems = inventory.map(med => ({
+          ...med,
+          minimumStock: med.minimumStock || 10, // Default minimum stock
+          lowStock: med.quantity < (med.minimumStock || 10)
+        }));
+        setInventory(inventoryItems);
+      } else {
+        console.error('Failed to fetch inventory:', inventoryResult.reason);
+        setInventory([]);
+      }
 
-      // Set sample collaboration data
-      setCollaborations([
-        { _id: 'collab1', caseId: 'sample1', targetVet: 'Dr. Sarah Johnson', message: 'Need consultation on elephant treatment', status: 'pending' },
-        { _id: 'collab2', caseId: 'sample2', targetVet: 'Dr. Michael Chen', message: 'Leopard recovery update', status: 'completed' }
-      ]);
+      // Handle collaborations
+      if (collaborationsResult.status === 'fulfilled') {
+        const collaborations = collaborationsResult.value.data || [];
+        setCollaborations(collaborations);
+      } else {
+        console.error('Failed to fetch collaborations:', collaborationsResult.reason);
+        setCollaborations([]);
+      }
 
-      // Calculate stats using current data
-      const currentCases = animalCases.length > 0 ? animalCases : [
-        {
-          _id: 'sample1',
-          animalId: 'ANIMAL-001',
-          species: 'Elephant',
-          condition: 'Injured leg',
-          status: 'in-treatment',
-          urgencyLevel: 'high',
-          foundLocation: 'Yala National Park',
-          age: 'Adult',
-          sex: 'Female'
-        },
-        {
-          _id: 'sample2',
-          animalId: 'ANIMAL-002',
-          species: 'Leopard',
-          condition: 'Dehydration',
-          status: 'recovering',
-          urgencyLevel: 'medium',
-          foundLocation: 'Wilpattu National Park',
-          age: '3 years',
-          sex: 'Male'
-        }
-      ];
-
-      const totalCases = currentCases.length;
-      const activeCases = currentCases.filter(c => c.status === 'in-treatment' || c.status === 'rescued').length;
-      const criticalCases = currentCases.filter(c => c.urgencyLevel === 'critical').length;
-      const recoveredAnimals = currentCases.filter(c => c.status === 'released' || c.status === 'ready-for-release').length;
-
-      setStats({
-        totalCases,
-        activeCases,
-        criticalCases,
-        recoveredAnimals
-      });
+      // Handle dashboard stats
+      if (statsResult.status === 'fulfilled') {
+        const dashboardStats = statsResult.value.data || {};
+        setStats({
+          totalCases: dashboardStats.totalCases || 0,
+          activeCases: dashboardStats.activeCases || 0,
+          criticalCases: dashboardStats.criticalCases || 0,
+          recoveredAnimals: dashboardStats.recoveredAnimals || 0
+        });
+      } else {
+        console.error('Failed to fetch dashboard stats:', statsResult.reason);
+        // Calculate stats from animal cases if stats endpoint fails
+        const cases = animalCases;
+        setStats({
+          totalCases: cases.length,
+          activeCases: cases.filter(c => c.status === 'in-treatment' || c.status === 'rescued').length,
+          criticalCases: cases.filter(c => c.urgencyLevel === 'critical').length,
+          recoveredAnimals: cases.filter(c => c.status === 'released' || c.status === 'ready-for-release').length
+        });
+      }
 
     } catch (error) {
       console.error('Failed to fetch dashboard data:', error);
-      setError('Failed to load dashboard data');
+      setError('Failed to load dashboard data. Please check your connection and try again.');
     } finally {
       setLoading(false);
     }
@@ -1835,39 +1698,10 @@ const VetDashboard = () => {
               <main className="col-span-12 md:col-span-7">
                 {/* Top greeting banner */}
                 <div className="mb-6">
-                  {/* Development Mode Banner */}
-                  {(backendUser?.isDevelopmentMode || import.meta.env.DEV) && (
-                    <div className="bg-yellow-500 text-white rounded-lg p-3 mb-4 flex items-center justify-between">
-                      <div className="flex items-center">
-                        <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
-                        </svg>
-                        <div>
-                          <p className="font-medium">Development Mode Active</p>
-                          <p className="text-sm opacity-90">
-                            {backendUser?.isDevelopmentMode 
-                              ? 'Auth0 rate limit reached - using sample data for testing'
-                              : 'Running in development environment with sample data'
-                            }
-                          </p>
-                        </div>
-                      </div>
-                      {backendUser?.isDevelopmentMode && (
-                        <button
-                          onClick={retryAuthentication}
-                          className="bg-white/20 hover:bg-white/30 text-white rounded-md px-3 py-1 text-sm transition-colors"
-                        >
-                          Retry Auth
-                        </button>
-                      )}
-                    </div>
-                  )}
-                  
                   <div className="bg-blue-600 text-white rounded-2xl p-5 flex items-center justify-between shadow-sm">
                     <div>
                       <h2 className="text-lg md:text-xl font-semibold">
                         {`Good ${new Date().getHours() < 12 ? 'Morning' : new Date().getHours() < 18 ? 'Afternoon' : 'Evening'}, Dr. ${backendUser?.name?.split(' ')[0] || user?.name?.split(' ')[0] || 'Veterinarian'}`}
-                        {backendUser?.isDevelopmentMode && <span className="ml-2 text-yellow-300">(Demo)</span>}
                       </h2>
                       <p className="text-sm opacity-90 mt-1">
                         You have {stats.activeCases} active cases and {stats.criticalCases} critical cases requiring attention.
