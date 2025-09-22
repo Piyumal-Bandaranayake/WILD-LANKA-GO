@@ -1818,13 +1818,13 @@ const VetDashboard = () => {
                       <div className="flex justify-between items-center mb-6">
                         <h3 className="text-lg font-semibold text-gray-800">Animal Cases Management</h3>
                         <div className="flex space-x-3">
-                          <button
+                          {/* <button
                             onClick={() => openCaseModal()}
                             className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 flex items-center space-x-2"
                           >
                             <span>🐾</span>
                             <span>Register New Case</span>
-                          </button>
+                          </button> */}
                           <button
                             onClick={() => openTreatmentModal()}
                             className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 flex items-center space-x-2"

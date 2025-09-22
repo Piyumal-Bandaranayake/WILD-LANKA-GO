@@ -9,20 +9,19 @@ import {
   getActiveTrackedAnimals,
   getGPSAlerts
 } from '../../controllers/animalCare/gpsTrackingController.js';
-import auth0UserInfoMiddleware from '../../middleware/auth0UserInfoMiddleware.js';
 
 const router = express.Router();
 
 // GPS tracking management
-router.post('/:caseId/enable', auth0UserInfoMiddleware, enableGPSTracking);
-router.post('/:caseId/disable', auth0UserInfoMiddleware, disableGPSTracking);
-router.put('/:caseId/location', auth0UserInfoMiddleware, updateGPSLocation);
-router.put('/:caseId/safe-zone', auth0UserInfoMiddleware, updateSafeZone);
+router.post('/:caseId/enable', enableGPSTracking);
+router.post('/:caseId/disable', disableGPSTracking);
+router.put('/:caseId/location', updateGPSLocation);
+router.put('/:caseId/safe-zone', updateSafeZone);
 
 // GPS data retrieval
-router.get('/active-animals', auth0UserInfoMiddleware, getActiveTrackedAnimals);
-router.get('/alerts', auth0UserInfoMiddleware, getGPSAlerts);
-router.get('/:caseId', auth0UserInfoMiddleware, getGPSLocation);
-router.get('/:caseId/history', auth0UserInfoMiddleware, getGPSHistory);
+router.get('/active-animals', getActiveTrackedAnimals);
+router.get('/alerts', getGPSAlerts);
+router.get('/:caseId', getGPSLocation);
+router.get('/:caseId/history', getGPSHistory);
 
 export default router;

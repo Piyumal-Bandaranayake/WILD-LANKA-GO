@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuthContext } from '../../contexts/AuthContext';
 import { protectedApi } from '../../services/authService';
-import ProtectedRoute from '../../components/ProtectedRoute';
+import RoleGuard from '../../components/RoleGuard';
 import Navbar from '../../components/Navbar';
 import Footer from '../../components/footer';
 
@@ -149,7 +149,7 @@ const WildlifeOfficerDashboard = () => {
 
   if (loading) {
     return (
-      <ProtectedRoute allowedRoles={['WildlifeOfficer']}>
+      <RoleGuard requiredRole="WildlifeOfficer">
         <div className="flex flex-col min-h-screen">
           <Navbar />
           <div className="flex-1 flex items-center justify-center pt-32">
@@ -160,12 +160,12 @@ const WildlifeOfficerDashboard = () => {
           </div>
           <Footer />
         </div>
-      </ProtectedRoute>
+      </RoleGuard>
     );
   }
 
   return (
-    <ProtectedRoute allowedRoles={['WildlifeOfficer']}>
+    <RoleGuard requiredRole="WildlifeOfficer">
       <div className="flex flex-col min-h-screen">
         <Navbar />
         <div className="flex-1 pt-32 pb-16">
@@ -614,7 +614,7 @@ const WildlifeOfficerDashboard = () => {
         </div>
         <Footer />
       </div>
-    </ProtectedRoute>
+    </RoleGuard>
   );
 };
 

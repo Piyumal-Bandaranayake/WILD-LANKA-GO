@@ -10,17 +10,13 @@ import {
   createUser,
   deactivateUser
 } from '../../controllers/user/admincontroller.js';
-import flexibleAuth from '../../middleware/flexibleAuthMiddleware.js';
-import { authorizeRoles } from '../../middleware/rolesMiddleware.js';
 
 const router = express.Router();
 
 // Public route for initial admin creation
 router.post('/create-initial-admin', registerAdmin);
 
-// Protected admin routes
-router.use(flexibleAuth);
-router.use(authorizeRoles('admin'));
+// Admin routes (authentication removed)
 
 // User management endpoints
 router.get('/users', getAllUsers);

@@ -4,8 +4,11 @@ import auth0UserInfoMiddleware from '../../middleware/auth0UserInfoMiddleware.js
 
 const router = express.Router();
 
-router.post('/login', auth0UserInfoMiddleware, handleLogin);
-router.get('/profile', auth0UserInfoMiddleware, getUserProfile);
-router.put('/profile', auth0UserInfoMiddleware, updateUserProfile);
+// Apply Auth0 middleware to all auth routes
+router.use(auth0UserInfoMiddleware);
+
+router.post('/login', handleLogin);
+router.get('/profile', getUserProfile);
+router.put('/profile', updateUserProfile);
 
 export default router;

@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { protectedApi } from '../../services/authService';
 import { useAuthContext } from '../../contexts/AuthContext';
+import RoleGuard from '../../components/RoleGuard';
+import RoleBasedFeature from '../../components/RoleBasedFeature';
 import Navbar from '../../components/Navbar';
 import Footer from '../../components/footer';
 
@@ -395,21 +397,7 @@ const AdminDashboard = () => {
     });
   }, []);
 
-  // ===== Guards =====
-  if (backendUser?.role !== 'admin') {
-    return (
-      <div className="flex flex-col min-h-screen">
-        <Navbar />
-        <div className="flex-1 flex items-center justify-center pt-32">
-          <div className="text-center">
-            <h2 className="text-2xl font-bold text-red-600">Access Denied</h2>
-            <p className="text-gray-600 mt-2">Only administrators can access this page.</p>
-          </div>
-        </div>
-        <Footer />
-      </div>
-    );
-  }
+  // Role-based access control is handled by RoleGuard wrapper
 
   if (loading) {
     return (
@@ -427,8 +415,9 @@ const AdminDashboard = () => {
   }
 
   return (
-    <div className="flex flex-col min-h-screen bg-[#F4F6FF]">
-      <Navbar />
+    <RoleGuard requiredRole="admin">
+      <div className="flex flex-col min-h-screen bg-[#F4F6FF]">
+        <Navbar />
 
       {/* Shell */}
       <div className="flex-1 pt-28 pb-10">
@@ -489,12 +478,14 @@ const AdminDashboard = () => {
                 ))}
 
                 <div className="mt-4 border-t pt-3">
-                  <button
-                    onClick={() => setShowCreateModal(true)}
-                    className="w-full bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl px-3 py-2 text-sm font-semibold"
-                  >
-                    Create User
-                  </button>
+                  <RoleBasedFeature requiredRole="admin">
+                    <button
+                      onClick={() => setShowCreateModal(true)}
+                      className="w-full bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl px-3 py-2 text-sm font-semibold"
+                    >
+                      Create User
+                    </button>
+                  </RoleBasedFeature>
                 </div>
               </div>
             </aside>
@@ -615,20 +606,30 @@ const AdminDashboard = () => {
                                 </span>
                               </td>
                               <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-3">
-                                <button
-                                  onClick={() => { setSelectedUser(u); setShowRoleModal(true); }}
-                                  className="text-blue-600 hover:text-blue-800"
-                                >
-                                  Change Role
-                                </button>
-                                {u.role !== 'admin' && (
+                                <RoleBasedFeature requiredRole="admin">
                                   <button
-                                    onClick={() => handleDeactivateUser(u._id)}
-                                    className="text-red-600 hover:text-red-800"
+                                    onClick={() => { setSelectedUser(u); setShowRoleModal(true); }}
+                                    className="text-blue-600 hover:text-blue-800"
                                   >
-                                    Deactivate
+                                    Change Role
                                   </button>
-                                )}
+                                </RoleBasedFeature>
+                                <RoleBasedFeature 
+                                  requiredRole="admin"
+                                  fallback={
+                                    <span className="text-gray-400 text-sm">No permissions</span>
+                                  }
+                                  hideIfNoAccess={false}
+                                >
+                                  {u.role !== 'admin' && (
+                                    <button
+                                      onClick={() => handleDeactivateUser(u._id)}
+                                      className="text-red-600 hover:text-red-800"
+                                    >
+                                      Deactivate
+                                    </button>
+                                  )}
+                                </RoleBasedFeature>
                               </td>
                             </tr>
                           ))}
@@ -1080,6 +1081,7 @@ const AdminDashboard = () => {
 
       <Footer />
     </div>
+    </RoleGuard>
   );
 };
 

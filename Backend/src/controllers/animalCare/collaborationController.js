@@ -7,7 +7,7 @@ export const addCollaborationComment = async (req, res) => {
   try {
     const { caseId } = req.params;
     const { comment, isPrivate = false } = req.body;
-    const veterinarianId = req.user.sub; // From auth middleware
+    const veterinarianId = req.user?.sub || req.body.veterinarianId; // From auth middleware or request body
 
     if (!comment || comment.trim().length === 0) {
       return res.status(400).json({ message: 'Comment content is required' });
@@ -106,7 +106,7 @@ export const shareCaseWithVet = async (req, res) => {
   try {
     const { caseId } = req.params;
     const { veterinarianId, message, accessLevel = 'view' } = req.body;
-    const sharingVetId = req.user.sub;
+    const sharingVetId = req.user?.sub || req.body.sharingVetId;
 
     if (!veterinarianId) {
       return res.status(400).json({ message: 'Veterinarian ID is required' });
@@ -178,7 +178,7 @@ export const transferCase = async (req, res) => {
   try {
     const { caseId } = req.params;
     const { newVeterinarianId, reason, transferNotes } = req.body;
-    const currentVetId = req.user.sub;
+    const currentVetId = req.user?.sub || req.body.currentVetId;
 
     if (!newVeterinarianId) {
       return res.status(400).json({ message: 'New veterinarian ID is required' });
@@ -266,7 +266,7 @@ export const removeCollaboration = async (req, res) => {
   try {
     const { caseId } = req.params;
     const { veterinarianId } = req.body;
-    const requestingVetId = req.user.sub;
+    const requestingVetId = req.user?.sub || req.body.requestingVetId;
 
     if (!veterinarianId) {
       return res.status(400).json({ message: 'Veterinarian ID is required' });
@@ -363,7 +363,7 @@ export const getCollaborationHistory = async (req, res) => {
 export const getAvailableVeterinarians = async (req, res) => {
   try {
     const { caseId } = req.params;
-    const requestingVetId = req.user.sub;
+    const requestingVetId = req.user?.sub || req.body.requestingVetId;
 
     const animalCase = await AnimalCase.findById(caseId);
     if (!animalCase) {

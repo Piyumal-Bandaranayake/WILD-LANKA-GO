@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuthContext } from '../../contexts/AuthContext';
 import { protectedApi } from '../../services/authService';
-import ProtectedRoute from '../../components/ProtectedRoute';
+import RoleGuard from '../../components/RoleGuard';
 import Navbar from '../../components/Navbar';
 import Footer from '../../components/footer';
 
@@ -223,7 +223,7 @@ const TouristDashboard = () => {
 
   if (loading) {
     return (
-      <ProtectedRoute allowedRoles={['tourist']}>
+      <RoleGuard requiredRole="tourist">
         <div className="flex flex-col min-h-screen">
           <Navbar />
           <div className="flex-1 flex items-center justify-center pt-32">
@@ -234,12 +234,12 @@ const TouristDashboard = () => {
           </div>
           <Footer />
         </div>
-      </ProtectedRoute>
+      </RoleGuard>
     );
   }
 
   return (
-    <ProtectedRoute allowedRoles={['tourist']}>
+    <RoleGuard requiredRole="tourist">
       <div className="flex flex-col min-h-screen bg-[#F4F6FF]">
         <Navbar />
         
@@ -1689,7 +1689,7 @@ const TouristDashboard = () => {
         </div>
         <Footer />
       </div>
-    </ProtectedRoute>
+    </RoleGuard>
   );
 };
 
