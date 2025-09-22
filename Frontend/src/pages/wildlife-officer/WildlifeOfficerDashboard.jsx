@@ -41,15 +41,13 @@ const WildlifeOfficerDashboard = () => {
         complaintsRes,
         applicationsRes,
         fuelClaimsRes,
-        driversRes,
-        guidesRes
+        driversRes
       ] = await Promise.all([
         protectedApi.getBookings(),
         protectedApi.getComplaints(),
         protectedApi.getApplications(),
         protectedApi.getFuelClaims(),
-        protectedApi.getAvailableDrivers(),
-        protectedApi.getAvailableGuides()
+        protectedApi.getDrivers()
       ]);
 
       setBookings(bookingsRes.data || []);
@@ -57,7 +55,7 @@ const WildlifeOfficerDashboard = () => {
       setApplications(applicationsRes.data || []);
       setFuelClaims(fuelClaimsRes.data || []);
       setAvailableDrivers(driversRes.data || []);
-      setAvailableGuides(guidesRes.data || []);
+      setAvailableGuides([]); // TODO: Add getGuides endpoint
 
       // Calculate dashboard stats
       const today = new Date().toDateString();

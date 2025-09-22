@@ -3,8 +3,9 @@ import { createBooking, getAllBookings, getBookingById } from '../../controllers
 
 const router = express.Router();
 
-// POST - Create a new booking
+// POST - Create a new booking  
 router.post('/create', createBooking);
+router.post('/', createBooking);
 
 // GET - Fetch all bookings (for officers/admins to manage)
 router.get('/', getAllBookings);

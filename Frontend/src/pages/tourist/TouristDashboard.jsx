@@ -61,28 +61,20 @@ const TouristDashboard = () => {
       const [
         activitiesRes,
         eventsRes,
-        bookingsRes,
-        registrationsRes,
-        donationsRes,
-        feedbackRes,
-        complaintsRes
+        bookingsRes
       ] = await Promise.all([
         protectedApi.getActivities(),
         protectedApi.getEvents(),
-        protectedApi.getMyBookings(),
-        protectedApi.getMyEventRegistrations(),
-        protectedApi.getMyDonations(),
-        protectedApi.getMyFeedback(),
-        protectedApi.getMyComplaints()
+        protectedApi.getActivityBookings()
       ]);
 
       setActivities(activitiesRes.data || []);
       setEvents(eventsRes.data || []);
       setMyBookings(bookingsRes.data || []);
-      setMyRegistrations(registrationsRes.data || []);
-      setMyDonations(donationsRes.data || []);
-      setMyFeedback(feedbackRes.data || []);
-      setMyComplaints(complaintsRes.data || []);
+      setMyRegistrations([]); // TODO: Add getMyEventRegistrations endpoint
+      setMyDonations([]); // TODO: Add getMyDonations endpoint
+      setMyFeedback([]); // TODO: Add getMyFeedback endpoint
+      setMyComplaints([]); // TODO: Add getMyComplaints endpoint
 
     } catch (error) {
       console.error('Failed to fetch dashboard data:', error);

@@ -2,7 +2,25 @@ import Booking from '../../models/Activity Management/Booking.js';
 import Activity from '../../models/Activity Management/Activity.js'; 
 
 export const createBooking = async (req, res) => {
-  const { userId, activityId,  bookingDate, numberOfParticipants, requestTourGuide, preferredDate } = req.body;
+  const { 
+    userId, 
+    activityId, 
+    bookingDate, 
+    numberOfParticipants, 
+    participants, // Frontend sends 'participants'
+    requestTourGuide, 
+    preferredDate,
+    date, // Frontend sends 'date'
+    touristEmail,
+    touristName,
+    touristPhone,
+    specialRequests,
+    totalAmount
+  } = req.body;
+
+  // Map frontend fields to backend schema
+  const participantCount = numberOfParticipants || participants;
+  const bookingPreferredDate = preferredDate || date;
 
   try {
     // 1. Check if the activity exists
@@ -12,26 +30,31 @@ export const createBooking = async (req, res) => {
     }
 
     // 2. Check if the preferred date has available slots
-    const availableSlotsForDate = activity.availableSlotsByDate.get(preferredDate)|| 0;
-    if (availableSlotsForDate === undefined || availableSlotsForDate < numberOfParticipants) {
+    const availableSlotsForDate = activity.availableSlotsByDate.get(bookingPreferredDate) || 0;
+    if (availableSlotsForDate === undefined || availableSlotsForDate < participantCount) {
       return res.status(400).json({ message: 'Not enough available slots for this preferred date. Please select another date.' });
     }
 
     // 3. Create the booking
     const newBooking = new Booking({
-      userId,
+      userId: userId || null, // Allow null for anonymous bookings
       activityId,
       bookingDate: bookingDate || Date.now(),
-      numberOfParticipants,
+      numberOfParticipants: participantCount,
       requestTourGuide,
-      preferredDate,
+      preferredDate: bookingPreferredDate,
+      touristName,
+      touristEmail,
+      touristPhone,
+      specialRequests,
+      totalAmount,
     });
 
     // 4. Save the booking
     await newBooking.save();
 
     // 5. Update the available slots for the activity on the preferred date
-    activity.availableSlotsByDate.set(preferredDate, availableSlotsForDate - numberOfParticipants);
+    activity.availableSlotsByDate.set(bookingPreferredDate, availableSlotsForDate - participantCount);
     await activity.save();
 
     res.status(201).json({ message: 'Booking created successfully', booking: newBooking });

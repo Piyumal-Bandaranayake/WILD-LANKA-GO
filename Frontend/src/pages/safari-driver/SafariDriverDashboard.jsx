@@ -43,28 +43,19 @@ const SafariDriverDashboard = () => {
       setLoading(true);
 
       const [
-        profileRes,
-        toursRes,
-        historyRes,
-        claimsRes,
-        odometerRes
+        claimsRes
       ] = await Promise.all([
-        protectedApi.getDriverProfile(),
-        protectedApi.getAssignedTours(),
-        protectedApi.getTourHistory(),
-        protectedApi.getFuelClaims(),
-        protectedApi.getOdometerReadings()
+        protectedApi.getFuelClaims()
       ]);
 
-      setProfile(profileRes.data);
-      setAssignedTours(toursRes.data || []);
-      setTourHistory(historyRes.data || []);
+      setProfile(null); // TODO: Add getDriverProfile endpoint
+      setAssignedTours([]); // TODO: Add getAssignedTours endpoint
+      setTourHistory([]); // TODO: Add getTourHistory endpoint
       setFuelClaims(claimsRes.data || []);
-      setOdometerReadings(odometerRes.data || []);
+      setOdometerReadings([]); // TODO: Add getOdometerReadings endpoint
 
       // Check for active tour
-      const active = (toursRes.data || []).find(tour => tour.status === 'in-progress');
-      setActiveTour(active || null);
+      setActiveTour(null); // No tours available yet
 
     } catch (error) {
       console.error('Failed to fetch dashboard data:', error);

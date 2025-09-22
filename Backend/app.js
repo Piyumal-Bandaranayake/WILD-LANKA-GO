@@ -129,7 +129,8 @@ app.use('/api/events', eventRoutes);
 app.use('/api/activities', activityRoutes); 
 app.use('/api/eventRegistrations', eventRegistrationroutes); 
 app.use('/api/donations', Donation); 
-app.use('/api/bookings', Booking); 
+app.use('/api/bookings', Booking);
+app.use('/api/activity-bookings', Booking); 
 app.use('/api/inventory', medicationRoutes); 
 
 app.use('/api/emergencies', emergencyRoutes);  // Emergency routes
