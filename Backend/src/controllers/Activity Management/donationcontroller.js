@@ -1,5 +1,5 @@
 import User from '../../models/User.js';
-import Donation from '../../models/Activity Management/donation.js';
+import Donation from '../../models/Donation.js'; // Use the main comprehensive Donation model
 
 // 1. MAKE DONATION: User makes a general donation to support conservation
 const makeDonation = async (req, res) => {
@@ -12,11 +12,36 @@ const makeDonation = async (req, res) => {
             return res.status(404).json({ message: 'User not found' });
         }
 
-        // Create the donation
+        // Create the donation using the comprehensive schema
         const newDonation = new Donation({
-            userId,
-            amount,
-            message,
+            donor: {
+                userId: userId,
+                isAnonymous: false,
+                isGuest: false,
+            },
+            amount: {
+                value: amount,
+                currency: 'LKR',
+                amountInLKR: amount,
+            },
+            donationType: 'One-time',
+            category: 'General Wildlife Conservation',
+            purpose: {
+                description: message || 'General donation for wildlife conservation',
+            },
+            payment: {
+                method: 'Online',
+                status: 'Completed',
+                processedAt: new Date(),
+            },
+            receipt: {
+                issueDate: new Date(),
+                taxDeductible: true,
+            },
+            visibility: {
+                showInPublicList: !req.body.isAnonymous,
+                showAmount: !req.body.isAnonymous,
+            }
         });
 
         await newDonation.save();
@@ -31,8 +56,8 @@ const getDonationHistory = async (req, res) => {
     const { userId } = req.params;  // Extract userId from params
 
     try {
-        // Find all donations made by the user
-        const donations = await Donation.find({ userId }).populate('userId');  // Populate user details
+        // Find all donations made by the user using the new schema structure
+        const donations = await Donation.find({ 'donor.userId': userId }).populate('donor.userId');  // Populate user details
         res.status(200).json(donations);
     } catch (error) {
         res.status(500).json({ message: 'Error fetching donation history', error: error.message });
@@ -42,7 +67,7 @@ const getDonationHistory = async (req, res) => {
 // 3. GET ALL DONATIONS: Admin can view all donations made by all users
 const getAllDonations = async (req, res) => {
     try {
-        const donations = await Donation.find().populate('userId');  // Populate user details
+        const donations = await Donation.find().populate('donor.userId');  // Populate user details with new schema
         res.status(200).json(donations);
     } catch (error) {
         res.status(500).json({ message: 'Error fetching all donations', error: error.message });
@@ -60,12 +85,13 @@ const updateDonationMessage = async (req, res) => {
             return res.status(404).json({ message: 'Donation not found' });
         }
 
-        // Ensure the user updating the message is the one who made the donation
-        if (donation.userId.toString() !== userId) {
+        // Ensure the user updating the message is the one who made the donation (using new schema)
+        if (donation.donor.userId.toString() !== userId) {
             return res.status(403).json({ message: 'You are not authorized to update this donation' });
         }
 
-        donation.message = message;
+        // Update the purpose description instead of message field
+        donation.purpose.description = message;
         await donation.save();
 
         res.status(200).json({ message: 'Donation message updated successfully', donation });

@@ -1,4 +1,5 @@
 import User from '../../models/User.js';
+import EmergencyOfficer from '../../models/User/EmergencyOfficer.js';
 
 export const handleLogin = async (req, res) => {
   const userInfo = req.auth.payload;
@@ -23,6 +24,16 @@ export const handleLogin = async (req, res) => {
     let user = await User.findOne({ auth0Id });
 
     if (!user) {
+      // Check if user exists in separate EmergencyOfficer model
+      const emergencyOfficer = await EmergencyOfficer.findOne({ Email: email });
+      
+      // Determine role based on existing records or default to tourist
+      let userRole = 'tourist';
+      if (emergencyOfficer) {
+        userRole = 'EmergencyOfficer';
+        console.log(`🚨 Emergency Officer found in separate model: ${email}`);
+      }
+
       // Create new user with comprehensive data
       user = new User({
         // Basic Auth0 Information
@@ -38,8 +49,8 @@ export const handleLogin = async (req, res) => {
         locale: locale || null,
         email_verified: email_verified || false,
         
-        // System Role
-        role: 'tourist',
+        // System Role (determined above)
+        role: userRole,
         
         // Authentication Metadata
         auth_metadata: {
@@ -74,6 +85,9 @@ export const handleLogin = async (req, res) => {
         profileCompletion: user.profileCompletionPercentage + '%'
       });
     } else {
+      // Check if existing user needs role update based on EmergencyOfficer model
+      const emergencyOfficer = await EmergencyOfficer.findOne({ Email: email });
+      
       // Update existing user with latest Auth0 data
       const updateData = {
         // Update basic info in case it changed in Auth0
@@ -86,12 +100,20 @@ export const handleLogin = async (req, res) => {
         locale: locale || user.locale,
         email_verified: email_verified !== undefined ? email_verified : user.email_verified,
         
+        // Update role if they exist in EmergencyOfficer model but aren't marked as such
+        role: emergencyOfficer && user.role !== 'EmergencyOfficer' ? 'EmergencyOfficer' : user.role,
+        
         // Update authentication metadata
         'auth_metadata.last_login': new Date(),
         'auth_metadata.login_count': user.auth_metadata.login_count + 1,
         'auth_metadata.last_ip': clientIP,
         'auth_metadata.user_agent': userAgent,
       };
+
+      // Log role updates
+      if (emergencyOfficer && user.role !== 'EmergencyOfficer') {
+        console.log(`🔄 Updating user role from ${user.role} to EmergencyOfficer for: ${email}`);
+      }
 
       user = await User.findOneAndUpdate(
         { auth0Id },
@@ -115,6 +137,13 @@ export const handleLogin = async (req, res) => {
       profileCompletionPercentage: user.profileCompletionPercentage,
       isNewUser: user.auth_metadata.login_count === 1,
     };
+
+    console.log('🎯 Final user data being returned:', {
+      id: responseData._id,
+      email: responseData.email,
+      role: responseData.role,
+      name: responseData.name
+    });
 
     res.json(responseData);
   } catch (error) {
