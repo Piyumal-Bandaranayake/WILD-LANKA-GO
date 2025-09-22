@@ -9,9 +9,17 @@ const api = axios.create({
 
 // Add request interceptor to include auth token
 let getTokenFunction = null;
+let isDevelopmentMode = false;
 
 export const setTokenProvider = (tokenProvider) => {
   getTokenFunction = tokenProvider;
+};
+
+export const setDevelopmentMode = (mode) => {
+  isDevelopmentMode = mode;
+  if (mode) {
+    console.log('Development mode enabled');
+  }
 };
 
 // Request interceptor to add auth token
@@ -34,25 +42,13 @@ api.interceptors.request.use(
   }
 );
 
-// Development mode flag
-let isDevelopmentMode = false;
-
-export const setDevelopmentMode = (enabled) => {
-  isDevelopmentMode = enabled;
-};
-
 // Response interceptor to handle auth errors
 api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
       console.error('Authentication failed - redirecting to login');
-      
-      // Check if it's an Auth0 rate limit error
-      if (error.response?.data?.details?.includes('429')) {
-        console.log('🚨 Auth0 rate limit detected in API call');
-        setDevelopmentMode(true);
-      }
+      // You could trigger a logout here if needed
     }
     return Promise.reject(error);
   }
@@ -69,28 +65,6 @@ export const handleUserLogin = async (accessToken) => {
     return response.data;
   } catch (error) {
     console.error('Error during backend login:', error);
-    
-    // Check if it's an Auth0 rate limit error (429)
-    if (error.response?.status === 401 && 
-        error.response?.data?.details?.includes('429')) {
-      console.log('🚨 Auth0 rate limit detected in backend - creating development user');
-      
-      // Return a development user object that matches backend structure
-      return {
-        id: 'dev_user_' + Date.now(),
-        auth0Id: 'auth0|dev_user',
-        email: 'dev.vet@wildlanka.com',
-        name: 'Dr. Development Vet',
-        role: 'vet',
-        permissions: ['vet:read', 'vet:write', 'vet:manage'],
-        profilePicture: null,
-        isActive: true,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        isDevelopmentMode: true
-      };
-    }
-    
     throw error;
   }
 };
@@ -232,40 +206,6 @@ export const protectedApi = {
   bookActivity: (data) => api.post('/activity-bookings', data),
   getActivityBookings: () => api.get('/activity-bookings'),
 
-  // Tourist-specific endpoints
-  getMyBookings: () => api.get('/tourist/my-bookings'),
-  getMyEventRegistrations: () => api.get('/tourist/my-registrations'),
-  getMyDonations: () => api.get('/tourist/my-donations'),
-  getMyFeedback: () => api.get('/tourist/my-feedback'),
-  getMyComplaints: () => api.get('/tourist/my-complaints'),
-
-  // Enhanced tourist booking endpoints
-  createBooking: (data) => api.post('/tourist/bookings', data),
-  checkAvailableSlots: (activityId, date) => api.get(`/tourist/activities/check-slots?activityId=${activityId}&date=${date}`),
-
-  // Enhanced tourist event endpoints
-  registerForEvent: (data) => api.post('/tourist/registrations', data),
-  modifyEventRegistration: (registrationId, data) => api.put(`/tourist/registrations/${registrationId}`, data),
-  cancelEventRegistration: (registrationId) => api.delete(`/tourist/registrations/${registrationId}`),
-
-  // Enhanced tourist donation endpoints
-  createDonation: (data) => api.post('/tourist/donations', data),
-  updateDonationMessage: (donationId, message) => api.put(`/tourist/donations/${donationId}/message`, { message }),
-
-  // Enhanced tourist feedback endpoints
-  createFeedback: (data) => api.post('/tourist/feedback', data),
-  getAllFeedback: (page = 1, limit = 10) => api.get(`/tourist/feedback/all?page=${page}&limit=${limit}`),
-  updateFeedback: (feedbackId, data) => api.put(`/tourist/feedback/${feedbackId}`, data),
-  deleteFeedback: (feedbackId) => api.delete(`/tourist/feedback/${feedbackId}`),
-
-  // Enhanced tourist complaint endpoints
-  createComplaint: (data) => api.post('/tourist/complaints', data),
-  updateComplaint: (complaintId, data) => api.put(`/tourist/complaints/${complaintId}`, data),
-  deleteComplaint: (complaintId) => api.delete(`/tourist/complaints/${complaintId}`),
-
-  // Tourist emergency reporting
-  reportEmergency: (data) => api.post('/tourist/emergency', data),
-
   // Job applications
   submitApplication: (data) => api.post('/applications', data),
   getApplications: () => api.get('/applications'),
@@ -276,53 +216,6 @@ export const protectedApi = {
   updateUserRole: (id, role) => api.put(`/admin/users/${id}/role`, { role }),
   deactivateUser: (id) => api.put(`/admin/users/${id}/deactivate`),
   getAdminStats: () => api.get('/admin/stats'),
-
-  // Wildlife Officer specific endpoints
-  getBookings: () => api.get('/bookings'),
-  assignDriver: (bookingId, driverId) => api.put(`/bookings/${bookingId}/assign-driver`, { driverId }),
-  assignGuide: (bookingId, guideId) => api.put(`/bookings/${bookingId}/assign-guide`, { guideId }),
-  getAvailableDrivers: () => api.get('/wildlife-officer/available-drivers'),
-  getAvailableGuides: () => api.get('/wildlife-officer/available-guides'),
-  getDailyBookings: () => api.get('/wildlife-officer/daily-bookings'),
-  
-  // Enhanced complaints management
-  getComplaints: () => api.get('/complaints'),
-  updateComplaintStatus: (id, status) => api.put(`/complaints/${id}/status`, { status }),
-  deleteComplaint: (id) => api.delete(`/complaints/${id}`),
-  generateComplaintReport: (params) => api.get('/reports/complaints', { params, responseType: 'blob' }),
-  
-  // Job applications management
-  getApplications: () => api.get('/applications'),
-  approveApplication: (id, data) => api.put(`/applications/${id}/approve`, data),
-  rejectApplication: (id, data) => api.put(`/applications/${id}/reject`, data),
-  
-  // Enhanced fuel claims management
-  getFuelClaims: () => api.get('/fuel-claims'),
-  approveFuelClaim: (id) => api.put(`/fuel-claims/${id}/approve`),
-  rejectFuelClaim: (id, reason) => api.put(`/fuel-claims/${id}/reject`, { reason }),
-  getFuelClaimDetails: (id) => api.get(`/fuel-claims/${id}`),
-  
-  // Financial reports
-  generateMonthlyReport: (month, year) => api.get('/reports/monthly-income', { 
-    params: { month, year }, 
-    responseType: 'blob' 
-  }),
-  getMonthlyStats: (month, year) => api.get('/reports/monthly-stats', { params: { month, year } }),
-  
-  // Emergency management
-  getEmergencies: () => api.get('/emergencies'),
-  assignEmergencyStaff: (emergencyId, staffId, staffType) => api.put(`/emergencies/${emergencyId}/assign`, { 
-    staffId, 
-    staffType 
-  }),
-  updateEmergencyStatus: (emergencyId, status) => api.put(`/emergencies/${emergencyId}/status`, { status }),
-  
-  // Medication inventory access
-  getMedicationInventory: () => api.get('/medication-inventory'),
-  getMedicationAlerts: () => api.get('/medication-inventory/alerts'),
-  
-  // Dashboard statistics
-  getWildlifeOfficerStats: () => api.get('/wildlife-officer/dashboard-stats'),
 
   // Fuel claims
   getFuelClaims: () => api.get('/fuel-claims'),
@@ -347,50 +240,6 @@ export const protectedApi = {
   generateActivityReport: (params) => api.get('/reports/activities', { params }),
   generateEmergencyReport: (params) => api.get('/reports/emergencies', { params }),
   generateComplaintReport: (params) => api.get('/reports/complaints', { params }),
-
-  // Tour Guide specific endpoints
-  getTourGuideProfile: () => api.get('/tour-guide/profile'),
-  updateTourGuideProfile: (data) => api.put('/tour-guide/profile', data),
-  getAssignedTours: () => api.get('/tour-guide/assigned-tours'),
-  getTourHistory: () => api.get('/tour-guide/tour-history'),
-  getTourMaterials: () => api.get('/tour-guide/materials'),
-  getTourGuideRatings: () => api.get('/tour-guide/ratings'),
-  getTourGuideReviews: () => api.get('/tour-guide/reviews'),
-  acceptTour: (tourId) => api.put(`/tour-guide/tours/${tourId}/accept`),
-  rejectTour: (tourId, data) => api.put(`/tour-guide/tours/${tourId}/reject`, data),
-  updateTourStatus: (tourId, status) => api.put(`/tour-guide/tours/${tourId}/status`, { status }),
-  uploadTourMaterial: (formData) => api.post('/tour-guide/materials', formData, {
-    headers: { 'Content-Type': 'multipart/form-data' }
-  }),
-  deleteTourMaterial: (materialId) => api.delete(`/tour-guide/materials/${materialId}`),
-  downloadTourMaterial: (materialId) => api.get(`/tour-guide/materials/${materialId}/download`, {
-    responseType: 'blob'
-  }),
-  generateTourGuideReport: (type) => api.get(`/tour-guide/reports/${type}`, {
-    responseType: 'blob'
-  }),
-
-  // Safari Driver specific endpoints
-  getDriverProfile: () => api.get('/safari-driver/profile'),
-  updateDriverProfile: (data) => api.put('/safari-driver/profile', data),
-  getDriverAssignedTours: () => api.get('/safari-driver/assigned-tours'),
-  getDriverTourHistory: () => api.get('/safari-driver/tour-history'),
-  getDriverRatings: () => api.get('/safari-driver/ratings'),
-  getDriverReviews: () => api.get('/safari-driver/reviews'),
-  acceptDriverTour: (tourId, data) => api.put(`/safari-driver/tours/${tourId}/accept`, data),
-  rejectDriverTour: (tourId, data) => api.put(`/safari-driver/tours/${tourId}/reject`, data),
-  updateDriverTourStatus: (tourId, status, data) => api.put(`/safari-driver/tours/${tourId}/status`, { status, ...data }),
-  uploadOdometerReading: (tourId, type, formData) => api.post(`/safari-driver/tours/${tourId}/odometer/${type}`, formData, {
-    headers: { 'Content-Type': 'multipart/form-data' }
-  }),
-  getFuelClaims: () => api.get('/safari-driver/fuel-claims'),
-  submitFuelClaim: (data) => api.post('/safari-driver/fuel-claims', data),
-  getFuelClaimDetails: (claimId) => api.get(`/safari-driver/fuel-claims/${claimId}`),
-  generateDriverReport: (type) => api.get(`/safari-driver/reports/${type}`, {
-    responseType: 'blob'
-  }),
-  getTourRoute: (tourId) => api.get(`/safari-driver/tours/${tourId}/route`),
-  updateDriverLocation: (tourId, location) => api.put(`/safari-driver/tours/${tourId}/location`, location),
 };
 
 export default api;
