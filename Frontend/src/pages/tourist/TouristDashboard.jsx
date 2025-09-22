@@ -76,13 +76,15 @@ const TouristDashboard = () => {
         protectedApi.getMyComplaints()
       ]);
 
-      setActivities(activitiesRes.data || []);
-      setEvents(eventsRes.data || []);
-      setMyBookings(bookingsRes.data || []);
-      setMyRegistrations(registrationsRes.data || []);
-      setMyDonations(donationsRes.data || []);
-      setMyFeedback(feedbackRes.data || []);
-      setMyComplaints(complaintsRes.data || []);
+      const pick = (resp) => (resp?.data?.data ?? resp?.data ?? []);
+
+      setActivities(pick(activitiesRes));
+      setEvents(pick(eventsRes));
+      setMyBookings(pick(bookingsRes));
+      setMyRegistrations(pick(registrationsRes));
+      setMyDonations(pick(donationsRes));
+      setMyFeedback(pick(feedbackRes));
+      setMyComplaints(pick(complaintsRes));
 
     } catch (error) {
       console.error('Failed to fetch dashboard data:', error);
@@ -350,7 +352,7 @@ const TouristDashboard = () => {
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
                   <StatCard title="My Bookings" value={myBookings.length} color="blue" iconPath="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                   <StatCard title="Event Registrations" value={myRegistrations.length} color="purple" iconPath="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                  <StatCard title="Total Donations" value={`$${myDonations.reduce((sum, d) => sum + d.amount, 0)}`} color="green" iconPath="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2" />
+                  <StatCard title="Total Donations" value={`$${(Array.isArray(myDonations) ? myDonations : []).reduce((sum, d) => sum + (typeof d.amount === 'number' ? d.amount : (d.amount?.value || 0)), 0)}`} color="green" iconPath="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2" />
                   <StatCard title="Emergency" value="REPORT" color="yellow" iconPath="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
                 </div>
 
@@ -421,12 +423,15 @@ const TouristDashboard = () => {
                                 <span>{new Date(booking.date).toLocaleDateString()}</span>
                               </div>
                             ))}
-                            {myDonations.slice(0, 2).map((donation) => (
+                            {Array.isArray(myDonations) ? myDonations.slice(0, 2).map((donation) => (
                               <div key={donation._id} className="flex justify-between">
                                 <span>💝 Donation</span>
-                                <span>${donation.amount}</span>
+                                <span>${typeof donation.amount === 'number' ? donation.amount : (donation.amount?.value || 0)}</span>
                               </div>
-                            ))}
+                            )) : null}
+                            {(myBookings.length === 0 && (!Array.isArray(myDonations) || myDonations.length === 0)) && (
+                              <p className="text-gray-500 text-center py-4">No recent activity</p>
+                            )}
                           </div>
                         </div>
                       </div>
@@ -710,19 +715,20 @@ const TouristDashboard = () => {
                       <div>
                         <h3 className="text-lg font-medium text-gray-900 mb-4">Donation History</h3>
                         <div className="space-y-4">
-                          {myDonations.map((donation) => (
+                          {Array.isArray(myDonations) && myDonations.map((donation) => (
                             <div key={donation._id} className="border border-gray-200 rounded-lg p-4">
                               <div className="flex justify-between items-start">
                                 <div>
-                                  <div className="font-medium text-gray-900">${donation.amount}</div>
-                                  <div className="text-sm text-gray-600 mt-1">{donation.message}</div>
+                                  <div className="font-medium text-gray-900">${typeof donation.amount === 'number' ? donation.amount : (donation.amount?.value || 0)}</div>
+                                  <div className="text-sm text-gray-600 mt-1">{donation.message || donation.message?.personalMessage}</div>
                                   <div className="text-xs text-gray-500 mt-2">
                                     {new Date(donation.createdAt).toLocaleDateString()}
                                   </div>
                                 </div>
                                 <button
                                   onClick={() => {
-                                    const newMessage = prompt('Update donation message:', donation.message);
+                                    const currentMsg = donation.message?.personalMessage ?? donation.message ?? '';
+                                    const newMessage = prompt('Update donation message:', currentMsg);
                                     if (newMessage !== null) {
                                       updateDonationMessage(donation._id, newMessage);
                                     }
@@ -734,7 +740,7 @@ const TouristDashboard = () => {
                               </div>
                             </div>
                           ))}
-                          {myDonations.length === 0 && (
+                          {Array.isArray(myDonations) && myDonations.length === 0 && (
                             <p className="text-gray-500 text-center py-8">No donations yet</p>
                           )}
                         </div>
@@ -1282,19 +1288,20 @@ const TouristDashboard = () => {
                         <div>
                           <h3 className="text-lg font-semibold text-gray-800 mb-4">Donation History</h3>
                           <div className="space-y-4">
-                            {myDonations.map((donation) => (
+                            {Array.isArray(myDonations) && myDonations.map((donation) => (
                               <div key={donation._id} className="border border-gray-200 rounded-lg p-4">
                                 <div className="flex justify-between items-start">
                                   <div>
-                                    <div className="font-medium text-gray-900">${donation.amount}</div>
-                                    <div className="text-sm text-gray-600 mt-1">{donation.message}</div>
+                                    <div className="font-medium text-gray-900">${typeof donation.amount === 'number' ? donation.amount : (donation.amount?.value || 0)}</div>
+                                    <div className="text-sm text-gray-600 mt-1">{donation.message || donation.message?.personalMessage}</div>
                                     <div className="text-xs text-gray-500 mt-2">
                                       {new Date(donation.createdAt).toLocaleDateString()}
                                     </div>
                                   </div>
                                   <button
                                     onClick={() => {
-                                      const newMessage = prompt('Update donation message:', donation.message);
+                                      const currentMsg = donation.message?.personalMessage ?? donation.message ?? '';
+                                      const newMessage = prompt('Update donation message:', currentMsg);
                                       if (newMessage !== null) {
                                         updateDonationMessage(donation._id, newMessage);
                                       }
@@ -1306,7 +1313,7 @@ const TouristDashboard = () => {
                                 </div>
                               </div>
                             ))}
-                            {myDonations.length === 0 && (
+                            {Array.isArray(myDonations) && myDonations.length === 0 && (
                               <p className="text-gray-500 text-center py-8">No donations yet</p>
                             )}
                           </div>
@@ -1640,7 +1647,7 @@ const TouristDashboard = () => {
                       </div>
                       <div className="flex justify-between">
                         <span className="text-sm text-gray-600">Total Donated</span>
-                        <span className="font-medium text-green-600">${myDonations.reduce((sum, d) => sum + d.amount, 0)}</span>
+                        <span className="font-medium text-green-600">${(Array.isArray(myDonations) ? myDonations : []).reduce((sum, d) => sum + (typeof d.amount === 'number' ? d.amount : (d.amount?.value || 0)), 0)}</span>
                       </div>
                     </div>
                   </div>
@@ -1671,13 +1678,13 @@ const TouristDashboard = () => {
                           <span className="text-gray-600">Booked {booking.activityName}</span>
                         </div>
                       ))}
-                      {myDonations.slice(0, 2).map((donation) => (
+                      {Array.isArray(myDonations) ? myDonations.slice(0, 2).map((donation) => (
                         <div key={donation._id} className="flex items-center gap-2">
                           <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                          <span className="text-gray-600">Donated ${donation.amount}</span>
+                          <span className="text-gray-600">Donated ${typeof donation.amount === 'number' ? donation.amount : (donation.amount?.value || 0)}</span>
                         </div>
-                      ))}
-                      {(myBookings.length === 0 && myDonations.length === 0) && (
+                      )) : null}
+                      {(myBookings.length === 0 && (!Array.isArray(myDonations) || myDonations.length === 0)) && (
                         <p className="text-gray-500 text-center py-4">No recent activity</p>
                       )}
                     </div>

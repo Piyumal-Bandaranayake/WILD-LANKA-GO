@@ -1,4 +1,5 @@
-import TourGuide from "../../models/User/tourGuide.js";
+import TourGuide from "../../models/User/tourGuide.js";  // Reverted: Use User model structure
+import User from "../../models/User.js";
 
 // ✅ Register a new Tour Guide
 const registerTourGuide = async (req, res) => {
@@ -254,6 +255,42 @@ const updateTourGuide = async (req, res) => {
     }
 }
 
+// Get tour guide ratings
+const getTourGuideRatings = async (req, res) => {
+    try {
+        // Get the current user's ID (tour guide)
+        let currentUser = req.user;
+        
+        if (!currentUser && req.auth?.payload?.sub) {
+            // Fallback for auth0UserInfoMiddleware
+            const auth0Id = req.auth.payload.sub;
+            currentUser = await User.findOne({ auth0Id });
+        }
+        
+        if (!currentUser) {
+            return res.status(404).json({ message: 'User not found' });
+        }
+
+        const guide = await TourGuide.findOne({ email: currentUser.email });
+        if (!guide) {
+            return res.status(404).json({ message: 'Tour guide not found' });
+        }
+
+        const ratingsData = {
+            average: guide.performance?.averageRating || 0,
+            total: guide.ratings?.length || 0,
+            knowledgeRating: guide.performance?.knowledgeRating || 0,
+            communicationRating: guide.performance?.communicationRating || 0,
+            ratings: guide.ratings || []
+        };
+
+        res.status(200).json(ratingsData);
+    } catch (error) {
+        console.error('❌ Error fetching tour guide ratings:', error);
+        res.status(500).json({ message: 'Server error', error: error.message });
+    }
+};
+
 export { 
     registerTourGuide, 
     getTourGuides, 
@@ -263,4 +300,5 @@ export {
     updateGuideCurrentTourStatus,
     getAvailableGuides,
     updateTourGuide,
+    getTourGuideRatings,
 };

@@ -191,13 +191,16 @@ const ActivityList = () => {
     const handleBookActivity = async (e) => {
         e.preventDefault();
         try {
-            await protectedApi.bookActivity({
-                ...bookingData,
-                bookedBy: backendUser?.email || user?.email || 'Anonymous',
-                bookedDate: new Date().toISOString(),
-                status: 'confirmed',
-                totalAmount: selectedActivity.price * bookingData.participants
-            });
+            const payload = {
+                activityId: bookingData.activityId,
+                bookingDate: bookingData.date, // yyyy-mm-dd from input
+                numberOfParticipants: bookingData.participants,
+                requestTourGuide: bookingData.requestTourGuide,
+                preferredDate: bookingData.date,
+                paymentMethod: 'Credit Card'
+            };
+
+            await protectedApi.bookActivity(payload);
             setShowBookingModal(false);
             setBookingData({
                 activityId: '',
@@ -210,7 +213,7 @@ const ActivityList = () => {
             alert('Activity booked successfully! Payment confirmation will be sent to your email.');
         } catch (error) {
             console.error('Failed to book activity:', error);
-            setError('Failed to book activity');
+            setError(error?.response?.data?.message || 'Failed to book activity');
         }
     };
 

@@ -1,4 +1,5 @@
 import express from "express";
+import flexibleAuthMiddleware from '../../middleware/flexibleAuthMiddleware.js';
 import {
   uploadMaterial,
   getAllMaterials,
@@ -13,7 +14,7 @@ const router = express.Router();
 router.post("/upload", uploadMaterial);
 
 // Get all materials
-router.get("/", getAllMaterials);
+router.get("/", flexibleAuthMiddleware, getAllMaterials);
 
 // Get material by ID
 router.get("/:id", getMaterialById);
@@ -22,6 +23,6 @@ router.get("/:id", getMaterialById);
 router.get("/tour/:tourId", getMaterialsByTour);
 
 // Delete a material
-router.delete("/:id", deleteMaterial);
+router.delete("/:id", flexibleAuthMiddleware, deleteMaterial);
 
 export default router;

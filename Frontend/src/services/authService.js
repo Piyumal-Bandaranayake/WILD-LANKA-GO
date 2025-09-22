@@ -50,7 +50,8 @@ api.interceptors.response.use(
       console.error('Authentication failed - redirecting to login');
       
       // Check if it's an Auth0 rate limit error
-      if (error.response?.data?.details?.includes('429')) {
+      if (error.response?.data?.message?.includes('429') || 
+          error.response?.data?.details?.includes('429')) {
         console.log('🚨 Auth0 rate limit detected in API call');
         setDevelopmentMode(true);
       }
@@ -73,7 +74,8 @@ export const handleUserLogin = async (accessToken) => {
     
     // Check if it's an Auth0 rate limit error (429)
     if (error.response?.status === 401 && 
-        error.response?.data?.details?.includes('429')) {
+        (error.response?.data?.message?.includes('429') ||
+         error.response?.data?.details?.includes('429'))) {
       console.log('🚨 Auth0 rate limit detected in backend - creating development user');
       
       // Return a development user object that matches backend structure
@@ -120,6 +122,16 @@ export const protectedApi = {
   // Tour endpoints
   getTours: () => api.get('/tour'),
   createTour: (data) => api.post('/tour', data),
+  
+  // Tour Guide specific endpoints
+  getTourGuideProfile: () => api.get('/auth/profile'), // Uses auth profile
+  getAssignedTours: () => api.get('/tour'), // Returns filtered tours for current user
+  getTourHistory: () => api.get('/tour'), // Same as assigned tours - backend filters by status
+  getTourMaterials: () => api.get('/tour-materials'),
+  getTourGuideRatings: () => api.get('/tourGuides/ratings'), // Corrected endpoint
+  acceptTour: (tourId) => api.put(`/tour/${tourId}/accept`),
+  rejectTour: (tourId, data) => api.put(`/tour/${tourId}/reject`, data),
+  deleteTourMaterial: (materialId) => api.delete(`/tour-materials/${materialId}`),
 
   // Activity endpoints
   getActivities: () => api.get('/activities'),
@@ -218,6 +230,10 @@ export const protectedApi = {
 
   // Wildlife Officer management
   getWildlifeOfficers: () => api.get('/wildlifeOfficers'),
+  
+  // Driver and Guide availability endpoints
+  getAvailableDrivers: () => api.get('/drivers/available'),
+  getAvailableGuides: () => api.get('/tourGuides/available'),
 
   // Booking endpoints
   getBookings: () => api.get('/bookings'),
