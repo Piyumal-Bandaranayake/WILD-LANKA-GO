@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuthContext } from '../../contexts/AuthContext';
 import { protectedApi } from '../../services/authService';
-import ProtectedRoute from '../../components/ProtectedRoute';
+import RoleGuard from '../../components/RoleGuard';
 import Navbar from '../../components/Navbar';
 import Footer from '../../components/footer';
 
@@ -154,7 +154,7 @@ const SafariDriverDashboard = () => {
 
   if (loading) {
     return (
-      <ProtectedRoute allowedRoles={['safariDriver']}>
+      <RoleGuard requiredRole="safariDriver">
         <div className="flex flex-col min-h-screen">
           <Navbar />
           <div className="flex-1 flex items-center justify-center pt-32">
@@ -165,12 +165,12 @@ const SafariDriverDashboard = () => {
           </div>
           <Footer />
         </div>
-      </ProtectedRoute>
+      </RoleGuard>
     );
   }
 
   return (
-    <ProtectedRoute allowedRoles={['safariDriver']}>
+    <RoleGuard requiredRole="safariDriver">
       <div className="flex flex-col min-h-screen">
         <Navbar />
         <div className="flex-1 pt-32 pb-16">
@@ -787,7 +787,7 @@ const SafariDriverDashboard = () => {
         </div>
         <Footer />
       </div>
-    </ProtectedRoute>
+    </RoleGuard>
   );
 };
 

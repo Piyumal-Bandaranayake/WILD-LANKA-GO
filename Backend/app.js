@@ -41,6 +41,11 @@ import authRoutes from './src/routes/auth/auth.js';
 import touristRoutes from './src/routes/tourist.js';
 import { scheduleCleanup } from './src/utils/cacheCleanup.js';
 
+// Import logging utilities
+import logger from './src/utils/logger.js';
+import { apiErrorLogger, errorHandlingMiddleware } from './src/middleware/dashboardLoggingMiddleware.js';
+import loggingRoutes from './src/routes/logging/loggingRoutes.js';
+
 // Load environment variables
 dotenv.config();
 connectDB();
@@ -51,6 +56,16 @@ const app = express();
 // Middleware
 app.use(cors());
 app.use(express.json());
+
+// Add comprehensive logging middleware
+app.use(apiErrorLogger);
+
+// Log server startup
+logger.systemInfo('Server starting up', {
+  nodeEnv: process.env.NODE_ENV,
+  port: process.env.PORT || 5001,
+  timestamp: new Date().toISOString()
+});
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -102,9 +117,8 @@ app.use('/api/complaints', complaintRoutes);
 app.use('/api/chatbot', chatbotRoutes);
 app.use('/api/auth', authRoutes);
 
-// Add middleware for tourist routes (needs authentication)
-import flexibleAuthMiddleware from './src/middleware/flexibleAuthMiddleware.js';
-app.use('/api/tourist', flexibleAuthMiddleware, touristRoutes);
+// Tourist routes (authentication removed)
+app.use('/api/tourist', touristRoutes);
 
 // Management Routes
 app.use('/api/tour-rejection', tourRejectionRoutes);
@@ -122,18 +136,29 @@ app.use('/api/emergencies', emergencyRoutes);  // Emergency routes
 app.use('/api/emergency-forms', emergencyFormRoutes);  // Emergency form routes
 app.use('/api/emergency-reports', emergencyReportRoutes);  // Emergency report routes
 
-// Root Route
-app.get("/", (req, res) => res.send("Backend is running..."));
+// Logging routes
+app.use('/api/logs', loggingRoutes);
 
-// Global Error Handler
-app.use((err, req, res, next) => {
-  console.error(err.stack);
-  res.status(500).json({ message: 'Something went wrong', error: err.message });
+// Root Route
+app.get("/", (req, res) => {
+  logger.systemInfo('Root endpoint accessed', {
+    clientIP: req.ip,
+    userAgent: req.get('User-Agent')
+  });
+  res.send("Backend is running...");
 });
+
+// Global Error Handler with comprehensive logging
+app.use(errorHandlingMiddleware);
 
 // Start server
 const port = process.env.PORT || 5001;
 app.listen(port, () => {
+  logger.systemInfo('Server started successfully', {
+    port,
+    nodeEnv: process.env.NODE_ENV,
+    timestamp: new Date().toISOString()
+  });
   console.log(`🚀 Server running on port ${port}`);
   
   // Schedule cache cleanup

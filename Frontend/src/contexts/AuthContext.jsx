@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useAuth0 } from '@auth0/auth0-react';
 import { handleUserLogin, setTokenProvider, setDevelopmentMode } from '../services/authService';
+import apiErrorHandler from '../utils/apiErrorHandler';
 
 const AuthContext = createContext();
 
@@ -25,6 +26,7 @@ export const AuthProvider = ({ children }) => {
   const [backendUser, setBackendUser] = useState(null);
   const [accessToken, setAccessToken] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
+  const [authError, setAuthError] = useState(null);
 
   // Get access token and register user with backend
   useEffect(() => {
@@ -54,43 +56,43 @@ export const AuthProvider = ({ children }) => {
           // Register/login user with backend
           const userData = await handleUserLogin(token);
           setBackendUser(userData);
+          setAuthError(null); // Clear any previous errors
           
           console.log('✅ User authenticated with backend:', userData);
         } catch (error) {
           console.error('❌ Backend authentication failed:', error);
           
-          // Check if it's a rate limit error (429) or Auth0 access denied
-          if (error.message && error.message.includes('429')) {
-            console.log('🚨 Auth0 rate limit hit - using development fallback');
+          // Create comprehensive error notification
+          const errorNotification = apiErrorHandler.createErrorNotification(error, {
+            operation: 'backend_authentication',
+            userEmail: user?.email,
+            auth0Id: user?.sub
+          });
+          
+          // Set error state for user feedback
+          setAuthError({
+            message: errorNotification.message,
+            details: errorNotification.details || error.message,
+            canRetry: errorNotification.canRetry,
+            timestamp: errorNotification.timestamp,
+            id: errorNotification.id
+          });
+          
+          // Don't create fallback users with hardcoded roles
+          setBackendUser(null);
+          setAccessToken(null);
+          
+          // Set development mode if it's a rate limit error for debugging purposes
+          if (error.status === 429 || (error.message && error.message.includes('429'))) {
+            console.log('🚨 Auth0 rate limit hit - authentication failed');
             setDevelopmentMode(true);
-            
-            // Create a fallback user for development when rate limited
-            const fallbackUser = {
-              id: 'dev_vet_' + Date.now(),
-              name: user.name || 'Dr. Development Vet',
-              email: user.email || 'dev.vet@wildlanka.com',
-              role: 'vet',
-              permissions: ['vet:read', 'vet:write', 'vet:manage'],
-              isAuthenticated: true,
-              isDevelopmentMode: true
-            };
-            
-            setBackendUser(fallbackUser);
-            console.log('✅ Development fallback user created:', fallbackUser);
-          } else {
-            setDevelopmentMode(true);
-            // For other errors, still try to create a basic user
-            const basicUser = {
-              id: user.sub,
-              name: user.name,
-              email: user.email,
-              role: 'vet', // Default to vet for testing
-              permissions: ['vet:read', 'vet:write'],
-              isAuthenticated: true,
-              hasError: true,
-              isDevelopmentMode: true
-            };
-            setBackendUser(basicUser);
+            setAuthError({
+              message: 'Authentication rate limit exceeded',
+              details: 'Please wait a moment and try again',
+              canRetry: true,
+              timestamp: new Date().toISOString(),
+              id: Date.now().toString()
+            });
           }
         } finally {
           setAuthLoading(false);
@@ -99,6 +101,7 @@ export const AuthProvider = ({ children }) => {
         // Clear state when not authenticated
         setBackendUser(null);
         setAccessToken(null);
+        setAuthError(null);
         setTokenProvider(null);
         setAuthLoading(false);
       }
@@ -133,24 +136,35 @@ export const AuthProvider = ({ children }) => {
     if (isAuthenticated && user) {
       setAuthLoading(true);
       setBackendUser(null);
+      setAuthError(null);
       try {
         const token = await getAccessTokenSilently();
         const userData = await handleUserLogin(token);
         setBackendUser(userData);
         setAccessToken(token);
+        setAuthError(null); // Clear error on successful retry
       } catch (error) {
         console.error('Retry authentication failed:', error);
-        // Create fallback user again
-        const fallbackUser = {
-          id: 'retry_vet_' + Date.now(),
-          name: user.name || 'Dr. Retry Vet',
-          email: user.email,
-          role: 'vet',
-          permissions: ['vet:read', 'vet:write'],
-          isAuthenticated: true,
-          isDevelopmentMode: true
-        };
-        setBackendUser(fallbackUser);
+        
+        // Create comprehensive error notification for retry failure
+        const errorNotification = apiErrorHandler.createErrorNotification(error, {
+          operation: 'retry_authentication',
+          userEmail: user?.email,
+          auth0Id: user?.sub,
+          isRetry: true
+        });
+        
+        setAuthError({
+          message: errorNotification.message,
+          details: errorNotification.details || error.message,
+          canRetry: errorNotification.canRetry,
+          timestamp: errorNotification.timestamp,
+          id: errorNotification.id
+        });
+        
+        // Don't create fallback users - respect authentication failures
+        setBackendUser(null);
+        setAccessToken(null);
       } finally {
         setAuthLoading(false);
       }
@@ -169,6 +183,7 @@ export const AuthProvider = ({ children }) => {
     backendUser,
     accessToken,
     isFullyAuthenticated,
+    authError,
     
     // Functions
     getToken,

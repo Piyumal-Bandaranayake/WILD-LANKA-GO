@@ -117,7 +117,7 @@ export const createAnimalCase = async (req, res) => {
           url: uploadResult.url,
           thumbnail_url: getThumbnailUrl(uploadResult.public_id, 300, 300),
           description: file.originalname,
-          uploaded_by: req.auth.payload.name || 'Unknown',
+          uploaded_by: req.auth?.payload?.name || 'System',
           file_size: uploadResult.bytes,
           dimensions: {
             width: uploadResult.width,
@@ -173,7 +173,7 @@ export const updateAnimalCase = async (req, res) => {
           url: uploadResult.url,
           thumbnail_url: getThumbnailUrl(uploadResult.public_id, 300, 300),
           description: file.originalname,
-          uploaded_by: req.auth.payload.name || 'Unknown',
+          uploaded_by: req.auth?.payload?.name || 'System',
           file_size: uploadResult.bytes,
           dimensions: {
             width: uploadResult.width,
@@ -295,6 +295,27 @@ export const deleteImageFromCase = async (req, res) => {
 // Get dashboard statistics for vets
 export const getVetDashboardStats = async (req, res) => {
   try {
+    // Check if auth is available
+    if (!req.auth?.payload?.sub) {
+      // Return general stats without user-specific filtering when no auth
+      const stats = {
+        total_cases: await AnimalCase.countDocuments(),
+        unassigned_cases: await AnimalCase.countDocuments({ status: 'Unassigned' }),
+        in_progress_cases: await AnimalCase.countDocuments({ status: 'In Progress' }),
+        completed_cases: await AnimalCase.countDocuments({ status: 'Completed' }),
+        high_priority_cases: await AnimalCase.countDocuments({ priority: 'High' })
+      };
+
+      // Recent cases
+      stats.recent_cases = await AnimalCase.find()
+        .populate('assignedVet', 'name')
+        .sort({ createdAt: -1 })
+        .limit(5)
+        .select('caseId animalType priority status assignedVet createdAt');
+
+      return res.json(stats);
+    }
+
     const { sub: auth0Id } = req.auth.payload;
     
     // Get current user
@@ -358,6 +379,16 @@ export const getVetDashboardStats = async (req, res) => {
 // Get all treatments for dashboard
 export const getAllTreatments = async (req, res) => {
   try {
+    // Check if auth is available
+    if (!req.auth?.payload?.sub) {
+      // Return all treatments when no auth
+      const treatments = await Treatment.find()
+        .populate('caseId', 'caseId animalType')
+        .populate('assignedVet', 'name')
+        .sort({ createdAt: -1 });
+      return res.json(treatments);
+    }
+
     const { sub: auth0Id } = req.auth.payload;
     
     // Get current user
@@ -385,5 +416,40 @@ export const getAllTreatments = async (req, res) => {
   } catch (error) {
     console.error('❌ Error fetching treatments:', error);
     res.status(500).json({ message: 'Failed to fetch treatments', error: error.message });
+  }
+};
+
+// Delete animal case
+export const deleteAnimalCase = async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    // Find the case first to get image details for cleanup
+    const animalCase = await AnimalCase.findById(id);
+    if (!animalCase) {
+      return res.status(404).json({ message: 'Animal case not found' });
+    }
+
+    // Delete associated images from Cloudinary
+    if (animalCase.photosDocumentation && animalCase.photosDocumentation.length > 0) {
+      for (const photo of animalCase.photosDocumentation) {
+        try {
+          if (photo.public_id) {
+            await deleteImage(photo.public_id);
+          }
+        } catch (imageError) {
+          console.error('Error deleting image:', imageError);
+          // Continue with case deletion even if image deletion fails
+        }
+      }
+    }
+
+    // Delete the case
+    await AnimalCase.findByIdAndDelete(id);
+
+    res.json({ message: 'Animal case deleted successfully' });
+  } catch (error) {
+    console.error('❌ Error deleting animal case:', error);
+    res.status(500).json({ message: 'Failed to delete animal case', error: error.message });
   }
 };

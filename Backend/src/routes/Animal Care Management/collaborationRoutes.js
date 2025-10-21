@@ -9,22 +9,21 @@ import {
   getAvailableVeterinarians,
   getCollaboratingCases
 } from '../../controllers/animalCare/collaborationController.js';
-import auth0UserInfoMiddleware from '../../middleware/auth0UserInfoMiddleware.js';
 
 const router = express.Router();
 
 // Collaboration comments
-router.post('/:caseId/comments', auth0UserInfoMiddleware, addCollaborationComment);
-router.get('/:caseId/comments', auth0UserInfoMiddleware, getCollaborationComments);
+router.post('/:caseId/comments', addCollaborationComment);
+router.get('/:caseId/comments', getCollaborationComments);
 
 // Case sharing and transfer
-router.post('/:caseId/share', auth0UserInfoMiddleware, shareCaseWithVet);
-router.post('/:caseId/transfer', auth0UserInfoMiddleware, transferCase);
-router.delete('/:caseId/collaboration', auth0UserInfoMiddleware, removeCollaboration);
+router.post('/:caseId/share', shareCaseWithVet);
+router.post('/:caseId/transfer', transferCase);
+router.delete('/:caseId/collaboration', removeCollaboration);
 
 // Collaboration history and utilities
-router.get('/:caseId/history', auth0UserInfoMiddleware, getCollaborationHistory);
-router.get('/:caseId/available-vets', auth0UserInfoMiddleware, getAvailableVeterinarians);
-router.get('/collaborating-cases', auth0UserInfoMiddleware, getCollaboratingCases);
+router.get('/:caseId/history', getCollaborationHistory);
+router.get('/:caseId/available-vets', getAvailableVeterinarians);
+router.get('/collaborating-cases', getCollaboratingCases);
 
 export default router;

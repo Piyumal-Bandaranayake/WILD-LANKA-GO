@@ -185,7 +185,7 @@ export const useMedication = async (req, res) => {
   try {
     const { id } = req.params;
     const { quantityUsed, caseId, treatmentId, notes } = req.body;
-    const veterinarianId = req.user.sub; // From auth middleware
+    const veterinarianId = req.user?.sub || req.body.veterinarianId; // From auth middleware or request body
 
     if (!quantityUsed || quantityUsed <= 0) {
       return res.status(400).json({ message: 'Invalid quantity used' });
@@ -233,7 +233,7 @@ export const requestRestock = async (req, res) => {
   try {
     const { id } = req.params;
     const { quantityRequested, priority, reason } = req.body;
-    const requestedBy = req.user.sub; // From auth middleware
+    const requestedBy = req.user?.sub || req.body.requestedBy; // From auth middleware or request body
 
     if (!quantityRequested || quantityRequested <= 0) {
       return res.status(400).json({ message: 'Invalid quantity requested' });
@@ -272,7 +272,7 @@ export const handleRestockRequest = async (req, res) => {
   try {
     const { id, requestId } = req.params;
     const { action, notes } = req.body; // action: 'approve' or 'reject'
-    const approvedBy = req.user.sub; // From auth middleware
+    const approvedBy = req.user?.sub || req.body.approvedBy; // From auth middleware or request body
 
     if (!['approve', 'reject'].includes(action)) {
       return res.status(400).json({ message: 'Invalid action. Must be approve or reject' });
@@ -516,7 +516,7 @@ export const bulkUpdateQuantities = async (req, res) => {
           medication.adminNotes = medication.adminNotes || [];
           medication.adminNotes.push({
             note: `Quantity updated from ${oldQuantity} to ${update.newQuantity}. ${update.notes}`,
-            addedBy: req.user.sub,
+            addedBy: req.user?.sub || req.body.addedBy || 'system',
             addedAt: new Date()
           });
         }

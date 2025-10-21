@@ -1,10 +1,12 @@
 import axios from 'axios';
+import apiErrorHandler from '../utils/apiErrorHandler';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5001/api';
 
 // Create axios instance with default config
 const api = axios.create({
   baseURL: API_BASE_URL,
+  timeout: 30000, // 30 second timeout
 });
 
 // Add request interceptor to include auth token
@@ -22,9 +24,13 @@ export const setDevelopmentMode = (mode) => {
   }
 };
 
-// Request interceptor to add auth token
+// Request interceptor to add auth token and logging
 api.interceptors.request.use(
   async (config) => {
+    // Add request timestamp for performance tracking
+    config.metadata = { startTime: Date.now() };
+    
+    // Add auth token if available
     if (getTokenFunction) {
       try {
         const token = await getTokenFunction();
@@ -32,73 +38,197 @@ api.interceptors.request.use(
           config.headers.Authorization = `Bearer ${token}`;
         }
       } catch (error) {
-        console.error('Failed to get token for request:', error);
+        console.warn('Failed to get token for request:', error);
+        // Continue without token since auth is now optional
       }
     }
+
+    // Log API request in development
+    if (isDevelopmentMode) {
+      console.log(`API Request: ${config.method?.toUpperCase()} ${config.url}`, {
+        headers: config.headers,
+        data: config.data
+      });
+    }
+
     return config;
   },
   (error) => {
+    console.error('Request interceptor error:', error);
     return Promise.reject(error);
   }
 );
 
-// Response interceptor to handle auth errors
+// Response interceptor with comprehensive error handling
 api.interceptors.response.use(
-  (response) => response,
-  (error) => {
-    if (error.response?.status === 401) {
-      console.error('Authentication failed - redirecting to login');
-      // You could trigger a logout here if needed
+  (response) => {
+    // Calculate response time
+    const responseTime = Date.now() - response.config.metadata.startTime;
+    
+    // Log successful responses in development
+    if (isDevelopmentMode) {
+      console.log(`API Response: ${response.status} ${response.config.method?.toUpperCase()} ${response.config.url}`, {
+        responseTime: `${responseTime}ms`,
+        dataSize: JSON.stringify(response.data).length
+      });
     }
-    return Promise.reject(error);
+
+    return response;
+  },
+  async (error) => {
+    const originalRequest = error.config;
+    
+    // Create enhanced error object
+    const enhancedError = {
+      message: error.message,
+      status: error.response?.status,
+      code: error.code,
+      details: {
+        url: originalRequest?.url,
+        method: originalRequest?.method,
+        statusText: error.response?.statusText,
+        data: error.response?.data
+      }
+    };
+
+    // Log error with context
+    apiErrorHandler.logError(enhancedError, {
+      url: originalRequest?.url,
+      method: originalRequest?.method,
+      attempt: originalRequest?._retryCount || 1
+    });
+
+    // Handle specific error cases
+    if (error.response?.status === 401) {
+      console.warn('Authentication failed - but continuing since auth is optional');
+      // Don't redirect to login since auth is now optional
+    }
+
+    // Retry logic for retryable errors
+    if (apiErrorHandler.isRetryable(enhancedError) && !originalRequest._retryCount) {
+      originalRequest._retryCount = 1;
+      
+      try {
+        // Wait before retry
+        const delay = apiErrorHandler.calculateDelay(1);
+        await new Promise(resolve => setTimeout(resolve, delay));
+        
+        console.log(`Retrying API request: ${originalRequest.method?.toUpperCase()} ${originalRequest.url}`);
+        return api(originalRequest);
+      } catch (retryError) {
+        console.error('Retry failed:', retryError);
+        return Promise.reject(enhancedError);
+      }
+    }
+
+    return Promise.reject(enhancedError);
   }
 );
 
 // Function to handle user login/registration with backend
 export const handleUserLogin = async (accessToken) => {
+  const context = {
+    operation: 'user_login',
+    hasToken: !!accessToken
+  };
+
   try {
-    const response = await api.post('/auth/login', {}, {
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-      },
+    const response = await apiErrorHandler.executeWithRetry(
+      () => api.post('/auth/login', {}, {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      }),
+      context
+    );
+    
+    console.log('Backend login successful:', {
+      userId: response.data._id,
+      email: response.data.email,
+      role: response.data.role
     });
+    
     return response.data;
   } catch (error) {
     console.error('Error during backend login:', error);
+    
+    // Create user-friendly error notification
+    const notification = apiErrorHandler.createErrorNotification(error, context);
+    console.error('Login error notification:', notification);
+    
     throw error;
   }
 };
 
 // Function to get user profile from backend
 export const getUserProfile = async (accessToken) => {
+  const context = {
+    operation: 'get_user_profile',
+    hasToken: !!accessToken
+  };
+
   try {
-    const response = await api.get('/users/profile', {
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-      },
-    });
+    const response = await apiErrorHandler.executeWithRetry(
+      () => api.get('/users/profile', {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      }),
+      context
+    );
+    
     return response.data;
   } catch (error) {
     console.error('Error fetching user profile:', error);
+    
+    // Create user-friendly error notification
+    const notification = apiErrorHandler.createErrorNotification(error, context);
+    console.error('Profile fetch error notification:', notification);
+    
     throw error;
   }
+};
+
+// Helper function to wrap API calls with error handling and retry logic
+const createProtectedApiCall = (apiCall, operation) => {
+  return async (...args) => {
+    const context = {
+      operation,
+      args: args.length > 0 ? args : undefined
+    };
+
+    try {
+      const response = await apiErrorHandler.executeWithRetry(
+        () => apiCall(...args),
+        context
+      );
+      return response;
+    } catch (error) {
+      // Log error and create notification
+      const notification = apiErrorHandler.createErrorNotification(error, context);
+      console.error(`API Error [${operation}]:`, notification);
+      
+      // Re-throw error for component handling
+      throw error;
+    }
+  };
 };
 
 // Protected API calls (automatically include token)
 export const protectedApi = {
   // User endpoints
-  getProfile: () => api.get('/auth/profile'),
-  updateProfile: (data) => api.put('/auth/profile', data),
+  getProfile: createProtectedApiCall(() => api.get('/auth/profile'), 'get_profile'),
+  updateProfile: createProtectedApiCall((data) => api.put('/auth/profile', data), 'update_profile'),
 
   // Tour endpoints
   getTours: () => api.get('/tour'),
   createTour: (data) => api.post('/tour', data),
 
   // Activity endpoints
-  getActivities: () => api.get('/activities'),
-  createActivity: (data) => api.post('/activities', data),
-  updateActivity: (id, data) => api.put(`/activities/${id}`, data),
-  deleteActivity: (id) => api.delete(`/activities/${id}`),
+  getActivities: createProtectedApiCall(() => api.get('/activities'), 'get_activities'),
+  createActivity: createProtectedApiCall((data) => api.post('/activities', data), 'create_activity'),
+  updateActivity: createProtectedApiCall((id, data) => api.put(`/activities/${id}`, data), 'update_activity'),
+  deleteActivity: createProtectedApiCall((id) => api.delete(`/activities/${id}`), 'delete_activity'),
 
   // Event endpoints
   getEvents: () => api.get('/events'),
@@ -187,7 +317,24 @@ export const protectedApi = {
 
   // Tour Guide management
   getTourGuides: () => api.get('/tourGuides'),
+  getTourGuideProfile: () => api.get('/auth/profile'), // This should work
   updateTourGuideAvailability: (id, data) => api.put(`/tourGuides/${id}/availability`, data),
+  
+  // Tour management - using existing endpoints
+  getAssignedTours: () => api.get('/tours'), // Use general tours endpoint
+  getTourHistory: () => api.get('/tours'), // Use general tours endpoint  
+  getTourMaterials: () => api.get('/tour-materials'), // This exists
+  
+  // Placeholder endpoints (will return 404 but handled gracefully)
+  getTourGuideRatings: () => Promise.reject(new Error('Ratings endpoint not implemented')),
+  acceptTour: (tourId) => Promise.reject(new Error('Accept tour endpoint not implemented')),
+  rejectTour: (tourId, data) => Promise.reject(new Error('Reject tour endpoint not implemented')),
+  updateTourStatus: (tourId, status) => Promise.reject(new Error('Update tour status endpoint not implemented')),
+  uploadTourMaterial: (formData) => Promise.reject(new Error('Upload material endpoint not implemented')),
+  deleteTourMaterial: (materialId) => Promise.reject(new Error('Delete material endpoint not implemented')),
+  downloadTourMaterial: (materialId) => Promise.reject(new Error('Download material endpoint not implemented')),
+  generateTourGuideReport: (type) => Promise.reject(new Error('Generate report endpoint not implemented')),
+  updateTourGuideProfile: (data) => api.put('/auth/profile', data), // This should work
 
   // Safari Driver management
   getDrivers: () => api.get('/drivers'),

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { protectedApi } from '../../services/authService';
 import { useAuthContext } from '../../contexts/AuthContext';
-import ProtectedRoute from '../../components/ProtectedRoute';
+import RoleGuard from '../../components/RoleGuard';
 import Navbar from '../../components/Navbar';
 import Footer from '../../components/footer';
 
@@ -381,27 +381,11 @@ const EmergencyOfficerDashboard = () => {
         }
     };
 
-    // Only Emergency Officers can access this page
-    if (backendUser?.role !== 'EmergencyOfficer') {
-        return (
-            <ProtectedRoute>
-                <div className="flex flex-col min-h-screen">
-                    <Navbar />
-                    <div className="flex-1 flex items-center justify-center pt-32">
-                        <div className="text-center">
-                            <h2 className="text-2xl font-bold text-red-600">Access Denied</h2>
-                            <p className="text-gray-600 mt-2">Only emergency officers can access this page.</p>
-                        </div>
-                    </div>
-                    <Footer />
-                </div>
-            </ProtectedRoute>
-        );
-    }
+    // Role-based access control is handled by RoleGuard wrapper
 
     if (loading) {
         return (
-            <ProtectedRoute>
+            <RoleGuard requiredRole="EmergencyOfficer">
                 <div className="flex flex-col min-h-screen bg-[#F4F6FF]">
                     <Navbar />
                     <div className="flex-1 flex items-center justify-center pt-32">
@@ -412,7 +396,7 @@ const EmergencyOfficerDashboard = () => {
                     </div>
                     <Footer />
                 </div>
-            </ProtectedRoute>
+            </RoleGuard>
         );
     }
 
@@ -421,7 +405,7 @@ const EmergencyOfficerDashboard = () => {
     const resolvedEmergencies = emergencies.filter(e => e.status === 'resolved');
 
     return (
-        <ProtectedRoute>
+        <RoleGuard requiredRole="EmergencyOfficer">
             <div className="flex flex-col min-h-screen bg-[#F4F6FF]">
                 <Navbar />
                 <div className="flex-1 pt-32 pb-16">
@@ -1170,7 +1154,7 @@ const EmergencyOfficerDashboard = () => {
 
                 <Footer />
             </div>
-        </ProtectedRoute>
+        </RoleGuard>
     );
 };
 

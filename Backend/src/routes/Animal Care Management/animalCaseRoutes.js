@@ -10,7 +10,8 @@ import {
     assignCaseToVet,
     deleteImageFromCase,
     getVetDashboardStats,
-    getAllTreatments
+    getAllTreatments,
+    deleteAnimalCase
 } from '../../controllers/animalCare/animalCareController.js';
 import {
     createTreatment,
@@ -20,7 +21,6 @@ import {
     deleteTreatmentImage,
     generateTreatmentReport
 } from '../../controllers/animalCare/treatmentController.js';
-import auth0UserInfoMiddleware from '../../middleware/auth0UserInfoMiddleware.js';
 
 const router = express.Router();
 
@@ -56,21 +56,22 @@ const upload = multer({
 });
 
 // Animal Case Routes
-router.get('/', auth0UserInfoMiddleware, getAnimalCases);
-router.get('/dashboard/stats', auth0UserInfoMiddleware, getVetDashboardStats);
-router.get('/treatments', auth0UserInfoMiddleware, getAllTreatments);
-router.get('/:id', auth0UserInfoMiddleware, getAnimalCaseById);
-router.post('/', auth0UserInfoMiddleware, upload.array('images', 10), createAnimalCase);
-router.put('/:id', auth0UserInfoMiddleware, upload.array('images', 10), updateAnimalCase);
-router.put('/:id/assign', auth0UserInfoMiddleware, assignCaseToVet);
-router.delete('/:id/images/:imageId', auth0UserInfoMiddleware, deleteImageFromCase);
+router.get('/', getAnimalCases);
+router.get('/dashboard/stats', getVetDashboardStats);
+router.get('/treatments', getAllTreatments);
+router.post('/', upload.array('images', 10), createAnimalCase);
+router.put('/:id', upload.array('images', 10), updateAnimalCase);
+router.put('/:id/assign', assignCaseToVet);
+router.delete('/:id/images/:imageId', deleteImageFromCase);
+router.delete('/:id', deleteAnimalCase);
+router.get('/:id', getAnimalCaseById);
 
 // Treatment Routes
-router.get('/:caseId/treatments', auth0UserInfoMiddleware, getTreatmentsByCase);
-router.post('/:caseId/treatments', auth0UserInfoMiddleware, upload.array('treatmentImages', 10), createTreatment);
-router.get('/treatments/:id', auth0UserInfoMiddleware, getTreatmentById);
-router.put('/treatments/:id', auth0UserInfoMiddleware, upload.array('treatmentImages', 10), updateTreatment);
-router.delete('/treatments/:id/images/:imageId', auth0UserInfoMiddleware, deleteTreatmentImage);
-router.get('/:caseId/treatments/report', auth0UserInfoMiddleware, generateTreatmentReport);
+router.get('/:caseId/treatments', getTreatmentsByCase);
+router.post('/:caseId/treatments', upload.array('treatmentImages', 10), createTreatment);
+router.get('/treatments/:id', getTreatmentById);
+router.put('/treatments/:id', upload.array('treatmentImages', 10), updateTreatment);
+router.delete('/treatments/:id/images/:imageId', deleteTreatmentImage);
+router.get('/:caseId/treatments/report', generateTreatmentReport);
 
 export default router;

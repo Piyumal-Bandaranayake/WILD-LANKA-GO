@@ -10,7 +10,7 @@ import mongoose from 'mongoose';
 // Get tourist's bookings
 export const getMyBookings = async (req, res) => {
   try {
-    const userId = req.user._id; // From auth middleware
+    const userId = req.user?._id || req.body.userId; // From auth middleware or request body
     
     const bookings = await Booking.find({ userId })
       .populate('activityId', 'name description location price images')
@@ -34,7 +34,7 @@ export const getMyBookings = async (req, res) => {
 // Get tourist's event registrations
 export const getMyEventRegistrations = async (req, res) => {
   try {
-    const userId = req.user._id; // From auth middleware
+    const userId = req.user?._id || req.body.userId; // From auth middleware or request body
     
     const registrations = await EventRegistration.find({ userId })
       .populate('eventId', 'title description dateTime location pricing capacity status')
@@ -58,7 +58,7 @@ export const getMyEventRegistrations = async (req, res) => {
 // Get tourist's donations
 export const getMyDonations = async (req, res) => {
   try {
-    const userId = req.user._id; // From auth middleware
+    const userId = req.user?._id || req.body.userId; // From auth middleware or request body
     
     const donations = await Donation.find({ 'donor.userId': userId })
       .sort({ createdAt: -1 });
@@ -81,7 +81,7 @@ export const getMyDonations = async (req, res) => {
 // Get tourist's feedback
 export const getMyFeedback = async (req, res) => {
   try {
-    const username = req.user.name || req.user.username; // From auth middleware
+    const username = req.user?.name || req.user?.username || req.body.username || 'Anonymous'; // From auth middleware or request body
     
     const feedback = await Feedback.find({ username })
       .sort({ date: -1 });
@@ -104,7 +104,7 @@ export const getMyFeedback = async (req, res) => {
 // Get tourist's complaints
 export const getMyComplaints = async (req, res) => {
   try {
-    const username = req.user.name || req.user.username; // From auth middleware
+    const username = req.user?.name || req.user?.username || req.body.username || 'Anonymous'; // From auth middleware or request body
     
     const complaints = await Complaint.find({ username, role: 'Tourist' })
       .sort({ date: -1 });
@@ -127,7 +127,7 @@ export const getMyComplaints = async (req, res) => {
 // Create a new booking
 export const createBooking = async (req, res) => {
   try {
-    const userId = req.user._id;
+    const userId = req.user?._id || req.body.userId;
     const { activityId, bookingDate, numberOfParticipants, requestTourGuide, preferredDate, paymentMethod } = req.body;
 
     // Validate required fields
@@ -320,7 +320,7 @@ export const checkAvailableSlots = async (req, res) => {
 // Register for an event
 export const registerForEvent = async (req, res) => {
   try {
-    const userId = req.user._id;
+    const userId = req.user?._id || req.body.userId;
     const { eventId, numberOfParticipants } = req.body;
 
     // Validate event exists and has available slots
@@ -381,7 +381,7 @@ export const registerForEvent = async (req, res) => {
 // Modify event registration (update number of participants)
 export const modifyEventRegistration = async (req, res) => {
   try {
-    const userId = req.user._id;
+    const userId = req.user?._id || req.body.userId;
     const { registrationId } = req.params;
     const { numberOfParticipants } = req.body;
 
@@ -451,7 +451,7 @@ export const modifyEventRegistration = async (req, res) => {
 // Create a donation
 export const createDonation = async (req, res) => {
   try {
-    const userId = req.user._id;
+    const userId = req.user?._id || req.body.userId;
     const { amount, message, category, donationType, isAnonymous } = req.body;
 
     const donation = new Donation({
@@ -496,7 +496,7 @@ export const createDonation = async (req, res) => {
 // Update donation message
 export const updateDonationMessage = async (req, res) => {
   try {
-    const userId = req.user._id;
+    const userId = req.user?._id || req.body.userId;
     const { donationId } = req.params;
     const { message } = req.body;
 
@@ -670,7 +670,7 @@ export const getAllFeedback = async (req, res) => {
 export const createComplaint = async (req, res) => {
   try {
     const username = req.user.name || req.user.username;
-    const email = req.user.email;
+    const email = req.user?.email || req.body.email || 'unknown@example.com';
     const { message, location } = req.body;
 
     const complaint = new Complaint({
@@ -767,9 +767,9 @@ export const deleteComplaint = async (req, res) => {
 // Emergency reporting functionality
 export const reportEmergency = async (req, res) => {
   try {
-    const userId = req.user._id;
-    const userName = req.user.name;
-    const userEmail = req.user.email;
+    const userId = req.user?._id || req.body.userId;
+    const userName = req.user?.name || req.body.userName || 'Anonymous';
+    const userEmail = req.user?.email || req.body.userEmail || 'unknown@example.com';
     const { 
       emergencyType, 
       description, 
@@ -817,7 +817,7 @@ export const reportEmergency = async (req, res) => {
 // Get tourist dashboard stats
 export const getDashboardStats = async (req, res) => {
   try {
-    const userId = req.user._id;
+    const userId = req.user?._id || req.body.userId;
     const username = req.user.name || req.user.username;
 
     const [bookingsCount, registrationsCount, donationsCount, feedbackCount, complaintsCount] = await Promise.all([
@@ -868,7 +868,7 @@ export const getDashboardStats = async (req, res) => {
 // Cancel a booking
 export const cancelBooking = async (req, res) => {
   try {
-    const userId = req.user._id;
+    const userId = req.user?._id || req.body.userId;
     const { bookingId } = req.params;
 
     const booking = await Booking.findOne({ _id: bookingId, userId });
@@ -907,7 +907,7 @@ export const cancelBooking = async (req, res) => {
 // Cancel event registration
 export const cancelEventRegistration = async (req, res) => {
   try {
-    const userId = req.user._id;
+    const userId = req.user?._id || req.body.userId;
     const { registrationId } = req.params;
 
     const registration = await EventRegistration.findOne({ _id: registrationId, userId });

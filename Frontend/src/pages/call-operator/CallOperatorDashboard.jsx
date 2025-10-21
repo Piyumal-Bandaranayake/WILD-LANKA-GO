@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { protectedApi } from '../../services/authService';
 import { useAuthContext } from '../../contexts/AuthContext';
-import ProtectedRoute from '../../components/ProtectedRoute';
+import RoleGuard from '../../components/RoleGuard';
 import Navbar from '../../components/Navbar';
 import Footer from '../../components/footer';
 
@@ -343,27 +343,11 @@ const CallOperatorDashboard = () => {
         return colors[status] || 'bg-gray-100 text-gray-800';
     };
 
-    // Only Call Operators can access this page
-    if (backendUser?.role !== 'callOperator') {
-        return (
-            <ProtectedRoute>
-                <div className="flex flex-col min-h-screen">
-                    <Navbar />
-                    <div className="flex-1 flex items-center justify-center pt-32">
-                        <div className="text-center">
-                            <h2 className="text-2xl font-bold text-red-600">Access Denied</h2>
-                            <p className="text-gray-600 mt-2">Only call operators can access this page.</p>
-                        </div>
-                    </div>
-                    <Footer />
-                </div>
-            </ProtectedRoute>
-        );
-    }
+    // Role-based access control is handled by RoleGuard wrapper
 
     if (loading) {
         return (
-            <ProtectedRoute>
+            <RoleGuard requiredRole="callOperator">
                 <div className="min-h-screen bg-[#F4F6FF]">
                     <Navbar />
                     <div className="flex-1 flex items-center justify-center pt-32">
@@ -374,12 +358,12 @@ const CallOperatorDashboard = () => {
                     </div>
                     <Footer />
                 </div>
-            </ProtectedRoute>
+            </RoleGuard>
         );
     }
 
     return (
-        <ProtectedRoute>
+        <RoleGuard requiredRole="callOperator">
             <div className="min-h-screen bg-[#F4F6FF]">
                 <Navbar />
                 <div className="pt-32 pb-16">
@@ -1392,7 +1376,7 @@ const CallOperatorDashboard = () => {
 
                 <Footer />
             </div>
-        </ProtectedRoute>
+        </RoleGuard>
     );
 };
 
