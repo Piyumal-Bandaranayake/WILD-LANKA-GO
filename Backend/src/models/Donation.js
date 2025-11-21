@@ -1,242 +1,253 @@
-import mongoose from 'mongoose';
+const mongoose = require('mongoose');
 
 const donationSchema = new mongoose.Schema({
-  donationId: {
-    type: String,
-    unique: true,
-  },
   donor: {
-    userId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'User',
-    },
-    // For anonymous or guest donations
-    guestInfo: {
-      name: { type: String },
-      email: { type: String },
-      phone: { type: String },
-      country: { type: String },
-    },
-    isAnonymous: { type: Boolean, default: false },
-    isGuest: { type: Boolean, default: false },
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: false, // Allow anonymous donations
   },
   amount: {
-    value: { type: Number, required: true, min: 0.01 },
-    currency: { type: String, default: 'LKR' },
-    exchangeRate: { type: Number, default: 1 }, // For foreign currencies
-    amountInLKR: { type: Number }, // Converted amount
+    type: Number,
+    required: [true, 'Donation amount is required'],
+    min: [1, 'Donation amount must be at least $1'],
   },
-  donationType: {
+  currency: {
     type: String,
-    enum: ['One-time', 'Monthly', 'Annual', 'Memorial', 'Corporate', 'Emergency'],
-    default: 'One-time',
+    default: 'LKR',
+    enum: ['USD', 'LKR', 'EUR', 'GBP'],
   },
-  category: {
+  paymentMethod: {
     type: String,
-    enum: [
-      'General Wildlife Conservation',
-      'Animal Medical Treatment',
-      'Habitat Restoration',
-      'Anti-Poaching Operations',
-      'Research Programs',
-      'Education Programs',
-      'Equipment Purchase',
-      'Emergency Fund',
-      'Specific Animal Sponsorship',
-      'Other'
-    ],
-    default: 'General Wildlife Conservation',
+    enum: ['credit_card', 'debit_card', 'paypal', 'bank_transfer', 'cash', 'stripe'],
+    required: [true, 'Payment method is required'],
+  },
+  paymentId: {
+    type: String, // Payment gateway transaction ID
+    sparse: true,
+  },
+  status: {
+    type: String,
+    enum: ['pending', 'completed', 'failed', 'refunded'],
+    default: 'pending',
   },
   purpose: {
-    title: { type: String },
-    description: { type: String },
-    targetAmount: { type: Number },
-    currentAmount: { type: Number, default: 0 },
+    type: String,
+    enum: [
+      'general', 
+      'wildlife_conservation', 
+      'habitat_restoration', 
+      'animal_rescue', 
+      'education', 
+      'research',
+      // New causes from frontend form
+      'Wildlife Conservation',
+      'Habitat Protection', 
+      'Anti-Poaching Efforts',
+      'Research & Education',
+      'Community Development',
+      'Emergency Wildlife Rescue',
+      'Park Maintenance',
+      'General Support',
+      'Monthly Donation'
+    ],
+    default: 'General Support',
   },
   message: {
-    personalMessage: { type: String, maxlength: 1000 },
-    isPublic: { type: Boolean, default: false },
-    dedicatedTo: { type: String }, // Memorial donations
+    type: String,
+    maxlength: [500, 'Message cannot exceed 500 characters'],
+    trim: true,
   },
-  payment: {
-    method: {
-      type: String,
-      enum: ['Credit Card', 'Debit Card', 'PayPal', 'Bank Transfer', 'Mobile Payment', 'Cash', 'Cheque'],
-      required: true,
-    },
-    transactionId: { type: String, unique: true },
-    gatewayTransactionId: { type: String },
-    gateway: { type: String }, // PayPal, Stripe, local gateway
-    status: {
-      type: String,
-      enum: ['Pending', 'Processing', 'Completed', 'Failed', 'Cancelled', 'Refunded'],
-      default: 'Pending',
-    },
-    paidAt: { type: Date },
-    failureReason: { type: String },
-    refund: {
-      amount: { type: Number, default: 0 },
-      reason: { type: String },
-      refundedAt: { type: Date },
-      refundTransactionId: { type: String },
-    },
+  isAnonymous: {
+    type: Boolean,
+    default: false,
   },
-  receipt: {
-    receiptNumber: { type: String, unique: true },
-    issued: { type: Boolean, default: false },
-    issuedAt: { type: Date },
-    receiptUrl: { type: String }, // PDF receipt URL
-    taxDeductible: { type: Boolean, default: true },
-    fiscalYear: { type: String },
+  
+  // Donor information (for display purposes)
+  donorName: {
+    type: String,
+    trim: true,
   },
-  communication: {
-    acknowledgmentSent: { type: Boolean, default: false },
-    acknowledgmentSentAt: { type: Date },
-    thankYouEmailSent: { type: Boolean, default: false },
-    newsletterOptIn: { type: Boolean, default: false },
-    followUpEmailsSent: { type: Number, default: 0 },
-    lastContactDate: { type: Date },
+  donorEmail: {
+    type: String,
+    trim: true,
+    lowercase: true,
   },
-  recurringDetails: {
-    isRecurring: { type: Boolean, default: false },
-    frequency: {
-      type: String,
-      enum: ['Monthly', 'Quarterly', 'Annually'],
-    },
-    nextDonationDate: { type: Date },
-    totalRecurringDonations: { type: Number, default: 0 },
-    recurringDonationIds: [{
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'Donation',
-    }],
-    isActive: { type: Boolean, default: true },
-    cancelledAt: { type: Date },
-    cancellationReason: { type: String },
+  receiptNumber: {
+    type: String,
+    unique: true,
+    sparse: true,
   },
-  campaign: {
-    campaignId: { type: String },
-    campaignName: { type: String },
-    source: { type: String }, // Website, email, social media, etc.
-    medium: { type: String }, // Campaign medium
-    referrer: { type: String },
+  taxDeductible: {
+    type: Boolean,
+    default: true,
   },
-  corporateDetails: {
-    isCorporateDonation: { type: Boolean, default: false },
-    companyName: { type: String },
-    registrationNumber: { type: String },
-    contactPerson: { type: String },
-    taxIdNumber: { type: String },
-    address: {
-      street: { type: String },
-      city: { type: String },
-      state: { type: String },
-      zipCode: { type: String },
-      country: { type: String },
-    },
+  
+  // Payment details
+  paymentDetails: {
+    gateway: String, // stripe, paypal, etc.
+    transactionId: String,
+    sessionId: String, // Add sessionId field for Stripe sessions
+    paymentDate: Date,
+    processingFee: {
+      type: Number,
+      default: 0,
+    }
   },
-  utilization: {
-    allocated: { type: Boolean, default: false },
-    allocatedTo: [{
-      project: { type: String },
-      amount: { type: Number },
-      allocatedAt: { type: Date },
-      description: { type: String },
-    }],
-    impactReport: {
-      reported: { type: Boolean, default: false },
-      reportUrl: { type: String },
-      reportSentAt: { type: Date },
-      description: { type: String },
-    },
+  
+  // Metadata
+  createdBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
   },
-  metadata: {
-    ipAddress: { type: String },
-    userAgent: { type: String },
-    deviceType: { type: String },
-    location: {
-      country: { type: String },
-      region: { type: String },
-      city: { type: String },
-    },
-    timezone: { type: String },
+  processedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'SystemUser',
   },
-  adminNotes: [{
-    note: { type: String },
-    addedBy: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'User',
-    },
-    addedAt: { type: Date, default: Date.now },
-  }],
-  verification: {
-    isVerified: { type: Boolean, default: false },
-    verifiedBy: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'User',
-    },
-    verifiedAt: { type: Date },
-    flagged: { type: Boolean, default: false },
-    flaggedReason: { type: String },
-  },
-  createdAt: {
-    type: Date,
-    default: Date.now,
-  },
-  updatedAt: {
-    type: Date,
-    default: Date.now,
-  },
+}, {
+  timestamps: true,
 });
 
-// Pre-save middleware to generate donation ID and receipt number
-donationSchema.pre('save', async function (next) {
-  if (this.isNew) {
-    const lastDonation = await this.constructor.findOne().sort({ createdAt: -1 });
-    let nextId = 1;
-    if (lastDonation && lastDonation.donationId) {
-      const lastId = parseInt(lastDonation.donationId.split('-')[1], 10);
-      nextId = lastId + 1;
-    }
-    this.donationId = `DON-${String(nextId).padStart(6, '0')}`;
-    
-    // Generate receipt number
+// Indexes
+donationSchema.index({ donor: 1 });
+donationSchema.index({ status: 1 });
+donationSchema.index({ purpose: 1 });
+donationSchema.index({ createdAt: -1 });
+donationSchema.index({ amount: 1 });
+donationSchema.index({ 'paymentDetails.sessionId': 1 }, { unique: true, sparse: true });
+
+// Pre-save middleware to generate receipt number
+donationSchema.pre('save', async function(next) {
+  if (this.isNew && this.status === 'completed' && !this.receiptNumber) {
     const year = new Date().getFullYear();
-    this.receipt.receiptNumber = `RCP-${year}-${String(nextId).padStart(6, '0')}`;
-    this.receipt.fiscalYear = year.toString();
+    
+    // Generate unique receipt number with retry logic
+    let receiptNumber;
+    let attempts = 0;
+    const maxAttempts = 10;
+    
+    do {
+      // Use a more robust approach: get the highest existing receipt number for this year
+      const lastDonation = await this.constructor.findOne({
+        receiptNumber: { $regex: `^WLG-${year}-` },
+        status: 'completed'
+      }).sort({ receiptNumber: -1 });
+      
+      let nextNumber = 1;
+      if (lastDonation && lastDonation.receiptNumber) {
+        const lastNumber = parseInt(lastDonation.receiptNumber.split('-')[2]);
+        nextNumber = lastNumber + 1 + attempts;
+      } else {
+        nextNumber = 1 + attempts;
+      }
+      
+      receiptNumber = `WLG-${year}-${String(nextNumber).padStart(6, '0')}`;
+      
+      // Double-check if this receipt number already exists
+      const existing = await this.constructor.findOne({ receiptNumber });
+      if (!existing) {
+        break;
+      }
+      
+      attempts++;
+    } while (attempts < maxAttempts);
+    
+    if (attempts >= maxAttempts) {
+      // Fallback to timestamp-based receipt number with additional randomness
+      const timestamp = Date.now().toString().slice(-6);
+      const random = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
+      receiptNumber = `WLG-${year}-${timestamp}${random}`;
+    }
+    
+    this.receiptNumber = receiptNumber;
   }
-  
-  // Convert amount to LKR if needed
-  if (this.amount.currency !== 'LKR') {
-    this.amount.amountInLKR = this.amount.value * this.amount.exchangeRate;
-  } else {
-    this.amount.amountInLKR = this.amount.value;
-  }
-  
-  this.updatedAt = new Date();
   next();
 });
 
-// Virtual for formatted amount
-donationSchema.virtual('formattedAmount').get(function() {
-  return `${this.amount.currency} ${this.amount.value.toLocaleString()}`;
-});
+// Instance method to mark as completed
+donationSchema.methods.markCompleted = function(paymentDetails) {
+  this.status = 'completed';
+  this.paymentDetails = {
+    ...this.paymentDetails,
+    ...paymentDetails,
+    paymentDate: new Date()
+  };
+  return this.save();
+};
 
-// Virtual for tax-deductible amount
-donationSchema.virtual('taxDeductibleAmount').get(function() {
-  return this.receipt.taxDeductible ? this.amount.amountInLKR : 0;
-});
+// Instance method to mark as failed
+donationSchema.methods.markFailed = function(reason) {
+  this.status = 'failed';
+  this.paymentDetails = {
+    ...this.paymentDetails,
+    failureReason: reason
+  };
+  return this.save();
+};
 
-// Indexes for better performance
-donationSchema.index({ 'donor.userId': 1 });
-donationSchema.index({ donationType: 1 });
-donationSchema.index({ category: 1 });
-donationSchema.index({ 'payment.status': 1 });
-donationSchema.index({ 'payment.transactionId': 1 });
-donationSchema.index({ 'receipt.receiptNumber': 1 });
-donationSchema.index({ createdAt: -1 });
-donationSchema.index({ 'amount.amountInLKR': -1 });
-donationSchema.index({ 'recurringDetails.isRecurring': 1 });
+// Static method to get donation statistics
+donationSchema.statics.getStatistics = async function(startDate, endDate) {
+  const matchStage = {
+    status: 'completed'
+  };
+  
+  if (startDate && endDate) {
+    matchStage.createdAt = {
+      $gte: new Date(startDate),
+      $lte: new Date(endDate)
+    };
+  }
+  
+  const stats = await this.aggregate([
+    { $match: matchStage },
+    {
+      $group: {
+        _id: null,
+        totalAmount: { $sum: '$amount' },
+        totalDonations: { $sum: 1 },
+        averageDonation: { $avg: '$amount' },
+        maxDonation: { $max: '$amount' },
+        minDonation: { $min: '$amount' }
+      }
+    }
+  ]);
+  
+  const purposeStats = await this.aggregate([
+    { $match: matchStage },
+    {
+      $group: {
+        _id: '$purpose',
+        totalAmount: { $sum: '$amount' },
+        count: { $sum: 1 }
+      }
+    },
+    { $sort: { totalAmount: -1 } }
+  ]);
+  
+  return {
+    overall: stats[0] || {
+      totalAmount: 0,
+      totalDonations: 0,
+      averageDonation: 0,
+      maxDonation: 0,
+      minDonation: 0
+    },
+    byPurpose: purposeStats
+  };
+};
 
-const Donation = mongoose.model('Donation', donationSchema);
+// Static method to find donations by donor
+donationSchema.statics.findByDonor = function(donorId) {
+  return this.find({ donor: donorId })
+    .populate('donor', 'firstName lastName email')
+    .sort({ createdAt: -1 });
+};
 
-export default Donation;
+// Static method to find recent donations
+donationSchema.statics.findRecent = function(limit = 10) {
+  return this.find({ status: 'completed' })
+    .populate('donor', 'firstName lastName email')
+    .sort({ createdAt: -1 })
+    .limit(limit);
+};
+
+module.exports = mongoose.model('Donation', donationSchema);

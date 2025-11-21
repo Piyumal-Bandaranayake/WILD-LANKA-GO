@@ -1,7 +1,7 @@
-import TourRejection from '../../models/tourmanagement/tourRejection.js';
-import Tour from '../../models/tourmanagement/tour.js';
+const TourRejection = require('../../models/tourmanagement/tourRejection');
+const Tour = require('../../models/tourmanagement/tour');
 
-export const submitRejection = async (req, res) => {
+const submitRejection = async (req, res) => {
   try {
     const { tourId, tourGuideId, reason } = req.body;
 
@@ -19,4 +19,8 @@ export const submitRejection = async (req, res) => {
   } catch (error) {
     res.status(500).json({ message: 'Error submitting rejection', error: error.message });
   }
+};
+
+module.exports = {
+  submitRejection
 };

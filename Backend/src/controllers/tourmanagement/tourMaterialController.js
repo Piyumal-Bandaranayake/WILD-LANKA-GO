@@ -1,19 +1,43 @@
-import TourMaterial from "../../models/tourmanagement/tourMaterial.js";
+const TourMaterial = require("../../models/tourmanagement/tourMaterial");
 
 // Create new material (upload)
-export const uploadMaterial = async (req, res) => {
+const uploadMaterial = async (req, res) => {
   try {
-    const { tourId, uploadedBy, title, description, fileUrl, fileType } = req.body;
+    const { title, description, type } = req.body;
+    const uploadedBy = req.user?._id; // Get user ID from auth middleware
 
-    if (!tourId || !uploadedBy || !title || !fileUrl) {
-      return res.status(400).json({ message: "Please provide all required fields" });
+    if (!title || !uploadedBy) {
+      return res.status(400).json({ message: "Please provide title and ensure you are logged in" });
+    }
+
+    // Handle file upload
+    let fileUrl = '';
+    let fileType = type || 'other';
+    
+    if (req.file) {
+      fileUrl = `/uploads/tour-materials/${req.file.filename}`;
+      // Determine file type from uploaded file
+      const fileExtension = req.file.originalname.split('.').pop().toLowerCase();
+      if (['jpg', 'jpeg', 'png', 'gif'].includes(fileExtension)) {
+        fileType = 'image';
+      } else if (['pdf'].includes(fileExtension)) {
+        fileType = 'pdf';
+      } else if (['doc', 'docx'].includes(fileExtension)) {
+        fileType = 'doc';
+      } else if (['mp3', 'wav'].includes(fileExtension)) {
+        fileType = 'audio';
+      } else if (['mp4', 'avi'].includes(fileExtension)) {
+        fileType = 'video';
+      }
+    } else {
+      return res.status(400).json({ message: "Please upload a file" });
     }
 
     const material = new TourMaterial({
-      tourId,
+      tourId: null, // Can be associated with a tour later
       uploadedBy,
       title,
-      description,
+      description: description || '',
       fileUrl,
       fileType
     });
@@ -26,7 +50,7 @@ export const uploadMaterial = async (req, res) => {
 };
 
 // Get all materials
-export const getAllMaterials = async (req, res) => {
+const getAllMaterials = async (req, res) => {
   try {
     const materials = await TourMaterial.find().populate("tourId").populate("uploadedBy");
     res.status(200).json(materials);
@@ -36,7 +60,7 @@ export const getAllMaterials = async (req, res) => {
 };
 
 // Get material by ID
-export const getMaterialById = async (req, res) => {
+const getMaterialById = async (req, res) => {
   try {
     const material = await TourMaterial.findById(req.params.id).populate("tourId").populate("uploadedBy");
     if (!material) {
@@ -49,7 +73,7 @@ export const getMaterialById = async (req, res) => {
 };
 
 // Get materials for a specific tour
-export const getMaterialsByTour = async (req, res) => {
+const getMaterialsByTour = async (req, res) => {
   try {
     const materials = await TourMaterial.find({ tourId: req.params.tourId }).populate("uploadedBy");
     res.status(200).json(materials);
@@ -59,7 +83,7 @@ export const getMaterialsByTour = async (req, res) => {
 };
 
 // Delete a material
-export const deleteMaterial = async (req, res) => {
+const deleteMaterial = async (req, res) => {
   try {
     const material = await TourMaterial.findByIdAndDelete(req.params.id);
     if (!material) {
@@ -69,4 +93,12 @@ export const deleteMaterial = async (req, res) => {
   } catch (error) {
     res.status(500).json({ message: "Error deleting material", error: error.message });
   }
+};
+
+module.exports = {
+  uploadMaterial,
+  getAllMaterials,
+  getMaterialById,
+  getMaterialsByTour,
+  deleteMaterial
 };

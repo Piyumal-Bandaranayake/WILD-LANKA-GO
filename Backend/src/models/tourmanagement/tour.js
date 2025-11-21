@@ -1,4 +1,4 @@
-import mongoose from 'mongoose';
+const mongoose = require('mongoose');
 
 const tourSchema = new mongoose.Schema({
   // Reference to the original booking (from tourist)
@@ -12,21 +12,52 @@ const tourSchema = new mongoose.Schema({
   // Assigned by the Wildlife Park Officer
   assignedTourGuide: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'tourGuide', // your TourGuide model
+    ref: 'SystemUser', // SystemUser model for tour guides
     default: null,
   },
 
   assignedDriver: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'safariDriver', // your SafariDriver model
+    ref: 'SystemUser', // SystemUser model for drivers
     default: null,
   },
 
   // Updated by Tour Guide (or Driver if needed)
   status: {
     type: String,
-    enum: ['Pending', 'Confirmed', 'Processing', 'Started', 'Ended'],
+    enum: ['Pending', 'Confirmed', 'Processing', 'Started', 'Ended', 'pending', 'confirmed', 'processing', 'started', 'ended'],
     default: 'Pending',
+    set: function(value) {
+      // Normalize status to proper case
+      if (typeof value === 'string') {
+        const statusMap = {
+          'pending': 'Pending',
+          'confirmed': 'Confirmed', 
+          'processing': 'Processing',
+          'started': 'Started',
+          'ended': 'Ended'
+        };
+        return statusMap[value.toLowerCase()] || value;
+      }
+      return value;
+    }
+  },
+
+  // Tour notes from Wildlife Officer
+  tourNotes: {
+    type: String,
+    default: null,
+  },
+
+  // Tour date (can be different from booking date)
+  preferredDate: {
+    type: Date,
+    required: true,
+  },
+  
+  tourDate: {
+    type: Date,
+    default: null,
   },
 
 }, {
@@ -35,4 +66,4 @@ const tourSchema = new mongoose.Schema({
 
 const Tour = mongoose.model('Tour', tourSchema);
 
-export default Tour;
+module.exports = Tour;

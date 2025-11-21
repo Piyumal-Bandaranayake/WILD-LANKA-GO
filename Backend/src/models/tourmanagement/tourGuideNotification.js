@@ -1,5 +1,5 @@
 // src/models/tourmanagement/notification.js
-import mongoose from 'mongoose';
+const mongoose = require('mongoose');
 
 const notificationSchema = new mongoose.Schema(
   {
@@ -11,7 +11,7 @@ const notificationSchema = new mongoose.Schema(
     userId: {
       type: mongoose.Schema.Types.ObjectId,
       required: true,
-      refPath: 'userType',   // ✅ dynamic reference (TourGuide or SafariDriver)
+      // No ref since we'll handle the reference manually based on userType
     },
     tourId: {
       type: mongoose.Schema.Types.ObjectId,
@@ -44,4 +44,4 @@ const notificationSchema = new mongoose.Schema(
 );
 
 const Notification = mongoose.model('Notification', notificationSchema);
-export default Notification;
+module.exports = Notification;

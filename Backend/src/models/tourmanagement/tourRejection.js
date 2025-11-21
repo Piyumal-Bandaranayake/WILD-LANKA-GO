@@ -1,4 +1,4 @@
-import mongoose from 'mongoose';
+const mongoose = require('mongoose');
 
 const tourRejectionSchema = new mongoose.Schema({
 tourId: {
@@ -21,4 +21,4 @@ tourId: {
 });
 
 const TourRejection = mongoose.model('TourRejection', tourRejectionSchema);
-export default TourRejection;
+module.exports = TourRejection;

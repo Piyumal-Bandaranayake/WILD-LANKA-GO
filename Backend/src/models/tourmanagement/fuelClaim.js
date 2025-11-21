@@ -1,10 +1,10 @@
 // src/models/tourmanagement/fuelClaim.js
-import mongoose from 'mongoose';
+const mongoose = require('mongoose');
 
 const fuelClaimSchema = new mongoose.Schema({
   // Who & for which tour
   driverId: { 
-    type: mongoose.Schema.Types.ObjectId, ref: 'SafariDriver', required: true 
+    type: mongoose.Schema.Types.ObjectId, ref: 'SystemUser', required: true 
 },
   tourId:   { 
     type: mongoose.Schema.Types.ObjectId, ref: 'Tour', required: true 
@@ -74,4 +74,4 @@ fuelClaimSchema.pre('validate', function (next) {
 });
 
 const FuelClaim = mongoose.model('FuelClaim', fuelClaimSchema);
-export default FuelClaim;
+module.exports = FuelClaim;

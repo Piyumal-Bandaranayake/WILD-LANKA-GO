@@ -1,4 +1,4 @@
-import mongoose from 'mongoose';
+const mongoose = require('mongoose');
 
 const emergencySchema = new mongoose.Schema({
   emergencyId: {
@@ -42,7 +42,11 @@ const emergencySchema = new mongoose.Schema({
     // For registered users
     userId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: 'User',
+      refPath: 'reporter.userModel',
+    },
+    userModel: {
+      type: String,
+      enum: ['SystemUser', 'Tourist'],
     },
     // For phone calls or anonymous reports
     guestInfo: {
@@ -116,11 +120,11 @@ const emergencySchema = new mongoose.Schema({
   assignment: {
     callOperator: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: 'User',
+      ref: 'SystemUser',
     },
     assignedTo: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: 'User',
+      ref: 'SystemUser',
     },
     assignedRole: {
       type: String,
@@ -129,11 +133,11 @@ const emergencySchema = new mongoose.Schema({
     assignedAt: { type: Date },
     assignedBy: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: 'User',
+      ref: 'SystemUser',
     },
     assignedDriver: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: 'User',
+      ref: 'SystemUser',
     },
     estimatedArrivalTime: { type: Date },
     actualArrivalTime: { type: Date },
@@ -147,7 +151,7 @@ const emergencySchema = new mongoose.Schema({
       action: { type: String, required: true },
       performedBy: {
         type: mongoose.Schema.Types.ObjectId,
-        ref: 'User',
+        ref: 'SystemUser',
       },
       performedAt: { type: Date, default: Date.now },
       notes: { type: String },
@@ -191,12 +195,12 @@ const emergencySchema = new mongoose.Schema({
       message: { type: String, required: true },
       sentBy: {
         type: mongoose.Schema.Types.ObjectId,
-        ref: 'User',
+        ref: 'SystemUser',
       },
       sentAt: { type: Date, default: Date.now },
       recipients: [{
         type: mongoose.Schema.Types.ObjectId,
-        ref: 'User',
+        ref: 'SystemUser',
       }],
       method: {
         type: String,
@@ -223,7 +227,7 @@ const emergencySchema = new mongoose.Schema({
     required: { type: Boolean, default: false },
     investigator: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: 'User',
+      ref: 'SystemUser',
     },
     startedAt: { type: Date },
     completedAt: { type: Date },
@@ -235,7 +239,7 @@ const emergencySchema = new mongoose.Schema({
     note: { type: String },
     addedBy: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: 'User',
+      ref: 'SystemUser',
     },
     addedAt: { type: Date, default: Date.now },
     isPrivate: { type: Boolean, default: false },
@@ -305,7 +309,7 @@ emergencySchema.virtual('isCritical').get(function() {
 
 // Virtual for checking if emergency is overdue
 emergencySchema.virtual('isOverdue').get(function() {
-  if (this.status === 'Resolved' || this.status === 'Closed') return false;
+  if (this.status === 'resolved') return false;
   
   const now = new Date();
   const reportTime = this.incident.timeReported;
@@ -335,4 +339,4 @@ emergencySchema.index({ 'incident.location.coordinates': '2dsphere' });
 emergencySchema.index({ tags: 1 });
 
 const Emergency = mongoose.model('Emergency', emergencySchema);
-export default Emergency;
+module.exports = Emergency;

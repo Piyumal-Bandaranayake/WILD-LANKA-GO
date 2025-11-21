@@ -1,4 +1,4 @@
-import mongoose from 'mongoose';
+const mongoose = require('mongoose');
 
 const tourMaterialSchema = new mongoose.Schema({
   // Link material to a tour
@@ -48,4 +48,4 @@ const tourMaterialSchema = new mongoose.Schema({
 });
 
 const TourMaterial = mongoose.model('TourMaterial', tourMaterialSchema);
-export default TourMaterial;
+module.exports = TourMaterial;

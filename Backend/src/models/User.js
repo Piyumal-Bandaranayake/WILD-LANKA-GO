@@ -1,182 +1,212 @@
-import mongoose from 'mongoose';
+const mongoose = require('mongoose');
+const bcrypt = require('bcryptjs');
+const { USER_ROLES, USER_STATUS } = require('../utils/constants');
 
 const userSchema = new mongoose.Schema({
-  // Basic Auth0 Information
-  name: {
+  // Basic Information
+  firstName: {
     type: String,
-    required: true,
+    required: [true, 'First name is required'],
+    trim: true,
+    maxlength: [50, 'First name cannot exceed 50 characters'],
+  },
+  lastName: {
+    type: String,
+    required: [true, 'Last name is required'],
+    trim: true,
+    maxlength: [50, 'Last name cannot exceed 50 characters'],
   },
   email: {
     type: String,
-    required: true,
+    required: [true, 'Email is required'],
     unique: true,
+    lowercase: true,
+    trim: true,
+    match: [
+      /^\w+([.-]?\w+)*@\w+([.-]?\w+)*(\.\w{2,3})+$/,
+      'Please enter a valid email address',
+    ],
   },
-  auth0Id: {
-    type: String,
-    required: true,
-    unique: true,
-  },
-  
-  // Extended Auth0 Profile Data
-  picture: {
-    type: String,
-    default: null,
-  },
-  nickname: {
-    type: String,
-    default: null,
-  },
-  given_name: {
-    type: String,
-    default: null,
-  },
-  family_name: {
-    type: String,
-    default: null,
-  },
-  locale: {
-    type: String,
-    default: null,
-  },
-  
-  // Email Verification
-  email_verified: {
-    type: Boolean,
-    default: false,
-  },
-  
-  // System Role
-  role: {
-    type: String,
-    enum: ['admin', 'callOperator', 'EmergencyOfficer', 'safariDriver', 'tourGuide', 'tourist', 'vet', 'WildlifeOfficer'],
-    default: 'tourist',
-  },
-  
-  // Authentication Metadata
-  auth_metadata: {
-    last_login: {
-      type: Date,
-      default: Date.now,
-    },
-    login_count: {
-      type: Number,
-      default: 1,
-    },
-    last_ip: {
-      type: String,
-      default: null,
-    },
-    user_agent: {
-      type: String,
-      default: null,
-    },
-    auth_provider: {
-      type: String,
-      default: 'auth0',
-    },
-  },
-  
-  // Profile Completion
-  profile_complete: {
-    type: Boolean,
-    default: false,
-  },
-  
-  // Additional Profile Information
   phone: {
     type: String,
-    default: null,
-  },
-  address: {
-    street: { type: String, default: null },
-    city: { type: String, default: null },
-    state: { type: String, default: null },
-    country: { type: String, default: null },
-    postal_code: { type: String, default: null },
+    required: [true, 'Phone number is required'],
+    trim: true,
+    match: [/^[0-9+\-\s()]+$/, 'Please enter a valid phone number'],
   },
   
-  // Preferences
-  preferences: {
-    language: { type: String, default: 'en' },
-    timezone: { type: String, default: null },
-    notifications: {
-      email: { type: Boolean, default: true },
-      sms: { type: Boolean, default: false },
-      push: { type: Boolean, default: true },
+  // Authentication
+  password: {
+    type: String,
+    required: [true, 'Password is required'],
+    minlength: [6, 'Password must be at least 6 characters'],
+    select: false, // Don't include password in queries by default
+  },
+  
+  // Role and Status
+  role: {
+    type: String,
+    enum: Object.values(USER_ROLES),
+    required: [true, 'User role is required'],
+  },
+  status: {
+    type: String,
+    enum: Object.values(USER_STATUS),
+    default: USER_STATUS.ACTIVE,
+  },
+  
+  // Profile Information
+  profileImage: {
+    type: String,
+    default: null,
+  },
+  dateOfBirth: {
+    type: Date,
+  },
+  address: {
+    street: String,
+    city: String,
+    state: String,
+    zipCode: String,
+    country: {
+      type: String,
+      default: 'Sri Lanka',
     },
   },
   
-  // Account Status
-  status: {
+  // Role-specific Information
+  // For Tour Guides
+  guideRegistrationNo: {
     type: String,
-    enum: ['active', 'inactive', 'suspended', 'pending'],
-    default: 'active',
+    sparse: true, // Allows multiple null values
   },
+  experienceYears: {
+    type: Number,
+    min: 0,
+  },
+  languages: [{
+    type: String,
+  }],
+  specializations: [{
+    type: String,
+  }],
   
-  // Terms and Privacy
-  terms_accepted: {
+  // For Safari Drivers
+  licenseNumber: {
+    type: String,
+    sparse: true,
+  },
+  licenseExpiryDate: {
+    type: Date,
+  },
+  vehicleTypes: [{
+    type: String,
+  }],
+  
+  // For Vets
+  veterinaryLicense: {
+    type: String,
+    sparse: true,
+  },
+  qualifications: [{
+    type: String,
+  }],
+  
+  // System Information
+  isEmailVerified: {
     type: Boolean,
     default: false,
   },
-  terms_accepted_date: {
-    type: Date,
-    default: null,
+  emailVerificationToken: {
+    type: String,
+    select: false,
   },
-  privacy_accepted: {
-    type: Boolean,
-    default: false,
+  passwordResetToken: {
+    type: String,
+    select: false,
   },
-  privacy_accepted_date: {
+  passwordResetExpires: {
     type: Date,
-    default: null,
+    select: false,
+  },
+  lastLogin: {
+    type: Date,
+  },
+  loginCount: {
+    type: Number,
+    default: 0,
   },
   
+  // Metadata
+  createdBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+  },
+  updatedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+  },
 }, {
-  timestamps: true, // Adds createdAt and updatedAt
-  toJSON: { virtuals: true },
-  toObject: { virtuals: true }
+  timestamps: true,
+  toJSON: {
+    transform: function(doc, ret) {
+      delete ret.password;
+      delete ret.emailVerificationToken;
+      delete ret.passwordResetToken;
+      delete ret.passwordResetExpires;
+      return ret;
+    },
+  },
 });
+
+// Indexes (email index is automatically created by unique: true)
+userSchema.index({ role: 1 });
+userSchema.index({ status: 1 });
+userSchema.index({ createdAt: -1 });
 
 // Virtual for full name
 userSchema.virtual('fullName').get(function() {
-  if (this.given_name && this.family_name) {
-    return `${this.given_name} ${this.family_name}`;
+  return `${this.firstName} ${this.lastName}`;
+});
+
+// Pre-save middleware to hash password
+userSchema.pre('save', async function(next) {
+  // Only hash the password if it has been modified (or is new)
+  if (!this.isModified('password')) return next();
+  
+  try {
+    // Hash password with cost of 12
+    const saltRounds = parseInt(process.env.BCRYPT_SALT_ROUNDS) || 12;
+    this.password = await bcrypt.hash(this.password, saltRounds);
+    next();
+  } catch (error) {
+    next(error);
   }
-  return this.name;
 });
 
-// Virtual for profile completion percentage
-userSchema.virtual('profileCompletionPercentage').get(function() {
-  let completed = 0;
-  const total = 10;
-  
-  if (this.name) completed++;
-  if (this.email) completed++;
-  if (this.picture) completed++;
-  if (this.phone) completed++;
-  if (this.address.city) completed++;
-  if (this.address.country) completed++;
-  if (this.preferences.timezone) completed++;
-  if (this.email_verified) completed++;
-  if (this.terms_accepted) completed++;
-  if (this.privacy_accepted) completed++;
-  
-  return Math.round((completed / total) * 100);
-});
+// Instance method to check password
+userSchema.methods.comparePassword = async function(candidatePassword) {
+  try {
+    return await bcrypt.compare(candidatePassword, this.password);
+  } catch (error) {
+    throw new Error('Password comparison failed');
+  }
+};
 
-// Index for better query performance
-userSchema.index({ auth0Id: 1 });
-userSchema.index({ email: 1 });
-userSchema.index({ role: 1 });
-userSchema.index({ status: 1 });
-userSchema.index({ 'auth_metadata.last_login': -1 });
+// Instance method to update login info
+userSchema.methods.updateLoginInfo = function() {
+  this.lastLogin = new Date();
+  this.loginCount += 1;
+  return this.save();
+};
 
-// Pre-save middleware to update profile completion
-userSchema.pre('save', function(next) {
-  this.profile_complete = this.profileCompletionPercentage >= 80;
-  next();
-});
+// Static method to find by email
+userSchema.statics.findByEmail = function(email) {
+  return this.findOne({ email: email.toLowerCase() });
+};
 
-const User = mongoose.model('User', userSchema);
+// Static method to find active users by role
+userSchema.statics.findActiveByRole = function(role) {
+  return this.find({ role, status: USER_STATUS.ACTIVE });
+};
 
-export default User;
+module.exports = mongoose.model('User', userSchema);
