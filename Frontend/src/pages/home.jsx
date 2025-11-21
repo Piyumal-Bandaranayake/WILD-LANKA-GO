@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import Footer from "../components/footer";
-import Navbar from "../components/Navbar";
-import { protectedApi } from '../services/authService';
+import NavBar from "../components/Navbar";
+// import { protectedApi } from '../services/authService'; // Removed - using new auth system
 import Chatbot from '../Chatbot';
+import ApplicationForm from '../components/ApplicationForm';
 
 // Add custom styles for animations
 const customStyles = `
@@ -51,6 +52,19 @@ if (typeof document !== 'undefined') {
   document.head.appendChild(styleElement);
 }
 
+// Safely format location which may be an object { venue, address }
+const formatLocation = (location) => {
+  if (!location) return '';
+  if (typeof location === 'string') return location;
+  if (typeof location === 'object') {
+    const venue = location.venue || location.name || '';
+    const address = location.address || location.street || '';
+    const combined = [venue, address].filter(Boolean).join(', ');
+    return combined || JSON.stringify(location);
+  }
+  return String(location);
+};
+
 const Home = () => {
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [feedbacks, setFeedbacks] = useState([]);
@@ -62,6 +76,7 @@ const Home = () => {
   const [activitiesLoading, setActivitiesLoading] = useState(true);
   const [eventsError, setEventsError] = useState(null);
   const [activitiesError, setActivitiesError] = useState(null);
+  const [isApplicationFormOpen, setIsApplicationFormOpen] = useState(false);
 
   // Background images for the carousel
   const backgroundImages = [
@@ -85,9 +100,9 @@ const Home = () => {
     const fetchFeedbacks = async () => {
       try {
         setLoading(true);
-        const response = await protectedApi.getFeedbacks();
+        // const response = await protectedApi.getFeedbacks(); // TODO: Implement with new API service
         // Get the last 3 feedbacks
-        setFeedbacks(response.data.slice(-3) || []);
+        setFeedbacks([]); // TODO: Implement with new API service
       } catch (error) {
         console.error('Failed to fetch feedbacks:', error);
         setError('Failed to load feedbacks');
@@ -101,8 +116,8 @@ const Home = () => {
     const fetchEvents = async () => {
       try {
         setEventsLoading(true);
-        const response = await protectedApi.getEvents();
-        setEvents(response.data.slice(-3) || []);
+        // const response = await protectedApi.getEvents(); // TODO: Implement with new API service
+        setEvents([]); // TODO: Implement with new API service
       } catch (error) {
         console.error('Failed to fetch events:', error);
         setEventsError('Failed to load events');
@@ -114,8 +129,8 @@ const Home = () => {
     const fetchActivities = async () => {
       try {
         setActivitiesLoading(true);
-        const response = await protectedApi.getActivities();
-        setActivities(response.data.slice(-3) || []);
+        // const response = await protectedApi.getActivities(); // TODO: Implement with new API service
+        setActivities([]); // TODO: Implement with new API service
       } catch (error) {
         console.error('Failed to fetch activities:', error);
         setActivitiesError('Failed to load activities');
@@ -141,7 +156,7 @@ const Home = () => {
 
   return (
     <div className="flex flex-col min-h-screen bg-gray-50">
-      <Navbar />
+      <NavBar />
 
       {/* Hero Section with Modern Design */}
       <section className="relative h-screen overflow-hidden">
@@ -200,6 +215,19 @@ const Home = () => {
                   Explore Adventures
                 </span>
                 <div className="absolute inset-0 bg-gradient-to-r from-emerald-600 to-teal-700 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+              </button>
+              
+              <button 
+                onClick={() => setIsApplicationFormOpen(true)}
+                className="group relative px-10 py-4 bg-gradient-to-r from-yellow-400 to-orange-500 text-white font-semibold rounded-full shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-1 hover:scale-105"
+              >
+                <span className="relative z-10 flex items-center gap-3">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2-2v2m8 0V6a2 2 0 012 2v6a2 2 0 01-2 2H6a2 2 0 01-2-2V8a2 2 0 012-2V6" />
+                  </svg>
+                  Join Our Team
+                </span>
+                <div className="absolute inset-0 bg-gradient-to-r from-yellow-500 to-orange-600 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
               </button>
               
               <button className="group px-10 py-4 bg-white/20 backdrop-blur-sm text-white font-semibold rounded-full border-2 border-white/30 hover:bg-white/30 hover:border-white/50 transition-all duration-300 transform hover:-translate-y-1">
@@ -350,7 +378,7 @@ const Home = () => {
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
                         </svg>
-                        <span className="font-medium">{event.location}</span>
+                        <span className="font-medium">{formatLocation(event.location)}</span>
                       </div>
                     </div>
 
@@ -418,9 +446,15 @@ const Home = () => {
                   {/* Activity Image */}
                   <div className="relative overflow-hidden h-64">
                     <img
-                      src="https://images.unsplash.com/photo-1507525428034-b723cf961d3e?q=80&w=1200&auto=format&fit=crop"
-                      alt={activity.title}
+                      src={activity.images && activity.images.length > 0 
+                        ? `http://localhost:5001${activity.images[0]}` 
+                        : "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?q=80&w=1200&auto=format&fit=crop"
+                      }
+                      alt={activity.name}
                       className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
+                      onError={(e) => {
+                        e.target.src = "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?q=80&w=1200&auto=format&fit=crop";
+                      }}
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
                     
@@ -438,7 +472,7 @@ const Home = () => {
                   {/* Activity Content */}
                   <div className="p-6">
                     <h3 className="text-xl font-bold text-gray-900 mb-3 group-hover:text-emerald-600 transition-colors duration-300">
-                      {activity.title}
+                      {activity.name}
                     </h3>
                     <p className="text-gray-600 mb-6 line-clamp-3">
                       {activity.description}
@@ -542,6 +576,19 @@ const Home = () => {
                 Get Started Today
               </span>
               <div className="absolute inset-0 bg-gradient-to-r from-emerald-50 to-teal-50 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+            </button>
+            
+            <button 
+              onClick={() => setIsApplicationFormOpen(true)}
+              className="group relative px-10 py-4 bg-gradient-to-r from-yellow-400 to-orange-500 text-white font-bold text-lg rounded-full shadow-2xl hover:shadow-yellow-500/25 transition-all duration-300 transform hover:-translate-y-1 hover:scale-105"
+            >
+              <span className="relative z-10 flex items-center gap-3">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2-2v2m8 0V6a2 2 0 012 2v6a2 2 0 01-2 2H6a2 2 0 01-2-2V8a2 2 0 012-2V6" />
+                </svg>
+                Join Our Team
+              </span>
+              <div className="absolute inset-0 bg-gradient-to-r from-yellow-500 to-orange-600 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
             </button>
             
             <button className="group px-8 py-4 bg-transparent text-white font-semibold text-lg rounded-full border-2 border-white/50 hover:bg-white/10 hover:border-white transition-all duration-300">
@@ -693,6 +740,10 @@ const Home = () => {
 
       <Footer />
       <Chatbot />
+      <ApplicationForm 
+        isOpen={isApplicationFormOpen} 
+        onClose={() => setIsApplicationFormOpen(false)} 
+      />
     </div>
   );
 };

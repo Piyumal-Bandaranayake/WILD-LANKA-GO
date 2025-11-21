@@ -47,11 +47,11 @@ export default function AboutUs() {
         {/* Background Image with Parallax Effect */}
         <div className="absolute inset-0">
           <img
-            src="https://images.unsplash.com/photo-1598387993214-f22e0c2d4523?q=80&w=2070&auto=format&fit=crop"
+            src="/src/assets/lepord.jpg"
             alt="Sri Lankan Wildlife"
             className="w-full h-full object-cover"
           />
-          <div className="absolute inset-0 bg-gradient-to-br from-emerald-900/80 via-emerald-700/60 to-teal-800/70"></div>
+          <div className="absolute inset-0 bg-gradient-to-br from-emerald-900/20 via-emerald-700/15 to-teal-800/20"></div>
         </div>
 
         {/* Hero Content */}
@@ -291,40 +291,40 @@ export default function AboutUs() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-            {[
-              {
-                name: 'Dr. Samantha Perera',
-                role: 'Chief Wildlife Veterinarian',
-                exp: '15 years experience',
-                spec: 'Elephant rehabilitation and care',
-                img: 'https://images.unsplash.com/photo-1580136606820-b1c1b5f6c5b6?q=80&w=600',
-                social: { linkedin: '#', twitter: '#' }
-              },
-              {
-                name: 'Ruwan Jayasinghe',
-                role: 'Senior Wildlife Guide',
-                exp: '12 years experience',
-                spec: 'Leopard tracking and behavior',
-                img: 'https://images.unsplash.com/photo-1560250097-0b93528c311a?q=80&w=600',
-                social: { linkedin: '#', twitter: '#' }
-              },
-              {
-                name: 'Priya Wickramasinghe',
-                role: 'Conservation Officer',
-                exp: '10 years experience',
-                spec: 'Marine turtle conservation',
-                img: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?q=80&w=600',
-                social: { linkedin: '#', twitter: '#' }
-              },
-              {
-                name: 'Thilanka Fernando',
-                role: 'Photography Instructor',
-                exp: '8 years experience',
-                spec: 'Wildlife photography techniques',
-                img: 'https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?q=80&w=600',
-                social: { linkedin: '#', twitter: '#' }
-              },
-            ].map((member, i) => (
+             {[
+               {
+                 name: 'Dr. Samantha Perera',
+                 role: 'Chief Wildlife Veterinarian',
+                 exp: '15 years experience',
+                 spec: 'Elephant rehabilitation and care',
+                 img: '/src/assets/Dr.jpeg',
+                 social: { linkedin: '#', twitter: '#' }
+               },
+               {
+                 name: 'Ruwan Jayasinghe',
+                 role: 'Senior Wildlife Guide',
+                 exp: '12 years experience',
+                 spec: 'Leopard tracking and behavior',
+                 img: '/src/assets/man1.jpg',
+                 social: { linkedin: '#', twitter: '#' }
+               },
+               {
+                 name: 'Priya Wickramasinghe',
+                 role: 'Conservation Officer',
+                 exp: '10 years experience',
+                 spec: 'Marine turtle conservation',
+                 img: '/src/assets/women1.jpeg',
+                 social: { linkedin: '#', twitter: '#' }
+               },
+               {
+                 name: 'Thilanka Fernando',
+                 role: 'Photography Instructor',
+                 exp: '8 years experience',
+                 spec: 'Wildlife photography techniques',
+                 img: '/src/assets/women2.jpeg',
+                 social: { linkedin: '#', twitter: '#' }
+               },
+             ].map((member, i) => (
               <div key={i} className="group bg-gradient-to-br from-emerald-50 to-teal-50 rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-500 transform hover:-translate-y-2 overflow-hidden">
                 {/* Image */}
                 <div className="relative overflow-hidden">

@@ -1,9 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { protectedApi } from '../../services/authService';
-import { useAuthContext } from '../../contexts/AuthContext';
-import ProtectedRoute from '../../components/ProtectedRoute';
+import { useAuth } from '../../contexts/AuthContext';
+import RoleGuard from '../../components/RoleGuard';
 import Navbar from '../../components/Navbar';
 import Footer from '../../components/footer';
+import { formatLocation } from '../../utils/formatters';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
+import logoImage from '../../assets/logo.png';
 
 // StatCard component for displaying stats
 const StatCard = ({ title, value, color, iconPath }) => {
@@ -43,13 +47,14 @@ const StatCard = ({ title, value, color, iconPath }) => {
 };
 
 const EmergencyOfficerDashboard = () => {
-    const { backendUser } = useAuthContext();
+    const { user } = useAuth();
     const [emergencies, setEmergencies] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [activeTab, setActiveTab] = useState('active');
     const [showDetailModal, setShowDetailModal] = useState(false);
     const [showUpdateModal, setShowUpdateModal] = useState(false);
+    const [showSimpleStatusModal, setShowSimpleStatusModal] = useState(false);
     const [showProfileModal, setShowProfileModal] = useState(false);
     const [selectedEmergency, setSelectedEmergency] = useState(null);
     const [profileData, setProfileData] = useState({
@@ -74,6 +79,7 @@ const EmergencyOfficerDashboard = () => {
         hospitalName: '',
         ambulanceRequired: false
     });
+    const [simpleStatusUpdate, setSimpleStatusUpdate] = useState('');
 
     const [stats, setStats] = useState({
         totalEmergencies: 0,
@@ -92,68 +98,161 @@ const EmergencyOfficerDashboard = () => {
 
 
     useEffect(() => {
-        if (backendUser?.role === 'EmergencyOfficer') {
+        console.log('🔄 EmergencyOfficerDashboard useEffect triggered', {
+            user: user,
+            role: user?.role,
+            isEmergencyOfficer: user?.role === 'emergencyOfficer'
+        });
+        
+        if (user?.role === 'emergencyOfficer') {
+            console.log('✅ User is emergencyOfficer, calling fetchEmergencies');
             fetchEmergencies();
             initializeProfile();
+            
+            // Safety timeout to prevent infinite loading
+            const timeout = setTimeout(() => {
+                console.log('⏰ Safety timeout reached, forcing loading to false');
+                setLoading(false);
+            }, 10000); // 10 seconds timeout
+            
+            return () => clearTimeout(timeout);
+        } else {
+            console.log('❌ User is not emergencyOfficer, role:', user?.role);
         }
-    }, [backendUser]);
+    }, [user]);
 
     const initializeProfile = () => {
         setProfileData({
-            name: backendUser?.name || '',
-            email: backendUser?.email || '',
-            phone: backendUser?.phone || '',
-            badgeNumber: backendUser?.badgeNumber || '',
-            specialization: backendUser?.specialization || 'Emergency Response',
-            experience: backendUser?.experience || '',
-            certifications: backendUser?.certifications || ['First Aid', 'CPR']
+            name: user?.name || '',
+            email: user?.email || '',
+            phone: user?.phone || '',
+            badgeNumber: user?.badgeNumber || '',
+            specialization: user?.specialization || 'Emergency Response',
+            experience: user?.experience || '',
+            certifications: user?.certifications || ['First Aid', 'CPR']
         });
     };
 
     const fetchEmergencies = async () => {
         try {
+            console.log('🔄 Starting fetchEmergencies...');
             setLoading(true);
-            const response = await protectedApi.getEmergencies();
-            const emergenciesData = response.data || [];
+            setError(null);
+            
+            console.log('📡 Calling APIs...');
+            const [assignedEmergenciesResponse, formsResponse] = await Promise.all([
+                protectedApi.getAssignedEmergencies(),
+                protectedApi.getEmergencyForms()
+            ]);
+            
+            console.log('📊 API responses received:', {
+                assignedEmergencies: assignedEmergenciesResponse,
+                forms: formsResponse
+            });
+            
+            // Extract data from responses
+            const assignedEmergencies = assignedEmergenciesResponse?.data?.data || assignedEmergenciesResponse?.data || [];
+            const allForms = formsResponse?.data?.data || formsResponse?.data || [];
 
-            // Filter for human emergencies only
-            const humanEmergencies = emergenciesData.filter(e => e.type === 'human');
-            setEmergencies(humanEmergencies);
+            console.log('📊 Extracted data:', {
+                assignedEmergencies: assignedEmergencies.length,
+                allForms: allForms.length
+            });
 
-            // Calculate stats
+            // Ensure we have arrays
+            const safeAssignedEmergencies = Array.isArray(assignedEmergencies) ? assignedEmergencies : [];
+            const safeForms = Array.isArray(allForms) ? allForms : [];
+            
+            // Filter for emergency forms assigned to current user
+            const assignedForms = safeForms.filter(f => 
+                f && f.assignedTo && f.assignedTo.userId && f.assignedTo.userId.toString() === user._id
+            );
+            
+            console.log('✅ Filtered data:', {
+                assignedEmergencies: safeAssignedEmergencies.length,
+                assignedForms: assignedForms.length
+            });
+
+            // Convert forms to emergency format for unified display
+            const convertedForms = assignedForms.map(form => ({
+                _id: form._id,
+                type: 'Human',
+                description: form.description,
+                location: form.location,
+                status: 'pending', // Forms are always pending until processed
+                priority: 'medium', // Default priority for forms
+                reporterName: form.name,
+                reporterPhone: form.phone,
+                reporterEmail: form.email,
+                propertyName: form.property_name,
+                createdAt: form.date,
+                date: form.date,
+                time: form.time,
+                emergencyType: form.emergency_type,
+                isForm: true // Flag to identify form-based emergencies
+            }));
+
+            // Combine assigned emergencies and converted forms
+            const allAssignedEmergencies = [...safeAssignedEmergencies, ...convertedForms];
+            console.log('🔍 Final emergencies data:', allAssignedEmergencies);
+            console.log('🔍 Sample emergency:', allAssignedEmergencies[0]);
+            setEmergencies(allAssignedEmergencies);
+
+            // Calculate stats for assigned emergencies only
             const today = new Date().toDateString();
-            const resolvedToday = humanEmergencies.filter(e =>
-                e.status === 'resolved' &&
+            const resolvedToday = allAssignedEmergencies.filter(e =>
+                (e.status === 'Resolved' || e.status === 'Closed' || e.status === 'resolved') &&
                 new Date(e.createdAt || e.date).toDateString() === today
             ).length;
 
-            const emergenciesToday = humanEmergencies.filter(e =>
+            const emergenciesToday = allAssignedEmergencies.filter(e =>
                 new Date(e.createdAt || e.date).toDateString() === today
             ).length;
 
             setStats({
-                totalEmergencies: humanEmergencies.length,
-                pendingEmergencies: humanEmergencies.filter(e => e.status === 'pending').length,
-                inProgressEmergencies: humanEmergencies.filter(e => e.status === 'in-progress').length,
+                totalEmergencies: allAssignedEmergencies.length,
+                pendingEmergencies: allAssignedEmergencies.filter(e => 
+                    e.status === 'pending' || e.status === 'Pending' || e.status === 'Reported'
+                ).length,
+                inProgressEmergencies: allAssignedEmergencies.filter(e => 
+                    e.status === 'In Progress' || e.status === 'in-progress'
+                ).length,
                 resolvedToday,
                 totalEmergenciesToday: emergenciesToday,
                 averageResponseTime: '12 min',
-                hospitalCoordinations: humanEmergencies.filter(e =>
+                hospitalCoordinations: allAssignedEmergencies.filter(e =>
                     e.hospitalCoordination && e.hospitalCoordination.trim() !== ''
                 ).length,
-                firstAidCases: humanEmergencies.filter(e =>
+                firstAidCases: allAssignedEmergencies.filter(e =>
                     e.firstAidProvided && e.firstAidProvided.trim() !== ''
                 ).length,
-                criticalCases: humanEmergencies.filter(e => e.priority === 'critical').length,
+                criticalCases: allAssignedEmergencies.filter(e => e.priority === 'critical' || e.priority === 'Critical').length,
                 reportsGenerated: 0, // This would come from a reports API
-                driverAssignments: humanEmergencies.filter(e => 
+                driverAssignments: allAssignedEmergencies.filter(e => 
                     e.assignedDriver && e.assignedDriver.trim() !== ''
                 ).length
             });
         } catch (error) {
-            console.error('Failed to fetch emergencies:', error);
+            console.error('❌ Failed to fetch emergencies:', error);
             setError('Failed to load emergency data');
+            
+            // Set empty data to prevent infinite loading
+            setEmergencies([]);
+            setStats({
+                totalEmergencies: 0,
+                pendingEmergencies: 0,
+                inProgressEmergencies: 0,
+                resolvedToday: 0,
+                averageResponseTime: '12 min',
+                hospitalCoordinations: 0,
+                firstAidCases: 0,
+                criticalCases: 0,
+                reportsGenerated: 0,
+                totalEmergenciesToday: 0,
+                driverAssignments: 0
+            });
         } finally {
+            console.log('🔄 Setting loading to false');
             setLoading(false);
         }
     };
@@ -189,6 +288,23 @@ const EmergencyOfficerDashboard = () => {
         }
     };
 
+    const handleSimpleStatusUpdate = async (e) => {
+        e.preventDefault();
+        try {
+            console.log('🔄 Updating status to:', simpleStatusUpdate);
+            await protectedApi.updateEmergencyStatusSimple(selectedEmergency._id, { status: simpleStatusUpdate });
+
+            setShowSimpleStatusModal(false);
+            setSelectedEmergency(null);
+            setSimpleStatusUpdate('');
+            fetchEmergencies();
+            alert('Emergency status updated successfully!');
+        } catch (error) {
+            console.error('Failed to update emergency status:', error);
+            setError('Failed to update emergency status');
+        }
+    };
+
     const openDetailModal = (emergency) => {
         setSelectedEmergency(emergency);
         setShowDetailModal(true);
@@ -212,35 +328,38 @@ const EmergencyOfficerDashboard = () => {
         setShowUpdateModal(true);
     };
 
+    // Helper to determine next available statuses for the simple update modal
+    const getAvailableNextStatuses = (currentStatus) => {
+        switch (currentStatus) {
+            case 'pending':
+            case 'Pending':
+            case 'Reported': // Handle legacy status
+                return [{ label: 'In Progress', value: 'In Progress' }];
+            case 'In Progress':
+            case 'in-progress':
+                return [{ label: 'Resolved', value: 'Resolved' }];
+            case 'Resolved':
+            case 'Closed':
+            case 'resolved':
+                return []; // No further updates
+            default:
+                return [{ label: 'In Progress', value: 'In Progress' }]; // Default to In Progress
+        }
+    };
+
+    const openSimpleStatusModal = (emergency) => {
+        setSelectedEmergency(emergency);
+        const nextStatuses = getAvailableNextStatuses(emergency.status);
+        setSimpleStatusUpdate(nextStatuses.length > 0 ? nextStatuses[0].value : ''); // Pre-select the next status
+        setShowSimpleStatusModal(true);
+    };
+
     const handleDownloadReport = async (reportType) => {
         try {
             const today = new Date().toISOString().split('T')[0];
-            let reportData;
-            let filename;
+            const filename = `emergency-operations-summary-${today}.pdf`;
             
-            switch (reportType) {
-                case 'response-time':
-                    reportData = generateResponseTimeReport();
-                    filename = `emergency-response-time-report-${today}.csv`;
-                    break;
-                case 'first-aid':
-                    reportData = generateFirstAidReport();
-                    filename = `first-aid-report-${today}.csv`;
-                    break;
-                case 'hospital-coordination':
-                    reportData = generateHospitalCoordinationReport();
-                    filename = `hospital-coordination-report-${today}.csv`;
-                    break;
-                case 'daily-summary':
-                    reportData = generateDailySummaryReport();
-                    filename = `daily-emergency-summary-${today}.csv`;
-                    break;
-                default:
-                    reportData = generateAllEmergenciesReport();
-                    filename = `all-emergencies-report-${today}.csv`;
-            }
-            
-            downloadCSV(reportData, filename);
+            generatePDFReport();
             setStats(prev => ({ ...prev, reportsGenerated: prev.reportsGenerated + 1 }));
         } catch (error) {
             console.error('Error generating report:', error);
@@ -248,113 +367,214 @@ const EmergencyOfficerDashboard = () => {
         }
     };
 
-    const generateResponseTimeReport = () => {
-        const headers = ['Emergency ID', 'Description', 'Location', 'Reported Time', 'Response Time', 'Status', 'Priority'];
-        const rows = emergencies.map(emergency => [
-            emergency._id || 'N/A',
-            emergency.description || 'N/A',
-            emergency.location || 'N/A',
-            new Date(emergency.createdAt || emergency.date).toLocaleString(),
-            emergency.responseTime || 'Pending',
-            emergency.status || 'N/A',
-            emergency.priority || 'N/A'
-        ]);
-        return [headers, ...rows];
-    };
 
-    const generateFirstAidReport = () => {
-        const firstAidCases = emergencies.filter(e => e.firstAidProvided && e.firstAidProvided.trim() !== '');
-        const headers = ['Emergency ID', 'Description', 'Location', 'First Aid Provided', 'Patient Condition', 'Date'];
-        const rows = firstAidCases.map(emergency => [
-            emergency._id || 'N/A',
-            emergency.description || 'N/A',
-            emergency.location || 'N/A',
-            emergency.firstAidProvided || 'N/A',
-            emergency.patientCondition || 'N/A',
-            new Date(emergency.createdAt || emergency.date).toLocaleString()
-        ]);
-        return [headers, ...rows];
-    };
-
-    const generateHospitalCoordinationReport = () => {
-        const hospitalCases = emergencies.filter(e => e.hospitalCoordination && e.hospitalCoordination.trim() !== '');
-        const headers = ['Emergency ID', 'Description', 'Hospital Name', 'Coordination Details', 'Ambulance Required', 'Date'];
-        const rows = hospitalCases.map(emergency => [
-            emergency._id || 'N/A',
-            emergency.description || 'N/A',
-            emergency.hospitalName || 'N/A',
-            emergency.hospitalCoordination || 'N/A',
-            emergency.ambulanceRequired ? 'Yes' : 'No',
-            new Date(emergency.createdAt || emergency.date).toLocaleString()
-        ]);
-        return [headers, ...rows];
-    };
-
-    const generateDailySummaryReport = () => {
-        const today = new Date().toDateString();
-        const todayEmergencies = emergencies.filter(e => 
-            new Date(e.createdAt || e.date).toDateString() === today
-        );
+    // PDF Generation Functions
+    const createFormalHeader = (doc, title, subtitle = '') => {
+        const pageWidth = doc.internal.pageSize.getWidth();
+        const margin = 20;
         
-        const headers = ['Metric', 'Count', 'Details'];
-        const rows = [
-            ['Total Emergencies Today', stats.totalEmergenciesToday, ''],
-            ['Pending Emergencies', stats.pendingEmergencies, ''],
-            ['In Progress Emergencies', stats.inProgressEmergencies, ''],
-            ['Resolved Today', stats.resolvedToday, ''],
-            ['First Aid Cases', stats.firstAidCases, ''],
-            ['Hospital Coordinations', stats.hospitalCoordinations, ''],
-            ['Critical Cases', stats.criticalCases, ''],
-            ['Driver Assignments', stats.driverAssignments, ''],
-            ['Reports Generated', stats.reportsGenerated + 1, 'Including this report']
-        ];
-        return [headers, ...rows];
-    };
-
-    const generateAllEmergenciesReport = () => {
-        const headers = ['Emergency ID', 'Description', 'Location', 'Status', 'Priority', 'Reporter', 'Phone', 'Date', 'First Aid', 'Hospital Coordination'];
-        const rows = emergencies.map(emergency => [
-            emergency._id || 'N/A',
-            emergency.description || 'N/A',
-            emergency.location || 'N/A',
-            emergency.status || 'N/A',
-            emergency.priority || 'N/A',
-            emergency.reporterName || 'N/A',
-            emergency.reporterPhone || 'N/A',
-            new Date(emergency.createdAt || emergency.date).toLocaleString(),
-            emergency.firstAidProvided || 'N/A',
-            emergency.hospitalCoordination || 'N/A'
-        ]);
-        return [headers, ...rows];
-    };
-
-    const downloadCSV = (data, filename) => {
-        const csvContent = data.map(row => 
-            row.map(field => 
-                typeof field === 'string' && field.includes(',') 
-                    ? `"${field}"` 
-                    : field
-            ).join(',')
-        ).join('\n');
+        // Header background with gradient effect
+        doc.setFillColor(30, 64, 175); // Blue-800
+        doc.rect(0, 0, pageWidth, 60, 'F');
         
-        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-        const link = document.createElement('a');
-        const url = URL.createObjectURL(blob);
-        link.setAttribute('href', url);
-        link.setAttribute('download', filename);
-        link.style.visibility = 'hidden';
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
+        // Add actual logo
+        try {
+          // Add logo image (resize to fit nicely in header)
+          doc.addImage(logoImage, 'PNG', 15, 10, 35, 35);
+        } catch (error) {
+          console.warn('Could not load logo image, using text fallback:', error);
+          // Fallback to text logo if image fails
+          doc.setFillColor(255, 255, 255);
+          doc.circle(32, 27, 15, 'F');
+          doc.setTextColor(30, 64, 175);
+          doc.setFontSize(14);
+          doc.setFont('helvetica', 'bold');
+          doc.text('WLG', 27, 32, { align: 'center' });
+        }
+        
+        // Company name - positioned after logo
+        doc.setTextColor(255, 255, 255);
+        doc.setFontSize(18);
+        doc.setFont('helvetica', 'bold');
+        doc.text('Wild Lanka Go', 60, 25);
+        doc.setFontSize(11);
+        doc.setFont('helvetica', 'normal');
+        doc.text('Wildlife Conservation Portal', 60, 35);
+        
+        // Contact info on the right - properly spaced
+        doc.setFontSize(9);
+        doc.text('123 Wildlife Sanctuary Road', pageWidth - margin, 20, { align: 'right' });
+        doc.text('Colombo, Sri Lanka', pageWidth - margin, 28, { align: 'right' });
+        doc.text('info@wildlankago.com', pageWidth - margin, 36, { align: 'right' });
+        doc.text('+94 11 234 5678', pageWidth - margin, 44, { align: 'right' });
+        
+        // Document title section - positioned below header with proper spacing
+        doc.setTextColor(55, 65, 81); // Gray-700
+        doc.setFontSize(18);
+        doc.setFont('helvetica', 'bold');
+        doc.text(title, margin, 85);
+        
+        // Subtitle if provided - positioned below title with more space
+        if (subtitle) {
+            doc.setFontSize(12);
+            doc.setFont('helvetica', 'normal');
+            doc.text(subtitle, margin, 105);
+        }
+        
+        // Date and user info - positioned on the right side with proper spacing
+        doc.setFontSize(10);
+        doc.text(`Generated on: ${new Date().toLocaleDateString()}`, pageWidth - margin, 85, { align: 'right' });
+        
+        // User info - positioned below date with more space
+        doc.setFontSize(10);
+        doc.text(`Emergency Officer: ${user?.firstName && user?.lastName ? `${user.firstName} ${user.lastName}` : user?.name || 'Emergency Officer'}`, pageWidth - margin, 105, { align: 'right' });
+        
+        // Line separator - positioned below all content with more space
+        doc.setDrawColor(200, 200, 200);
+        doc.setLineWidth(0.5);
+        doc.line(margin, 125, pageWidth - margin, 125);
+        
+        return 135; // Return Y position for content with proper spacing
+    };
+
+    const generatePDFReport = () => {
+        const doc = new jsPDF();
+        const pageWidth = doc.internal.pageSize.getWidth();
+        const pageHeight = doc.internal.pageSize.getHeight();
+        const margin = 20;
+        
+        let yPosition = createFormalHeader(doc, 'Emergency Operations Summary Report', 'Complete overview of emergency operations and statistics');
+        
+        
+        // All Emergency Cases Section
+        if (emergencies.length > 0) {
+            yPosition += 15;
+            doc.setFontSize(12);
+            doc.setFont('helvetica', 'bold');
+            doc.setTextColor(30, 64, 175);
+            doc.text('All Emergency Cases', margin, yPosition);
+            yPosition += 20;
+            
+            // Display emergencies as a list
+            emergencies.forEach((emergency, index) => {
+                // Debug: Log emergency data structure
+                console.log('🚨 Emergency data for PDF:', emergency);
+                console.log('🚨 Available fields:', Object.keys(emergency));
+                
+                // Try multiple possible reporter name fields
+                let reporterName = 'N/A';
+                if (emergency.reporterName) {
+                    reporterName = emergency.reporterName;
+                } else if (emergency.reporter?.guestInfo?.name) {
+                    reporterName = emergency.reporter.guestInfo.name;
+                } else if (emergency.name) {
+                    reporterName = emergency.name;
+                } else if (emergency.reporter?.name) {
+                    reporterName = emergency.reporter.name;
+                }
+                
+                // Check if we need a new page
+                if (yPosition > pageHeight - 100) {
+                    doc.addPage();
+                    yPosition = 20;
+                }
+                
+                // Emergency case header
+                doc.setFontSize(11);
+                doc.setFont('helvetica', 'bold');
+                doc.setTextColor(30, 64, 175);
+                doc.text(`Emergency Case ${index + 1}`, margin, yPosition);
+                yPosition += 15;
+                
+                // Emergency details
+                doc.setFontSize(9);
+                doc.setFont('helvetica', 'normal');
+                doc.setTextColor(55, 65, 81);
+                
+                const details = [
+                    `ID: ${emergency._id || 'N/A'}`,
+                    `Description: ${emergency.description || emergency.incident?.description || 'N/A'}`,
+                    `Location: ${formatLocation(emergency.location) || emergency.incident?.location?.name || 'N/A'}`,
+                    `Status: ${emergency.status || 'N/A'}`,
+                    `Priority: ${emergency.priority || 'N/A'}`,
+                    `Reporter: ${reporterName}`,
+                    `Date: ${new Date(emergency.createdAt || emergency.date).toLocaleDateString()}`
+                ];
+                
+                details.forEach(detail => {
+                    // Check if we need a new page for this detail
+                    if (yPosition > pageHeight - 20) {
+                        doc.addPage();
+                        yPosition = 20;
+                    }
+                    doc.text(detail, margin + 10, yPosition);
+                    yPosition += 8;
+                });
+                
+                // Add separator line between cases
+                if (index < emergencies.length - 1) {
+                    yPosition += 5;
+                    doc.setDrawColor(200, 200, 200);
+                    doc.setLineWidth(0.5);
+                    doc.line(margin, yPosition, pageWidth - margin, yPosition);
+                    yPosition += 10;
+                }
+            });
+        } else {
+            yPosition += 15;
+            doc.setFontSize(10);
+            doc.setFont('helvetica', 'normal');
+            doc.setTextColor(75, 85, 99);
+            doc.text('No emergency cases found.', margin, yPosition);
+        }
+        
+        // Add footer to all pages
+        const pageCount = doc.internal.getNumberOfPages();
+        for (let i = 1; i <= pageCount; i++) {
+            doc.setPage(i);
+            doc.setFontSize(8);
+            doc.setFont('helvetica', 'italic');
+            doc.setTextColor(100);
+            doc.text('Wild Lanka Go - Emergency Operations Portal', margin, pageHeight - 15);
+            doc.text(`Page ${i}`, pageWidth - margin, pageHeight - 15, { align: 'right' });
+        }
+        
+        // Save the PDF
+        const todayStr = new Date().toISOString().split('T')[0];
+        doc.save(`emergency-operations-summary-${todayStr}.pdf`);
+    };
+
+
+
+    // Map old status values to new standardized ones
+    const mapStatusForDisplay = (status) => {
+        switch (status) {
+            case 'Reported':
+            case 'Acknowledged':
+            case 'Pending':
+            case 'pending':
+                return 'pending';
+            case 'Assigned':
+            case 'In Progress':
+            case 'in-progress':
+                return 'in-progress';
+            case 'Resolved':
+            case 'Closed':
+            case 'resolved':
+                return 'resolved';
+            default:
+                return status || 'pending';
+        }
     };
 
     const getStatusColor = (status) => {
+        const mappedStatus = mapStatusForDisplay(status);
         const colors = {
             pending: 'bg-yellow-100 text-yellow-800',
             'in-progress': 'bg-blue-100 text-blue-800',
             resolved: 'bg-green-100 text-green-800'
         };
-        return colors[status] || 'bg-gray-100 text-gray-800';
+        return colors[mappedStatus] || 'bg-gray-100 text-gray-800';
     };
 
     const getPriorityColor = (priority) => {
@@ -381,27 +601,11 @@ const EmergencyOfficerDashboard = () => {
         }
     };
 
-    // Only Emergency Officers can access this page
-    if (backendUser?.role !== 'EmergencyOfficer') {
-        return (
-            <ProtectedRoute>
-                <div className="flex flex-col min-h-screen">
-                    <Navbar />
-                    <div className="flex-1 flex items-center justify-center pt-32">
-                        <div className="text-center">
-                            <h2 className="text-2xl font-bold text-red-600">Access Denied</h2>
-                            <p className="text-gray-600 mt-2">Only emergency officers can access this page.</p>
-                        </div>
-                    </div>
-                    <Footer />
-                </div>
-            </ProtectedRoute>
-        );
-    }
+    // Role-based access control is handled by RoleGuard wrapper
 
     if (loading) {
         return (
-            <ProtectedRoute>
+            <RoleGuard requiredRole="emergencyOfficer">
                 <div className="flex flex-col min-h-screen bg-[#F4F6FF]">
                     <Navbar />
                     <div className="flex-1 flex items-center justify-center pt-32">
@@ -412,416 +616,444 @@ const EmergencyOfficerDashboard = () => {
                     </div>
                     <Footer />
                 </div>
-            </ProtectedRoute>
+            </RoleGuard>
         );
     }
 
-    const activeEmergencies = emergencies.filter(e => e.status === 'in-progress');
-    const pendingEmergencies = emergencies.filter(e => e.status === 'pending');
-    const resolvedEmergencies = emergencies.filter(e => e.status === 'resolved');
+    const activeEmergencies = emergencies.filter(e => 
+        e.status === 'In Progress' || e.status === 'in-progress'
+    );
+    const pendingEmergencies = emergencies.filter(e => 
+        e.status === 'pending' || e.status === 'Pending' || e.status === 'Reported'
+    );
+    const resolvedEmergencies = emergencies.filter(e => 
+        e.status === 'Resolved' || e.status === 'Closed' || e.status === 'resolved'
+    );
+    
+    console.log('🔍 Filtering results:', {
+        totalEmergencies: emergencies.length,
+        activeEmergencies: activeEmergencies.length,
+        pendingEmergencies: pendingEmergencies.length,
+        resolvedEmergencies: resolvedEmergencies.length,
+        allStatuses: emergencies.map(e => e.status)
+    });
 
     return (
-        <ProtectedRoute>
+        <RoleGuard requiredRole="emergencyOfficer">
             <div className="flex flex-col min-h-screen bg-[#F4F6FF]">
                 <Navbar />
-                <div className="flex-1 pt-32 pb-16">
-                    <div className="container mx-auto px-4">
+                <div className="flex-1 pt-28 pb-10">
+                    <div className="mx-auto max-w-7xl px-4">
                         <div className="grid grid-cols-12 gap-6">
                             {/* LEFT SIDEBAR */}
-                            <aside className="col-span-12 md:col-span-3">
-                                <div className="bg-white rounded-2xl shadow-sm">
-                                    {/* Header */}
-                                    <div className="bg-gradient-to-r from-blue-600 to-blue-700 rounded-t-2xl p-6 text-white">
-                                        <div className="flex items-center gap-3">
-                                            <div className="w-12 h-12 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center font-semibold cursor-pointer hover:bg-blue-200 transition-colors"
-                                                 onClick={() => setShowProfileModal(true)}>
-                                                {(backendUser?.name || 'Emergency Officer').split(' ').slice(0, 2).map(s => s[0]?.toUpperCase()).join('') || 'EO'}
+                            <aside className="col-span-12 lg:col-span-3">
+                                <div className="group relative overflow-hidden rounded-2xl lg:rounded-3xl bg-white/80 backdrop-blur-xl border border-white/20 shadow-xl lg:shadow-2xl p-4 lg:p-6 sticky top-20 lg:top-24 transition-all duration-500 hover:shadow-2xl lg:hover:shadow-3xl">
+                                    <div className="absolute inset-0 bg-gradient-to-br from-blue-50/30 to-indigo-50/30"></div>
+                                    <div className="relative z-10">
+                                        {/* Mobile Header - Horizontal Layout */}
+                                        <div className="flex items-center justify-between lg:justify-start gap-3 mb-4 lg:mb-6">
+                                            <div className="flex items-center gap-3">
+                                                <div className="p-2 lg:p-3 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl lg:rounded-2xl shadow-lg">
+                                                    <svg className="w-5 h-5 lg:w-6 lg:h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                                                    </svg>
+                                                </div>
+                                                <div className="hidden sm:block">
+                                                    <div className="text-lg lg:text-xl font-bold text-gray-800">Emergency Officer Portal</div>
+                                                    <div className="text-xs lg:text-sm text-gray-500">Wild Lanka Go</div>
+                                                </div>
+                                                <div className="block sm:hidden">
+                                                    <div className="text-sm font-bold text-gray-800">Emergency Officer</div>
+                                                </div>
                                             </div>
-                                            <div className="flex-1">
-                                                <div className="font-semibold">{backendUser?.name || 'Emergency Officer'}</div>
-                                                <div className="text-xs text-blue-100">Emergency Officer</div>
-                                                <button
-                                                    onClick={() => setShowProfileModal(true)}
-                                                    className="text-xs text-blue-200 hover:text-white mt-1 underline"
-                                                >
-                                                    View/Edit Profile
-                                                </button>
+                                            {/* Mobile Menu Toggle - Hidden on desktop */}
+                                            <button className="lg:hidden p-2 rounded-lg bg-gray-100 hover:bg-gray-200 transition-colors">
+                                                <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16" />
+                                                </svg>
+                                            </button>
+                                        </div>
+
+                                        {/* Error Message */}
+                                        {error && (
+                                            <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-4">
+                                                <p className="text-sm text-red-800">{error}</p>
                                             </div>
+                                        )}
+
+                                        {[
+                                            { key: 'active', label: 'Active Emergencies', icon: (
+                                                <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                                                </svg>
+                                            )},
+                                            { key: 'pending', label: 'Pending Emergencies', icon: (
+                                                <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                                                </svg>
+                                            )},
+                                            { key: 'resolved', label: 'Resolved Emergencies', icon: (
+                                                <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                                </svg>
+                                            )},
+                                            { key: 'reports', label: 'Reports', icon: (
+                                                <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                                </svg>
+                                            )}
+                                        ].map(item => (
+                                            <button
+                                                key={item.key}
+                                                onClick={() => setActiveTab(item.key)}
+                                                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-all duration-300 mb-2 ${
+                                                    activeTab === item.key
+                                                        ? 'bg-gradient-to-r from-blue-500 to-indigo-500 text-white shadow-lg transform scale-105'
+                                                        : 'text-gray-600 hover:bg-white/60 hover:text-gray-800 hover:shadow-md'
+                                                }`}
+                                            >
+                                                {item.icon}
+                                                <span className="text-sm font-medium">{item.label}</span>
+                                            </button>
+                                        ))}
+                                        
+                                        <div className="mt-6 pt-4 border-t border-gray-200/50">
+                                            <button
+                                                onClick={() => setShowProfileModal(true)}
+                                                className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl px-4 py-3 text-sm font-medium shadow-lg transition-all duration-300 hover:shadow-xl hover:scale-105"
+                                            >
+                                                Profile Settings
+                                            </button>
                                         </div>
                                     </div>
-
-                                    {/* Error Message */}
-                                    {error && (
-                                        <div className="mx-4 mt-4 bg-red-50 border border-red-200 rounded-lg p-3">
-                                            <p className="text-sm text-red-800">{error}</p>
-                                        </div>
-                                    )}
-
-                                    {/* Navigation */}
-                                    <nav className="p-4">
-                                        <div className="space-y-1">
-                                            {[
-                                                { id: 'active', name: 'Active Emergencies', icon: 'M13 10V3L4 14h7v7l9-11h-7z', count: activeEmergencies.length },
-                                                { id: 'pending', name: 'Pending', icon: 'M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z', count: pendingEmergencies.length },
-                                                { id: 'resolved', name: 'Resolved', icon: 'M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z', count: resolvedEmergencies.length },
-                                                { id: 'reports', name: 'Reports', icon: 'M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z' }
-                                            ].map((item) => (
-                                                <button
-                                                    key={item.id}
-                                                    onClick={() => setActiveTab(item.id)}
-                                                    className={`w-full flex items-center justify-between gap-3 px-4 py-3 text-left rounded-xl transition-colors ${
-                                                        activeTab === item.id
-                                                            ? 'bg-blue-100 text-blue-700 font-medium'
-                                                            : 'text-gray-600 hover:bg-gray-100'
-                                                    }`}
-                                                >
-                                                    <div className="flex items-center gap-3">
-                                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d={item.icon} />
-                                                        </svg>
-                                                        <span className="text-sm">{item.name}</span>
-                                                    </div>
-                                                    {item.count !== undefined && (
-                                                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                                                            activeTab === item.id ? 'bg-blue-200 text-blue-800' : 'bg-gray-200 text-gray-600'
-                                                        }`}>
-                                                            {item.count}
-                                                        </span>
-                                                    )}
-                                                </button>
-                                            ))}
-                                        </div>
-                                    </nav>
                                 </div>
                             </aside>
 
                             {/* MAIN CONTENT */}
-                            <main className="col-span-12 md:col-span-6">
-                                {/* Stats Cards */}
-                                <div className="grid grid-cols-2 gap-4 mb-6">
-                                    <StatCard
-                                        title="Today's Emergencies"
-                                        value={stats.totalEmergenciesToday}
-                                        color="blue"
-                                        iconPath="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-                                    />
-                                    <StatCard
-                                        title="Pending Emergencies"
-                                        value={stats.pendingEmergencies}
-                                        color="red"
-                                        iconPath="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"
-                                    />
-                                    <StatCard
-                                        title="In Progress"
-                                        value={stats.inProgressEmergencies}
-                                        color="orange"
-                                        iconPath="M13 10V3L4 14h7v7l9-11h-7z"
-                                    />
-                                    <StatCard
-                                        title="Resolved Today"
-                                        value={stats.resolvedToday}
-                                        color="green"
-                                        iconPath="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-                                    />
-                                </div>
+                            <main className="col-span-12 lg:col-span-9">
+                                <div className="space-y-6">
+                                    {/* Top greeting banner */}
+                                    <div className="mb-6">
+                                        <div className="bg-blue-600 text-white rounded-2xl p-4 lg:p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-sm">
+                                            <div className="flex-1">
+                                                <h2 className="text-base sm:text-lg lg:text-xl font-semibold">
+                                                    {`Good ${new Date().getHours() < 12 ? 'Morning' : new Date().getHours() < 18 ? 'Afternoon' : 'Evening'}, ${user?.firstName || user?.name?.split(' ')[0] || 'Emergency Officer'}`}
+                                                </h2>
+                                                <p className="text-xs sm:text-sm opacity-90 mt-1">
+                                                    You have {stats.pendingEmergencies + stats.inProgressEmergencies} active emergencies. Stay alert and ready to respond!
+                                                </p>
+                                                <button
+                                                    onClick={() => setActiveTab('active')}
+                                                    className="mt-3 bg-white/20 hover:bg-white/30 text-white rounded-lg px-3 py-1.5 text-sm transition-colors"
+                                                >
+                                                    View Active Emergencies
+                                                </button>
+                                            </div>
+                                            <div className="hidden md:block">
+                                                {/* simple illustration block */}
+                                                <div className="w-28 h-20 rounded-xl bg-white/10 backdrop-blur-sm" />
+                                            </div>
+                                        </div>
+                                    </div>
 
-                {/* Content Container */}
-                <div className="space-y-6">
-                    {/* Emergency Lists */}
-                    {(activeTab === 'active' || activeTab === 'pending' || activeTab === 'resolved') && (
-                        <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
-                            <div className="px-6 py-4 border-b border-gray-200">
-                                <h2 className="text-lg font-semibold text-gray-800">
-                                    {activeTab === 'active' && 'Active Human Emergencies'}
-                                    {activeTab === 'pending' && 'Pending Human Emergencies'}
-                                    {activeTab === 'resolved' && 'Resolved Human Emergencies'}
-                                </h2>
-                            </div>
-                            <div className="overflow-x-auto">
-                                <table className="min-w-full divide-y divide-gray-200">
-                                    <thead className="bg-gray-50">
-                                        <tr>
-                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Emergency Details</th>
-                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Location</th>
-                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Priority</th>
-                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Time</th>
-                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="bg-white divide-y divide-gray-200">
-                                        {(activeTab === 'active' ? activeEmergencies :
-                                          activeTab === 'pending' ? pendingEmergencies : resolvedEmergencies).map((emergency) => (
-                                            <tr key={emergency._id} className="hover:bg-gray-50">
-                                                <td className="px-6 py-4">
-                                                    <div className="text-sm font-medium text-gray-900">{emergency.description}</div>
-                                                    {emergency.reporterName && (
-                                                        <div className="text-sm text-gray-500">Reporter: {emergency.reporterName}</div>
-                                                    )}
-                                                    {emergency.reporterPhone && (
-                                                        <div className="text-sm text-gray-500">Phone: {emergency.reporterPhone}</div>
-                                                    )}
-                                                    {emergency.assignedDriver && (
-                                                        <div className="text-sm text-blue-600">Driver: {emergency.assignedDriver}</div>
-                                                    )}
-                                                </td>
-                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                                    {emergency.location}
-                                                </td>
-                                                <td className="px-6 py-4 whitespace-nowrap">
-                                                    <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getPriorityColor(emergency.priority)}`}>
-                                                        {emergency.priority}
-                                                    </span>
-                                                </td>
-                                                <td className="px-6 py-4 whitespace-nowrap">
-                                                    <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(emergency.status)}`}>
-                                                        {emergency.status}
-                                                    </span>
-                                                </td>
-                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                                    {getTimeAgo(emergency.createdAt || emergency.date)}
-                                                </td>
-                                                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
-                                                    <button
-                                                        onClick={() => openDetailModal(emergency)}
-                                                        className="text-blue-600 hover:text-blue-900"
-                                                    >
-                                                        View Details
-                                                    </button>
-                                                    {emergency.status !== 'resolved' && (
-                                                        <button
-                                                            onClick={() => openUpdateModal(emergency)}
-                                                            className="text-green-600 hover:text-green-900"
-                                                        >
-                                                            Update Status
-                                                        </button>
-                                                    )}
-                                                    <a
-                                                        href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(emergency.location)}`}
-                                                        target="_blank"
-                                                        rel="noopener noreferrer"
-                                                        className="text-purple-600 hover:text-purple-900"
-                                                    >
-                                                        Track Location
-                                                    </a>
-                                                </td>
-                                            </tr>
+                                    {/* Tab buttons (for center area) */}
+                                    <div className="flex flex-wrap gap-2 mb-4">
+                                        {[
+                                            { k: 'active', t: 'Active Emergencies' },
+                                            { k: 'pending', t: 'Pending Emergencies' },
+                                            { k: 'resolved', t: 'Resolved Emergencies' },
+                                            { k: 'reports', t: 'Reports' }
+                                        ].map(({ k, t }) => (
+                                            <button
+                                                key={k}
+                                                onClick={() => setActiveTab(k)}
+                                                className={`px-4 py-2 rounded-lg text-sm font-medium transition
+                                                ${activeTab === k ? 'bg-blue-600 text-white' : 'bg-white text-gray-700 border border-gray-200 hover:bg-gray-50'}`}
+                                            >
+                                                {t}
+                                            </button>
                                         ))}
-                                    </tbody>
-                                </table>
-                                {(activeTab === 'active' ? activeEmergencies :
-                                  activeTab === 'pending' ? pendingEmergencies : resolvedEmergencies).length === 0 && (
-                                    <div className="text-center py-8 text-gray-500">
-                                        No {activeTab} emergencies found.
                                     </div>
-                                )}
-                            </div>
-                        </div>
-                    )}
 
-                    {/* Reports Tab */}
-                    {activeTab === 'reports' && (
-                        <div className="space-y-6">
-                            <div className="bg-white rounded-2xl shadow-sm p-6">
-                                <h2 className="text-lg font-semibold text-gray-800 mb-4">Emergency Response Reports</h2>
-                                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                                    <div className="text-center">
-                                        <div className="text-3xl font-bold text-red-600">{stats.totalEmergencies}</div>
-                                        <div className="text-sm text-gray-600">Total Human Emergencies</div>
+                                    {/* Stats Cards */}
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6">
+                                        <div className="group relative overflow-hidden rounded-2xl lg:rounded-3xl bg-gradient-to-br from-blue-500 via-indigo-500 to-blue-600 p-4 lg:p-6 text-white shadow-xl lg:shadow-2xl transition-all duration-500 hover:scale-105 hover:shadow-2xl lg:hover:shadow-3xl">
+                                            <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent"></div>
+                                            <div className="relative z-10">
+                                                <div className="flex items-center justify-between">
+                                                    <div>
+                                                        <p className="text-blue-100 text-xs lg:text-sm font-medium">Active Emergencies</p>
+                                                        <p className="text-2xl lg:text-4xl font-bold mt-1 lg:mt-2">{stats.pendingEmergencies + stats.inProgressEmergencies}</p>
+                                                        <p className="text-blue-200 text-xs mt-1">Requires immediate attention</p>
+                                                    </div>
+                                                    <div className="p-3 lg:p-4 bg-white/20 rounded-xl lg:rounded-2xl backdrop-blur-sm">
+                                                        <svg className="w-6 h-6 lg:w-8 lg:h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                                                        </svg>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div className="group relative overflow-hidden rounded-3xl bg-gradient-to-br from-blue-500 via-indigo-500 to-purple-600 p-6 text-white shadow-2xl transition-all duration-500 hover:scale-105 hover:shadow-3xl">
+                                            <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent"></div>
+                                            <div className="relative z-10">
+                                                <div className="flex items-center justify-between">
+                                                    <div>
+                                                        <p className="text-blue-100 text-xs lg:text-sm font-medium">Today's Emergencies</p>
+                                                        <p className="text-2xl lg:text-4xl font-bold mt-1 lg:mt-2">{stats.totalEmergenciesToday}</p>
+                                                        <p className="text-blue-200 text-xs mt-1">Total reported today</p>
+                                                    </div>
+                                                    <div className="p-3 lg:p-4 bg-white/20 rounded-xl lg:rounded-2xl backdrop-blur-sm">
+                                                        <svg className="w-6 h-6 lg:w-8 lg:h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                                        </svg>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div className="group relative overflow-hidden rounded-3xl bg-gradient-to-br from-orange-500 via-red-500 to-pink-600 p-6 text-white shadow-2xl transition-all duration-500 hover:scale-105 hover:shadow-3xl">
+                                            <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent"></div>
+                                            <div className="relative z-10">
+                                                <div className="flex items-center justify-between">
+                                                    <div>
+                                                        <p className="text-orange-100 text-xs lg:text-sm font-medium">In Progress</p>
+                                                        <p className="text-2xl lg:text-4xl font-bold mt-1 lg:mt-2">{stats.inProgressEmergencies}</p>
+                                                        <p className="text-orange-200 text-xs mt-1">Currently responding</p>
+                                                    </div>
+                                                    <div className="p-3 lg:p-4 bg-white/20 rounded-xl lg:rounded-2xl backdrop-blur-sm">
+                                                        <svg className="w-6 h-6 lg:w-8 lg:h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                                                        </svg>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div className="group relative overflow-hidden rounded-3xl bg-gradient-to-br from-green-500 via-emerald-500 to-teal-600 p-6 text-white shadow-2xl transition-all duration-500 hover:scale-105 hover:shadow-3xl">
+                                            <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent"></div>
+                                            <div className="relative z-10">
+                                                <div className="flex items-center justify-between">
+                                                    <div>
+                                                        <p className="text-green-100 text-xs lg:text-sm font-medium">Resolved Today</p>
+                                                        <p className="text-2xl lg:text-4xl font-bold mt-1 lg:mt-2">{stats.resolvedToday}</p>
+                                                        <p className="text-green-200 text-xs mt-1">Successfully completed</p>
+                                                    </div>
+                                                    <div className="p-3 lg:p-4 bg-white/20 rounded-xl lg:rounded-2xl backdrop-blur-sm">
+                                                        <svg className="w-6 h-6 lg:w-8 lg:h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                                        </svg>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
                                     </div>
-                                    <div className="text-center">
-                                        <div className="text-3xl font-bold text-green-600">{stats.resolvedToday}</div>
-                                        <div className="text-sm text-gray-600">Resolved Today</div>
-                                    </div>
-                                    <div className="text-center">
-                                        <div className="text-3xl font-bold text-blue-600">{stats.averageResponseTime}</div>
-                                        <div className="text-sm text-gray-600">Average Response Time</div>
-                                    </div>
+
+                                    {/* Emergency Lists */}
+                                    {(activeTab === 'active' || activeTab === 'pending' || activeTab === 'resolved') && (
+                                        <div className="space-y-6">
+                                            <div className="group relative overflow-hidden rounded-3xl bg-white/80 backdrop-blur-xl border border-white/20 shadow-2xl transition-all duration-500 hover:shadow-3xl">
+                                                <div className="absolute inset-0 bg-gradient-to-br from-blue-50/50 to-indigo-50/50"></div>
+                                                <div className="relative z-10">
+                                                    <div className="px-8 py-6 border-b border-gray-100/50">
+                                                        <div className="flex items-center justify-between">
+                                                            <div className="flex items-center gap-4">
+                                                                <div className="p-3 bg-blue-100 rounded-2xl">
+                                                                    <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                                                                    </svg>
+                                                                </div>
+                                                                <h2 className="text-2xl font-bold text-gray-800">
+                                                                    {activeTab === 'active' && 'Active Human Emergencies'}
+                                                                    {activeTab === 'pending' && 'Pending Human Emergencies'}
+                                                                    {activeTab === 'resolved' && 'Resolved Human Emergencies'}
+                                                                </h2>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                    <div className="p-8">
+                                                        {(activeTab === 'active' ? activeEmergencies :
+                                                          activeTab === 'pending' ? pendingEmergencies : resolvedEmergencies).length > 0 ? (
+                                                            <div className="overflow-x-auto">
+                                                                <table className="min-w-full divide-y divide-gray-200/50">
+                                                                    <thead className="bg-gradient-to-r from-gray-50 to-gray-100/50">
+                                                                        <tr>
+                                                                            <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Human Emergency Details</th>
+                                                                            <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Location</th>
+                                                                            <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Priority</th>
+                                                                            <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Status</th>
+                                                                            <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Source</th>
+                                                                            <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Time</th>
+                                                                            <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Actions</th>
+                                                                        </tr>
+                                                                    </thead>
+                                                                    <tbody className="bg-white/60 divide-y divide-gray-200/50">
+                                                                        {(activeTab === 'active' ? activeEmergencies :
+                                                                          activeTab === 'pending' ? pendingEmergencies : resolvedEmergencies).map((emergency) => (
+                                                                            <tr key={emergency._id} className="hover:bg-white/80 transition-all duration-300">
+                                                                                <td className="px-6 py-4">
+                                                                                    <div className="text-sm font-semibold text-gray-900">{emergency.description}</div>
+                                                                                    {emergency.reporterName && (
+                                                                                        <div className="text-sm text-gray-500">Reporter: {emergency.reporterName}</div>
+                                                                                    )}
+                                                                                    {emergency.reporterPhone && (
+                                                                                        <div className="text-sm text-gray-500">Phone: {emergency.reporterPhone}</div>
+                                                                                    )}
+                                                                                    {emergency.propertyName && (
+                                                                                        <div className="text-sm text-blue-600">Property: {emergency.propertyName}</div>
+                                                                                    )}
+                                                                                    {emergency.assignedDriver && (
+                                                                                        <div className="text-sm text-green-600">Driver: {emergency.assignedDriver}</div>
+                                                                                    )}
+                                                                                </td>
+                                                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                                                                                    {formatLocation(emergency.location)}
+                                                                                </td>
+                                                                                <td className="px-6 py-4 whitespace-nowrap">
+                                                                                    <span className={`inline-flex px-3 py-1 text-xs font-semibold rounded-full ${
+                                                                                        emergency.priority === 'Critical'
+                                                                                            ? 'bg-red-200 text-red-900'
+                                                                                            : emergency.priority === 'High'
+                                                                                              ? 'bg-red-100 text-red-800'
+                                                                                              : emergency.priority === 'Medium'
+                                                                                                ? 'bg-yellow-100 text-yellow-800'
+                                                                                                : 'bg-green-100 text-green-800'
+                                                                                    }`}>
+                                                                                        {emergency.priority || 'Medium'}
+                                                                                    </span>
+                                                                                </td>
+                                                                                <td className="px-6 py-4 whitespace-nowrap">
+                                                                                    <span className={`inline-flex px-3 py-1 text-xs font-semibold rounded-full ${
+                                                                                        mapStatusForDisplay(emergency.status) === 'pending'
+                                                                                            ? 'bg-red-100 text-red-800'
+                                                                                            : mapStatusForDisplay(emergency.status) === 'in-progress'
+                                                                                              ? 'bg-yellow-100 text-yellow-800'
+                                                                                              : 'bg-green-100 text-green-800'
+                                                                                    }`}>
+                                                                                        {mapStatusForDisplay(emergency.status)}
+                                                                                    </span>
+                                                                                </td>
+                                                                                <td className="px-6 py-4 whitespace-nowrap">
+                                                                                    <span className={`inline-flex px-3 py-1 text-xs font-semibold rounded-full ${
+                                                                                        emergency.isForm ? 'bg-blue-100 text-blue-800' : 'bg-green-100 text-green-800'
+                                                                                    }`}>
+                                                                                        {emergency.isForm ? 'Form' : 'Call'}
+                                                                                    </span>
+                                                                                </td>
+                                                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                                                                                    {getTimeAgo(emergency.createdAt || emergency.date)}
+                                                                                </td>
+                                                                                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                                                                    <div className="flex gap-2">
+                                                                                        <button
+                                                                                            onClick={() => openDetailModal(emergency)}
+                                                                                            className="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-medium transition-colors"
+                                                                                        >
+                                                                                            View
+                                                                                        </button>
+                                                                                        {getAvailableNextStatuses(emergency.status).length > 0 && (
+                                                                                            <button
+                                                                                                onClick={() => openSimpleStatusModal(emergency)}
+                                                                                                className="px-3 py-1 bg-green-600 hover:bg-green-700 text-white rounded-lg text-xs font-medium transition-colors"
+                                                                                            >
+                                                                                                Update
+                                                                                            </button>
+                                                                                        )}
+                                                                                        <a
+                                                                                            href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(emergency.location)}`}
+                                                                                            target="_blank"
+                                                                                            rel="noopener noreferrer"
+                                                                                            className="px-3 py-1 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-xs font-medium transition-colors"
+                                                                                        >
+                                                                                            Track
+                                                                                        </a>
+                                                                                    </div>
+                                                                                </td>
+                                                                            </tr>
+                                                                        ))}
+                                                                    </tbody>
+                                                                </table>
+                                                            </div>
+                                                        ) : (
+                                                            <div className="text-center py-12">
+                                                                <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                                                                </svg>
+                                                                <h3 className="mt-2 text-sm font-medium text-gray-900">No {activeTab} human emergencies found</h3>
+                                                                <p className="mt-1 text-sm text-gray-500">All clear! No {activeTab} emergency cases.</p>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* Reports Tab */}
+                                    {activeTab === 'reports' && (
+                                        <div className="space-y-6">
+                                            <div className="group relative overflow-hidden rounded-3xl bg-white/80 backdrop-blur-xl border border-white/20 shadow-2xl transition-all duration-500 hover:shadow-3xl">
+                                                <div className="absolute inset-0 bg-gradient-to-br from-blue-50/50 to-indigo-50/50"></div>
+                                                <div className="relative z-10">
+                                                    <div className="px-8 py-6 border-b border-gray-100/50">
+                                                        <div className="flex items-center gap-4">
+                                                            <div className="p-3 bg-blue-100 rounded-2xl">
+                                                                <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                                                </svg>
+                                                            </div>
+                                                            <h2 className="text-2xl font-bold text-gray-800">Human Emergency Response Reports</h2>
+                                                        </div>
+                                                    </div>
+                                                    <div className="p-8">
+                                                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                                                            <div className="text-center p-6 bg-white/60 rounded-2xl border border-white/50 backdrop-blur-sm">
+                                                                <div className="text-3xl font-bold text-blue-600">{stats.totalEmergencies}</div>
+                                                                <div className="text-sm text-gray-600">Total Human Emergencies</div>
+                                                            </div>
+                                                            <div className="text-center p-6 bg-white/60 rounded-2xl border border-white/50 backdrop-blur-sm">
+                                                                <div className="text-3xl font-bold text-green-600">{stats.resolvedToday}</div>
+                                                                <div className="text-sm text-gray-600">Resolved Today</div>
+                                                            </div>
+                                                            <div className="text-center p-6 bg-white/60 rounded-2xl border border-white/50 backdrop-blur-sm">
+                                                                <div className="text-3xl font-bold text-blue-600">{stats.averageResponseTime}</div>
+                                                                <div className="text-sm text-gray-600">Average Response Time</div>
+                                                            </div>
+                                                        </div>
+
+                                                        <div className="flex justify-center">
+                                                            <button 
+                                                                onClick={() => handleDownloadReport('daily-summary')}
+                                                                className="bg-white/60 hover:bg-white/80 p-6 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 text-left max-w-md border border-white/50 backdrop-blur-sm">
+                                                                <div className="flex items-center">
+                                                                    <div className="p-2 bg-purple-100 rounded-lg">
+                                                                        <svg className="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                                                        </svg>
+                                                                    </div>
+                                                                    <div className="ml-4">
+                                                                        <h3 className="text-lg font-medium text-gray-900">Operation Summary</h3>
+                                                                        <p className="text-sm text-gray-500">Complete emergency operations overview with all cases</p>
+                                                                    </div>
+                                                                </div>
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
-                            </div>
+                            </main>
 
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <button 
-                                    onClick={() => handleDownloadReport('response-time')}
-                                    className="bg-white p-6 rounded-2xl shadow-sm hover:shadow-md transition-shadow text-left">
-                                    <div className="flex items-center">
-                                        <div className="p-2 bg-blue-100 rounded-lg">
-                                            <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                                            </svg>
-                                        </div>
-                                        <div className="ml-4">
-                                            <h3 className="text-lg font-medium text-gray-900">Response Time Report</h3>
-                                            <p className="text-sm text-gray-500">Detailed analysis of emergency response times</p>
-                                        </div>
-                                    </div>
-                                </button>
+                            {/* RIGHT WIDGETS */}
+                            <aside className="col-span-12 lg:col-span-3">
+                                <div className="space-y-6">
 
-                                <button 
-                                    onClick={() => handleDownloadReport('first-aid')}
-                                    className="bg-white p-6 rounded-2xl shadow-sm hover:shadow-md transition-shadow text-left">
-                                    <div className="flex items-center">
-                                        <div className="p-2 bg-green-100 rounded-lg">
-                                            <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-                                            </svg>
-                                        </div>
-                                        <div className="ml-4">
-                                            <h3 className="text-lg font-medium text-gray-900">First Aid Report</h3>
-                                            <p className="text-sm text-gray-500">Summary of first aid interventions provided</p>
-                                        </div>
-                                    </div>
-                                </button>
+                                    {/* Urgent Alerts - PRESERVED AS REQUESTED */}
 
-                                <button 
-                                    onClick={() => handleDownloadReport('hospital-coordination')}
-                                    className="bg-white p-6 rounded-2xl shadow-sm hover:shadow-md transition-shadow text-left">
-                                    <div className="flex items-center">
-                                        <div className="p-2 bg-pink-100 rounded-lg">
-                                            <svg className="w-6 h-6 text-pink-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-                                            </svg>
-                                        </div>
-                                        <div className="ml-4">
-                                            <h3 className="text-lg font-medium text-gray-900">Hospital Coordination Report</h3>
-                                            <p className="text-sm text-gray-500">Cases requiring hospital coordination</p>
-                                        </div>
-                                    </div>
-                                </button>
-
-                                <button 
-                                    onClick={() => handleDownloadReport('daily-summary')}
-                                    className="bg-white p-6 rounded-2xl shadow-sm hover:shadow-md transition-shadow text-left">
-                                    <div className="flex items-center">
-                                        <div className="p-2 bg-purple-100 rounded-lg">
-                                            <svg className="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                                            </svg>
-                                        </div>
-                                        <div className="ml-4">
-                                            <h3 className="text-lg font-medium text-gray-900">Daily Operations Summary</h3>
-                                            <p className="text-sm text-gray-500">Complete daily emergency operations overview</p>
-                                        </div>
-                                    </div>
-                                </button>
-
-                                <button 
-                                    onClick={() => handleDownloadReport('all-emergencies')}
-                                    className="bg-white p-6 rounded-2xl shadow-sm hover:shadow-md transition-shadow text-left md:col-span-2">
-                                    <div className="flex items-center">
-                                        <div className="p-2 bg-red-100 rounded-lg">
-                                            <svg className="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
-                                            </svg>
-                                        </div>
-                                        <div className="ml-4">
-                                            <h3 className="text-lg font-medium text-gray-900">Complete Emergency Database</h3>
-                                            <p className="text-sm text-gray-500">Download all human-related emergency records</p>
-                                        </div>
-                                    </div>
-                                </button>
-                            </div>
-                        </div>
-                    )}
-                </div>
-            </main>
-
-            {/* RIGHT WIDGETS */}
-            <aside className="col-span-12 md:col-span-3">
-                <div className="space-y-6">
-                    {/* Profile mini */}
-                    <div className="bg-white rounded-2xl shadow-sm p-5">
-                        <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center font-semibold">
-                                {(backendUser?.name || 'Emergency Officer').split(' ').slice(0, 2).map(s => s[0]?.toUpperCase()).join('') || 'EO'}
-                            </div>
-                            <div>
-                                <div className="font-semibold text-gray-800">{backendUser?.name || 'Emergency Officer'}</div>
-                                <div className="text-xs text-gray-500">Emergency Officer</div>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Quick Stats Widget */}
-                    <div className="bg-white rounded-2xl shadow-sm p-5">
-                        <h4 className="font-semibold text-gray-800 mb-3">Daily Operations Summary</h4>
-                        <div className="space-y-3">
-                            <div className="flex justify-between">
-                                <span className="text-sm text-gray-600">Today's Emergencies</span>
-                                <span className="font-medium text-blue-600">{stats.totalEmergenciesToday}</span>
-                            </div>
-                            <div className="flex justify-between">
-                                <span className="text-sm text-gray-600">First Aid Cases</span>
-                                <span className="font-medium text-orange-600">{stats.firstAidCases}</span>
-                            </div>
-                            <div className="flex justify-between">
-                                <span className="text-sm text-gray-600">Hospital Coordinations</span>
-                                <span className="font-medium text-pink-600">{stats.hospitalCoordinations}</span>
-                            </div>
-                            <div className="flex justify-between">
-                                <span className="text-sm text-gray-600">Critical Cases</span>
-                                <span className="font-medium text-red-600">{stats.criticalCases}</span>
-                            </div>
-                            <div className="flex justify-between">
-                                <span className="text-sm text-gray-600">Driver Assignments</span>
-                                <span className="font-medium text-purple-600">{stats.driverAssignments}</span>
-                            </div>
-                            <div className="flex justify-between">
-                                <span className="text-sm text-gray-600">Reports Generated</span>
-                                <span className="font-medium text-green-600">{stats.reportsGenerated}</span>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Urgent Alerts */}
-                    {(pendingEmergencies.length > 0 || activeEmergencies.length > 0) && (
-                        <div className="bg-red-50 border border-red-200 rounded-2xl shadow-sm p-5">
-                            <h4 className="font-semibold text-red-800 mb-3">Urgent Alerts</h4>
-                            <div className="text-sm text-red-700 space-y-2">
-                                {pendingEmergencies.length > 0 && (
-                                    <div>🚨 {pendingEmergencies.length} pending emergencies</div>
-                                )}
-                                {activeEmergencies.length > 0 && (
-                                    <div>⚡ {activeEmergencies.length} active responses</div>
-                                )}
-                            </div>
-                            <button
-                                onClick={() => setActiveTab(pendingEmergencies.length > 0 ? 'pending' : 'active')}
-                                className="mt-3 w-full bg-red-600 hover:bg-red-700 text-white rounded-lg px-3 py-2 text-sm font-medium"
-                            >
-                                View Emergencies
-                            </button>
-                        </div>
-                    )}
-
-                    {/* Recent Activity */}
-                    <div className="bg-white rounded-2xl shadow-sm p-5">
-                        <h4 className="font-semibold text-gray-800 mb-3">Recent Activity</h4>
-                        <div className="space-y-3 text-sm">
-                            {resolvedEmergencies.slice(0, 3).map((emergency) => (
-                                <div key={emergency._id} className="flex items-center gap-2">
-                                    <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                                    <span className="text-gray-600 truncate">Resolved: {emergency.description}</span>
                                 </div>
-                            ))}
-                            {activeEmergencies.slice(0, 2).map((emergency) => (
-                                <div key={emergency._id} className="flex items-center gap-2">
-                                    <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                                    <span className="text-gray-600 truncate">Active: {emergency.description}</span>
-                                </div>
-                            ))}
-                            {pendingEmergencies.slice(0, 2).map((emergency) => (
-                                <div key={emergency._id} className="flex items-center gap-2">
-                                    <div className="w-2 h-2 bg-yellow-500 rounded-full"></div>
-                                    <span className="text-gray-600 truncate">Pending: {emergency.description}</span>
-                                </div>
-                            ))}
-                            {(resolvedEmergencies.length === 0 && activeEmergencies.length === 0 && pendingEmergencies.length === 0) && (
-                                <p className="text-gray-500 text-center py-4">No recent activity</p>
-                            )}
-                        </div>
-                    </div>
-                </div>
             </aside>
         </div>
     </div>
@@ -835,13 +1067,23 @@ const EmergencyOfficerDashboard = () => {
                             <div className="space-y-3">
                                 <div>
                                     <span className="font-medium">Type:</span> Human Emergency
+                                    {selectedEmergency.isForm && (
+                                        <span className="ml-2 inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">
+                                            From Form
+                                        </span>
+                                    )}
                                 </div>
                                 <div>
                                     <span className="font-medium">Description:</span> {selectedEmergency.description}
                                 </div>
                                 <div>
-                                    <span className="font-medium">Location:</span> {selectedEmergency.location}
+                                    <span className="font-medium">Location:</span> {formatLocation(selectedEmergency.location)}
                                 </div>
+                                {selectedEmergency.propertyName && (
+                                    <div>
+                                        <span className="font-medium">Property:</span> {selectedEmergency.propertyName}
+                                    </div>
+                                )}
                                 <div>
                                     <span className="font-medium">Priority:</span>
                                     <span className={`ml-2 inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getPriorityColor(selectedEmergency.priority)}`}>
@@ -851,8 +1093,42 @@ const EmergencyOfficerDashboard = () => {
                                 <div>
                                     <span className="font-medium">Status:</span>
                                     <span className={`ml-2 inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(selectedEmergency.status)}`}>
-                                        {selectedEmergency.status}
+                                        {mapStatusForDisplay(selectedEmergency.status)}
                                     </span>
+                                </div>
+                                <div>
+                                    <span className="font-medium">Assigned To:</span>
+                                    <div className="mt-2">
+                                        {(selectedEmergency.assignedTo || selectedEmergency.assignment?.assignedTo) ? 
+                                          <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+                                            <div className="text-green-800 font-medium">
+                                              {(selectedEmergency.assignedTo?.firstName && selectedEmergency.assignedTo?.lastName) ? 
+                                                `${selectedEmergency.assignedTo.firstName} ${selectedEmergency.assignedTo.lastName}` :
+                                                (selectedEmergency.assignment?.assignedTo?.firstName && selectedEmergency.assignment?.assignedTo?.lastName) ?
+                                                `${selectedEmergency.assignment.assignedTo.firstName} ${selectedEmergency.assignment.assignedTo.lastName}` :
+                                                selectedEmergency.assignedTo?.name || 
+                                                selectedEmergency.assignedTo?.userId?.name ||
+                                                (selectedEmergency.assignedTo?.userId ? 
+                                                  `${selectedEmergency.assignedTo.userId.firstName || ''} ${selectedEmergency.assignedTo.userId.lastName || ''}`.trim() : 
+                                                  'Assigned')
+                                              }
+                                            </div>
+                                            {(selectedEmergency.assignedTo?.email || selectedEmergency.assignment?.assignedTo?.email) && 
+                                              <div className="text-green-700 text-sm mt-1">
+                                                📧 {(selectedEmergency.assignedTo?.email || selectedEmergency.assignment?.assignedTo?.email)}
+                                              </div>
+                                            }
+                                            {(selectedEmergency.assignedTo?.role || selectedEmergency.assignment?.assignedTo?.role || selectedEmergency.assignment?.assignedRole) && 
+                                              <div className="text-green-600 text-sm mt-1">
+                                                👤 {(selectedEmergency.assignedTo?.role || selectedEmergency.assignment?.assignedTo?.role || selectedEmergency.assignment?.assignedRole)}
+                                              </div>
+                                            }
+                                          </div> : 
+                                          <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                                            <span className="text-red-600 font-medium">Unassigned</span>
+                                          </div>
+                                        }
+                                    </div>
                                 </div>
                                 {selectedEmergency.reporterName && (
                                     <div>
@@ -861,7 +1137,18 @@ const EmergencyOfficerDashboard = () => {
                                 )}
                                 {selectedEmergency.reporterPhone && (
                                     <div>
-                                        <span className="font-medium">Contact:</span> {selectedEmergency.reporterPhone}
+                                        <span className="font-medium">Contact:</span> 
+                                        <a href={`tel:${selectedEmergency.reporterPhone}`} className="ml-2 text-blue-600 hover:text-blue-800">
+                                            {selectedEmergency.reporterPhone}
+                                        </a>
+                                    </div>
+                                )}
+                                {selectedEmergency.reporterEmail && (
+                                    <div>
+                                        <span className="font-medium">Email:</span> 
+                                        <a href={`mailto:${selectedEmergency.reporterEmail}`} className="ml-2 text-blue-600 hover:text-blue-800">
+                                            {selectedEmergency.reporterEmail}
+                                        </a>
                                     </div>
                                 )}
                                 <div>
@@ -875,6 +1162,11 @@ const EmergencyOfficerDashboard = () => {
                                 {selectedEmergency.responseNotes && (
                                     <div>
                                         <span className="font-medium">Response Notes:</span> {selectedEmergency.responseNotes}
+                                    </div>
+                                )}
+                                {selectedEmergency.assignedDriver && (
+                                    <div>
+                                        <span className="font-medium">Assigned Driver:</span> {selectedEmergency.assignedDriver}
                                     </div>
                                 )}
                             </div>
@@ -1025,7 +1317,7 @@ const EmergencyOfficerDashboard = () => {
                                     </button>
                                     <button
                                         type="submit"
-                                        className="flex-1 bg-red-600 text-white py-2 rounded-lg hover:bg-red-700 transition-colors"
+                                        className="flex-1 bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition-colors"
                                     >
                                         Update Emergency Response
                                     </button>
@@ -1168,9 +1460,85 @@ const EmergencyOfficerDashboard = () => {
                     </div>
                 )}
 
+                {/* Simple Status Update Modal */}
+                {showSimpleStatusModal && selectedEmergency && (() => {
+                    const availableStatuses = getAvailableNextStatuses(selectedEmergency.status);
+                    const canUpdate = availableStatuses.length > 0;
+                    
+                    return (
+                        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                            <div className="bg-white rounded-lg p-6 w-full max-w-md">
+                                <h2 className="text-xl font-bold mb-4">Update Emergency Status</h2>
+                                <p className="text-gray-600 mb-4">
+                                    Emergency: {selectedEmergency.description}
+                                </p>
+                                <p className="text-sm text-gray-500 mb-4">
+                                    Current Status: <span className="font-medium">{selectedEmergency.status}</span>
+                                </p>
+                                
+                                {canUpdate ? (
+                                    <form onSubmit={handleSimpleStatusUpdate}>
+                                        <div className="mb-4">
+                                            <label className="block text-sm font-medium mb-2">Update Status To</label>
+                                            <select
+                                                value={simpleStatusUpdate}
+                                                onChange={(e) => setSimpleStatusUpdate(e.target.value)}
+                                                className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                                                required
+                                            >
+                                                {availableStatuses.map((status) => (
+                                                    <option key={status.value} value={status.value}>
+                                                        {status.label}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                        
+                                        <div className="flex gap-3">
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    setShowSimpleStatusModal(false);
+                                                    setSelectedEmergency(null);
+                                                    setSimpleStatusUpdate('');
+                                                }}
+                                                className="flex-1 bg-gray-500 text-white py-2 rounded-lg hover:bg-gray-600 transition-colors"
+                                            >
+                                                Cancel
+                                            </button>
+                                            <button
+                                                type="submit"
+                                                className="flex-1 bg-green-600 text-white py-2 rounded-lg hover:bg-green-700 transition-colors"
+                                            >
+                                                Update Status
+                                            </button>
+                                        </div>
+                                    </form>
+                                ) : (
+                                    <div className="text-center">
+                                        <p className="text-gray-600 mb-4">
+                                            This emergency is already resolved and cannot be updated further.
+                                        </p>
+                                        <button
+                                            onClick={() => {
+                                                setShowSimpleStatusModal(false);
+                                                setSelectedEmergency(null);
+                                                setSimpleStatusUpdate('');
+                                            }}
+                                            className="bg-gray-500 text-white py-2 px-6 rounded-lg hover:bg-gray-600 transition-colors"
+                                        >
+                                            Close
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    );
+                })()}
+
                 <Footer />
             </div>
-        </ProtectedRoute>
+        </RoleGuard>
     );
 };
 

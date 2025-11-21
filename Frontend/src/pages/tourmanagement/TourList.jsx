@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { protectedApi } from '../../services/authService';
-import { useAuthContext } from '../../contexts/AuthContext';
+import { useAuth } from '../../contexts/AuthContext';
 import Navbar from '../../components/Navbar';
 import Footer from '../../components/footer';
 
 const TourList = () => {
-    const { backendUser, user } = useAuthContext();
+    const { backendUser, user } = useAuth();
     const [tours, setTours] = useState([]);
     const [applications, setApplications] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -52,8 +52,14 @@ const TourList = () => {
     const fetchTours = async () => {
         try {
             setLoading(true);
-            const response = await protectedApi.getTours();
-            setTours(response.data || []);
+            // Only fetch tours if user has permission (admin or wildlifeOfficer)
+            if (backendUser?.role === 'admin' || backendUser?.role === 'wildlifeOfficer') {
+                const response = await protectedApi.getTours();
+                setTours(response.data || []);
+            } else {
+                // For other roles, set empty array
+                setTours([]);
+            }
         } catch (error) {
             console.error('Failed to fetch tours:', error);
             setError('Failed to load tours');

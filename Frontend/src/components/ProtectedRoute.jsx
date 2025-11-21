@@ -1,11 +1,11 @@
 import React from 'react';
-import { useAuthContext } from '../contexts/AuthContext';
+import { useAuth } from '../contexts/AuthContext';
 
 const ProtectedRoute = ({ children, allowedRoles = [], fallback = null, requireAllRoles = false }) => {
-  const { isFullyAuthenticated, isLoading, loginWithRedirect, backendUser } = useAuthContext();
+  const { isAuthenticated, loading, user } = useAuth();
 
   // Show loading spinner while checking authentication
-  if (isLoading) {
+  if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
@@ -17,7 +17,7 @@ const ProtectedRoute = ({ children, allowedRoles = [], fallback = null, requireA
   }
 
   // If not authenticated, show login prompt or fallback
-  if (!isFullyAuthenticated) {
+  if (!isAuthenticated()) {
     if (fallback) {
       return fallback;
     }
@@ -36,7 +36,7 @@ const ProtectedRoute = ({ children, allowedRoles = [], fallback = null, requireA
           </div>
 
           <button
-            onClick={() => loginWithRedirect()}
+            onClick={() => window.location.href = '/login'}
             className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-4 rounded-lg transition-colors"
           >
             Log In
@@ -47,13 +47,19 @@ const ProtectedRoute = ({ children, allowedRoles = [], fallback = null, requireA
   }
 
   // Check role-based permissions if allowedRoles is specified
-  if (allowedRoles.length > 0 && backendUser) {
-    const userRole = backendUser.role;
+  if (allowedRoles.length > 0 && user) {
+    const userRole = user.role;
 
-    // Check if user has required role(s)
+    // Helper function to normalize role names for comparison
+    const normalizeRole = (role) => {
+      if (!role) return '';
+      return role.toLowerCase();
+    };
+
+    // Check if user has required role(s) with case-insensitive comparison
     const hasPermission = requireAllRoles
-      ? allowedRoles.every(role => userRole === role || userRole === 'admin') // Admin has access to everything
-      : allowedRoles.includes(userRole) || userRole === 'admin'; // Admin has access to everything
+      ? allowedRoles.every(role => normalizeRole(userRole) === normalizeRole(role) || normalizeRole(userRole) === 'admin') // Admin has access to everything
+      : allowedRoles.some(role => normalizeRole(userRole) === normalizeRole(role)) || normalizeRole(userRole) === 'admin'; // Admin has access to everything
 
     if (!hasPermission) {
       return (

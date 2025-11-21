@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { protectedApi } from '../../services/authService';
-import { useAuthContext } from '../../contexts/AuthContext';
+import { useAuth } from '../../contexts/AuthContext';
 import Navbar from '../../components/Navbar';
 import Footer from '../../components/footer';
 
 const FuelClaimList = () => {
-    const { backendUser, user } = useAuthContext();
+    const { backendUser, user } = useAuth();
     const [fuelClaims, setFuelClaims] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);

@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { useAuthContext } from '../contexts/AuthContext';
+import { useAuth } from '../contexts/AuthContext';
 import {
   hasPermission,
   hasAnyPermission,
@@ -17,7 +17,7 @@ import {
  * @returns {Object} Permission utilities and user role information
  */
 export const usePermissions = () => {
-  const { backendUser, isFullyAuthenticated } = useAuthContext();
+  const { backendUser, isFullyAuthenticated } = useAuth();
 
   const userRole = backendUser?.role;
   const isAuthenticated = isFullyAuthenticated;
@@ -55,13 +55,19 @@ export const usePermissions = () => {
     return canAccessRoute(userRole, routePermissions);
   };
 
-  // Role checking functions
+  // Helper function to normalize role names for comparison
+  const normalizeRole = (role) => {
+    if (!role) return '';
+    return role.toLowerCase();
+  };
+
+  // Role checking functions with case-insensitive comparison
   const isRole = (role) => {
-    return userRole === role;
+    return normalizeRole(userRole) === normalizeRole(role);
   };
 
   const isAnyRole = (roleList) => {
-    return Array.isArray(roleList) ? roleList.includes(userRole) : false;
+    return Array.isArray(roleList) ? roleList.some(role => normalizeRole(userRole) === normalizeRole(role)) : false;
   };
 
   const isAdmin = () => {
@@ -181,10 +187,16 @@ export const useRoleCheck = (roles, requireAll = false) => {
   return useMemo(() => {
     if (!roles) return true;
 
+    // Helper function to normalize role names for comparison
+    const normalizeRole = (role) => {
+      if (!role) return '';
+      return role.toLowerCase();
+    };
+
     if (Array.isArray(roles)) {
       if (requireAll) {
-        // For future multi-role support
-        return roles.every(role => role === userRole);
+        // For future multi-role support with case-insensitive comparison
+        return roles.every(role => normalizeRole(role) === normalizeRole(userRole));
       }
       return isAnyRole(roles);
     }

@@ -1,13 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { useAuthContext } from '../contexts/AuthContext';
-import { protectedApi } from '../services/authService';
+import { useAuth } from '../contexts/AuthContext';
+// import { protectedApi } from '../services/authService'; // Removed - using new auth system
 import ProtectedRoute from '../components/ProtectedRoute';
 import ProfileImage from '../components/ProfileImage';
 import Navbar from '../components/Navbar';
 import Footer from '../components/footer';
+import { API_BASE_URL } from '../config/api';
 
 const Dashboard = () => {
-    const { backendUser, user } = useAuthContext();
+    const { user } = useAuth();
     const [tours, setTours] = useState([]);
     const [activities, setActivities] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -18,11 +19,18 @@ const Dashboard = () => {
             try {
                 setLoading(true);
 
-                // Fetch data using protected API calls
-                const [toursResponse, activitiesResponse] = await Promise.all([
-                    protectedApi.getTours(),
-                    protectedApi.getActivities()
-                ]);
+                // Only fetch tours if user has permission (admin or wildlifeOfficer)
+                const promises = [];
+                
+                if (user?.role === 'admin' || user?.role === 'wildlifeOfficer') {
+                    promises.push(protectedApi.getTours());
+                } else {
+                    promises.push(Promise.resolve({ data: [] }));
+                }
+                
+                promises.push(protectedApi.getActivities());
+
+                const [toursResponse, activitiesResponse] = await Promise.all(promises);
 
                 setTours(toursResponse.data || []);
                 setActivities(activitiesResponse.data || []);
@@ -35,7 +43,37 @@ const Dashboard = () => {
         };
 
         fetchDashboardData();
-    }, []);
+    }, [user?.role]);
+
+    const handleQuickDonate = async () => {
+        try {
+            const defaultAmount = 1000; // LKR
+            const donorEmail = user?.email || user?.profile?.email || '';
+            const donorName = user?.name || `${user?.firstName || ''} ${user?.lastName || ''}`.trim() || 'Anonymous';
+            const resp = await fetch(`${API_BASE_URL}/donations/create-checkout-session`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    amount: defaultAmount,
+                    currency: 'lkr',
+                    donorEmail,
+                    donorName,
+                    isMonthly: false,
+                }),
+                credentials: 'include',
+            });
+            if (!resp.ok) {
+                const err = await resp.json().catch(() => ({}));
+                throw new Error(err?.message || 'Failed to start checkout');
+            }
+            const data = await resp.json();
+            const url = data?.data?.url || data?.url;
+            if (!url) throw new Error('No checkout URL');
+            window.location.href = url;
+        } catch (e) {
+            alert(e.message || 'Could not start Stripe checkout');
+        }
+    };
 
     if (loading) {
         return (
@@ -72,7 +110,7 @@ const Dashboard = () => {
                                 <div>
                                     <h1 className="text-3xl font-bold">Welcome back, {user?.name}!</h1>
                                     <p className="text-green-100 mt-2">
-                                        Role: {backendUser?.role} | Last login: {new Date().toLocaleDateString()}
+                                        Role: {user?.role} | Last login: {new Date().toLocaleDateString()}
                                     </p>
                                 </div>
                             </div>
@@ -134,7 +172,7 @@ const Dashboard = () => {
                                     </div>
                                     <div className="ml-4">
                                         <p className="text-sm font-medium text-gray-600">Account Type</p>
-                                        <p className="text-2xl font-semibold text-gray-900 capitalize">{backendUser?.role}</p>
+                                        <p className="text-2xl font-semibold text-gray-900 capitalize">{user?.role}</p>
                                     </div>
                                 </div>
                             </div>
@@ -144,6 +182,15 @@ const Dashboard = () => {
                         <div className="bg-white rounded-lg shadow p-6">
                             <h2 className="text-xl font-semibold text-gray-800 mb-4">Quick Actions</h2>
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                                <button onClick={handleQuickDonate} className="p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors text-left">
+                                    <div className="text-emerald-600 mb-2">
+                                        <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8c-1.657 0-3 1.343-3 3 0 2.25 3 5 3 5s3-2.75 3-5c0-1.657-1.343-3-3-3zm0-6a9 9 0 100 18 9 9 0 000-18z" />
+                                        </svg>
+                                    </div>
+                                    <h3 className="font-medium text-gray-900">Make Donation</h3>
+                                    <p className="text-sm text-gray-600">Quick donate LKR 1,000 via Stripe</p>
+                                </button>
                                 <button className="p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors text-left">
                                     <div className="text-green-600 mb-2">
                                         <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -164,15 +211,15 @@ const Dashboard = () => {
                                     <p className="text-sm text-gray-600">Check upcoming events</p>
                                 </button>
 
-                                <button className="p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors text-left">
+                                <a href="/donation" className="p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors text-left block">
                                     <div className="text-purple-600 mb-2">
                                         <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
                                         </svg>
                                     </div>
-                                    <h3 className="font-medium text-gray-900">Reports</h3>
-                                    <p className="text-sm text-gray-600">View analytics and reports</p>
-                                </button>
+                                    <h3 className="font-medium text-gray-900">Donate</h3>
+                                    <p className="text-sm text-gray-600">Support wildlife conservation</p>
+                                </a>
 
                                 <button className="p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors text-left">
                                     <div className="text-red-600 mb-2">

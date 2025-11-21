@@ -1,97 +1,112 @@
 import React, { useState, useEffect } from 'react';
-import { useAuthContext } from '../../contexts/AuthContext';
+import { useAuth } from '../../contexts/AuthContext';
 import { protectedApi } from '../../services/authService';
-import ProtectedRoute from '../../components/ProtectedRoute';
+import RoleGuard from '../../components/RoleGuard';
 import Navbar from '../../components/Navbar';
 import Footer from '../../components/footer';
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
+import logoImage from '../../assets/logo.png';
+import { 
+  DashboardLayout, 
+  DashboardHeader, 
+  DashboardSidebar, 
+  DashboardGrid,
+  StatCard, 
+  LoadingSpinner, 
+  ErrorMessage,
+  TabNavigation,
+  ActionButton
+} from '../../components/common/dashboard';
+import { useDashboard } from '../../hooks/useDashboard';
+import { getDashboardConfig, getGreetingMessage, formatStatValue } from '../../utils/dashboardUtils.jsx';
 
 const TourGuideDashboard = () => {
-  const { backendUser, user } = useAuthContext();
-  const [activeTab, setActiveTab] = useState('overview');
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const { user } = useAuth();
+  const { activeTab, setActiveTab, loading, setLoading, error, setError, handleError } = useDashboard('overview');
+  
+  // Get dashboard configuration for tour guide role
+  const dashboardConfig = getDashboardConfig('tourGuide');
 
   // Dashboard data states
-  const [profile, setProfile] = useState(null);
   const [assignedTours, setAssignedTours] = useState([]);
   const [activeTour, setActiveTour] = useState(null);
   const [tourHistory, setTourHistory] = useState([]);
-  const [tourMaterials, setTourMaterials] = useState([]);
   const [ratings, setRatings] = useState({ average: 0, total: 0 });
 
   // Form states
-  const [rejectionForm, setRejectionForm] = useState({
-    tourId: '',
-    reason: ''
-  });
-  const [materialForm, setMaterialForm] = useState({
-    title: '',
-    description: '',
-    type: 'document',
-    file: null
-  });
 
   useEffect(() => {
     fetchDashboardData();
   }, []);
 
   const fetchDashboardData = async () => {
+    setLoading(true);
+    setError(null); // Clear any existing errors
+
+    console.log('🔄 Loading tour guide dashboard data...');
+
+    // Set default values first
+    const defaultRatings = { average: 4.5, total: 0 };
+
+    setAssignedTours([]);
+    setTourHistory([]);
+    setRatings(defaultRatings);
+    setActiveTour(null);
+
+    // Try to fetch real data, but don't fail if endpoints don't exist
     try {
-      setLoading(true);
 
-      const [
-        profileRes,
-        toursRes,
-        historyRes,
-        materialsRes,
-        ratingsRes
-      ] = await Promise.all([
-        protectedApi.getTourGuideProfile(),
-        protectedApi.getAssignedTours(),
-        protectedApi.getTourHistory(),
-        protectedApi.getTourMaterials(),
-        protectedApi.getTourGuideRatings()
-      ]);
+      // Try tours endpoints
+      try {
+        console.log('🔍 TourGuideDashboard - User object:', user);
+        console.log('🔍 TourGuideDashboard - User ID:', user?._id);
+        const toursRes = await protectedApi.getAssignedTours(user?._id);
+        if (toursRes?.data && Array.isArray(toursRes.data)) {
+          setAssignedTours(toursRes.data);
+          console.log('✅ Tours loaded successfully');
+          console.log('🔍 Tours data received:', toursRes.data);
+          console.log('🔍 First tour structure:', toursRes.data[0]);
+          console.log('🔍 First tour bookingId:', toursRes.data[0]?.bookingId);
+          
+          // Check for active tour (handle different status formats)
+          const active = toursRes.data.find(tour => 
+            tour.status === 'in-progress' || 
+            tour.status === 'Started' || 
+            tour.status === 'started' ||
+            tour.status === 'Processing' ||
+            tour.status === 'processing'
+          );
+          setActiveTour(active || null);
+          console.log('🔍 Active tour found:', active);
+        }
+      } catch (error) {
+        console.log('ℹ️ Tours endpoint not available, using empty array');
+        console.log('🔍 Error details:', error);
+      }
 
-      setProfile(profileRes.data);
-      setAssignedTours(toursRes.data || []);
-      setTourHistory(historyRes.data || []);
-      setTourMaterials(materialsRes.data || []);
-      setRatings(ratingsRes.data || { average: 0, total: 0 });
 
-      // Check for active tour
-      const active = (toursRes.data || []).find(tour => tour.status === 'in-progress');
-      setActiveTour(active || null);
+      // Try ratings endpoint
+      try {
+        const ratingsRes = await protectedApi.getTourGuideRatings();
+        if (ratingsRes?.data) {
+          setRatings(ratingsRes.data);
+          console.log('✅ Ratings loaded successfully');
+        }
+      } catch (error) {
+        console.log('ℹ️ Ratings endpoint not available, using default ratings');
+      }
 
+      console.log('✅ Dashboard data loading completed');
+      
     } catch (error) {
-      console.error('Failed to fetch dashboard data:', error);
-      setError('Failed to load dashboard data');
+      console.warn('Dashboard data loading had some issues:', error);
+      // Don't set error state - we're handling this gracefully
     } finally {
       setLoading(false);
     }
   };
 
-  const acceptTour = async (tourId) => {
-    try {
-      await protectedApi.acceptTour(tourId);
-      await fetchDashboardData();
-      setError(null);
-    } catch (error) {
-      setError('Failed to accept tour. Please try again.');
-    }
-  };
-
-  const rejectTour = async (e) => {
-    e.preventDefault();
-    try {
-      await protectedApi.rejectTour(rejectionForm.tourId, { reason: rejectionForm.reason });
-      setRejectionForm({ tourId: '', reason: '' });
-      await fetchDashboardData();
-      setError(null);
-    } catch (error) {
-      setError('Failed to reject tour. Please try again.');
-    }
-  };
 
   const updateTourStatus = async (tourId, status) => {
     try {
@@ -99,53 +114,12 @@ const TourGuideDashboard = () => {
       await fetchDashboardData();
       setError(null);
     } catch (error) {
-      setError(`Failed to update tour status to ${status}.`);
+      console.warn('Update tour status endpoint not available:', error);
+      setError(`Tour status update feature is not yet implemented.`);
     }
   };
 
-  const uploadTourMaterial = async (e) => {
-    e.preventDefault();
-    try {
-      const formData = new FormData();
-      formData.append('title', materialForm.title);
-      formData.append('description', materialForm.description);
-      formData.append('type', materialForm.type);
-      if (materialForm.file) {
-        formData.append('file', materialForm.file);
-      }
 
-      await protectedApi.uploadTourMaterial(formData);
-      setMaterialForm({ title: '', description: '', type: 'document', file: null });
-      await fetchDashboardData();
-      setError(null);
-    } catch (error) {
-      setError('Failed to upload material. Please try again.');
-    }
-  };
-
-  const deleteTourMaterial = async (materialId) => {
-    try {
-      await protectedApi.deleteTourMaterial(materialId);
-      await fetchDashboardData();
-      setError(null);
-    } catch (error) {
-      setError('Failed to delete material.');
-    }
-  };
-
-  const downloadTourMaterial = async (materialId, filename) => {
-    try {
-      const response = await protectedApi.downloadTourMaterial(materialId);
-      const blob = new Blob([response.data]);
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = filename;
-      a.click();
-    } catch (error) {
-      setError('Failed to download material.');
-    }
-  };
 
   const generateReport = async (type) => {
     try {
@@ -157,76 +131,356 @@ const TourGuideDashboard = () => {
       a.download = `tour-guide-${type}-report.pdf`;
       a.click();
     } catch (error) {
-      setError(`Failed to generate ${type} report.`);
+      console.warn('Generate report endpoint not available:', error);
+      setError(`Report generation feature is not yet implemented.`);
     }
   };
 
-  const updateProfile = async (profileData) => {
+  // PDF Generation Functions
+  const createFormalHeader = (doc, title, subtitle = '') => {
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const margin = 20;
+    
+    // Header background with gradient effect
+    doc.setFillColor(30, 64, 175); // Blue-800
+    doc.rect(0, 0, pageWidth, 50, 'F');
+    
+    // Add actual logo
     try {
-      await protectedApi.updateTourGuideProfile(profileData);
-      await fetchDashboardData();
-      setError(null);
+      // Add logo image (resize to fit nicely in header)
+      doc.addImage(logoImage, 'PNG', 15, 8, 30, 30);
     } catch (error) {
-      setError('Failed to update profile.');
+      console.warn('Could not load logo image, using text fallback:', error);
+      // Fallback to text logo if image fails
+      doc.setFillColor(255, 255, 255);
+      doc.circle(35, 25, 12, 'F');
+      doc.setTextColor(30, 64, 175);
+      doc.setFontSize(12);
+      doc.setFont('helvetica', 'bold');
+      doc.text('WLG', 30, 30, { align: 'center' });
     }
+    
+    // Company name
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(16);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Wild Lanka Go', 55, 20);
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'normal');
+    doc.text('Wildlife Conservation Portal', 55, 28);
+    
+    // Contact info on the right
+    doc.setFontSize(8);
+    doc.text('123 Wildlife Sanctuary Road', pageWidth - margin, 15, { align: 'right' });
+    doc.text('Colombo, Sri Lanka', pageWidth - margin, 22, { align: 'right' });
+    doc.text('info@wildlankago.com', pageWidth - margin, 29, { align: 'right' });
+    doc.text('+94 11 234 5678', pageWidth - margin, 36, { align: 'right' });
+    
+    // Document title
+    doc.setTextColor(55, 65, 81); // Gray-700
+    doc.setFontSize(18);
+    doc.setFont('helvetica', 'bold');
+    doc.text(title, margin, 70);
+    
+    if (subtitle) {
+      doc.setFontSize(12);
+      doc.setFont('helvetica', 'normal');
+      doc.text(subtitle, margin, 80);
+    }
+    
+    // Date
+    doc.setFontSize(10);
+    doc.text(`Generated on: ${new Date().toLocaleDateString()}`, pageWidth - margin, 70, { align: 'right' });
+    
+    // User info
+    doc.setFontSize(10);
+    doc.text(`Tour Guide: ${user?.firstName && user?.lastName ? `${user.firstName} ${user.lastName}` : user?.name || 'Unknown'}`, pageWidth - margin, 80, { align: 'right' });
+    
+    // Line separator
+    doc.setDrawColor(200, 200, 200);
+    doc.setLineWidth(0.5);
+    doc.line(margin, 90, pageWidth - margin, 90);
+    
+    return 100; // Return Y position for content
   };
+
+  const generateTourHistoryPDF = () => {
+    if (!assignedTours || assignedTours.length === 0) {
+      alert('No tour assignments found to generate PDF');
+      return;
+    }
+
+    const doc = new jsPDF();
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+    const margin = 20;
+    
+    let yPosition = createFormalHeader(doc, 'Tour Guide History Report', 'Complete record of your tour assignments and history');
+    
+    // Add summary section
+    yPosition += 10;
+    doc.setFontSize(12);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(30, 64, 175);
+    doc.text('Summary', margin, yPosition);
+    
+    yPosition += 10;
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(55, 65, 81);
+    doc.text(`Total Tours: ${assignedTours.length}`, margin, yPosition);
+    
+    const completedTours = assignedTours.filter(tour => 
+      tour.status === 'completed' || tour.status === 'Completed'
+    ).length;
+    doc.text(`Completed Tours: ${completedTours}`, margin + 80, yPosition);
+    
+    const pendingTours = assignedTours.filter(tour => 
+      tour.status === 'pending' || tour.status === 'Pending' || 
+      tour.status === 'confirmed' || tour.status === 'Confirmed'
+    ).length;
+    doc.text(`Pending Tours: ${pendingTours}`, margin + 160, yPosition);
+    
+    yPosition += 20;
+    
+    // Add tour details as list
+    doc.setFontSize(12);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(30, 64, 175);
+    doc.text('Tour Details', margin, yPosition);
+    yPosition += 15;
+
+    assignedTours.forEach((tour, index) => {
+      // Check if we need a new page
+      if (yPosition > pageHeight - 80) {
+        doc.addPage();
+        yPosition = 20;
+      }
+
+      const activityName = tour.bookingId?.activityName || tour.bookingId?.type || "Safari Tour";
+      const touristName = tour.bookingId?.customer ? 
+        `${tour.bookingId.customer.firstName || ''} ${tour.bookingId.customer.lastName || ''}`.trim() : 
+        "Unknown";
+      const date = new Date(tour.preferredDate).toLocaleDateString();
+      const time = tour.bookingId?.preferredTime || "09:00";
+      const participants = tour.bookingId?.participants || 1;
+      const location = tour.bookingId?.pickupLocation || "Park Entrance";
+      const status = tour.status || "Unknown";
+      const fee = `$${tour.bookingId?.pricing?.guidePrice || 0}`;
+
+      // Tour number and title
+      doc.setFontSize(11);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(30, 64, 175);
+      doc.text(`Tour #${index + 1}: ${activityName}`, margin, yPosition);
+      yPosition += 8;
+
+      // Tour details in a structured format
+      doc.setFontSize(9);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(55, 65, 81);
+      
+      const details = [
+        `Tourist: ${touristName}`,
+        `Date: ${date}`,
+        `Time: ${time}`,
+        `Participants: ${participants}`,
+        `Location: ${location}`,
+        `Status: ${status}`,
+        `Guide Fee: ${fee}`
+      ];
+
+      details.forEach((detail, detailIndex) => {
+        if (detailIndex % 2 === 0) {
+          // Left column
+          doc.text(detail, margin, yPosition);
+        } else {
+          // Right column
+          doc.text(detail, margin + 100, yPosition);
+          yPosition += 6;
+        }
+      });
+
+      // If odd number of details, move to next line
+      if (details.length % 2 === 1) {
+        yPosition += 6;
+      }
+
+      // Add separator line
+      yPosition += 5;
+      doc.setDrawColor(200, 200, 200);
+      doc.setLineWidth(0.3);
+      doc.line(margin, yPosition, pageWidth - margin, yPosition);
+      yPosition += 10;
+    });
+
+    // Add footer to all pages
+    const pageCount = doc.internal.getNumberOfPages();
+    for (let i = 1; i <= pageCount; i++) {
+      doc.setPage(i);
+      doc.setFontSize(8);
+      doc.setFont('helvetica', 'italic');
+      doc.setTextColor(100);
+      doc.text('Wild Lanka Go - Tour Guide Portal', margin, pageHeight - 15);
+      doc.text(`Page ${i} of ${pageCount}`, pageWidth - margin, pageHeight - 15, { align: 'right' });
+    }
+
+    doc.save(`tour-guide-history-${new Date().toISOString().split('T')[0]}.pdf`);
+  };
+
 
   if (loading) {
     return (
-      <ProtectedRoute allowedRoles={['tourGuide']}>
-        <div className="flex flex-col min-h-screen">
-          <Navbar />
-          <div className="flex-1 flex items-center justify-center pt-32">
-            <div className="text-center">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto"></div>
-              <p className="mt-4 text-gray-600">Loading your dashboard...</p>
-            </div>
-          </div>
-          <Footer />
-        </div>
-      </ProtectedRoute>
+      <RoleGuard requiredRole="tourGuide">
+        <LoadingSpinner 
+          message="Loading your tour guide dashboard..." 
+          color="border-purple-600" 
+        />
+      </RoleGuard>
     );
   }
 
-  return (
-    <ProtectedRoute allowedRoles={['tourGuide']}>
-      <div className="flex flex-col min-h-screen">
-        <Navbar />
-        <div className="flex-1 pt-32 pb-16">
-          <div className="container mx-auto px-4">
-            {/* Header */}
-            <div className="bg-gradient-to-r from-purple-600 to-purple-700 rounded-lg p-8 text-white mb-8">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h1 className="text-3xl font-bold">Tour Guide Dashboard</h1>
-                  <p className="text-purple-100 mt-2">Welcome back, {user?.name}!</p>
-                  {profile && (
-                    <div className="flex items-center mt-3 space-x-4">
-                      <div className="flex items-center">
-                        <span className="text-yellow-300 mr-1">⭐</span>
-                        <span>{ratings.average.toFixed(1)} ({ratings.total} reviews)</span>
-                      </div>
-                      <div className={`px-2 py-1 rounded-full text-xs ${
-                        profile.isAvailable ? 'bg-green-500' : 'bg-red-500'
-                      }`}>
-                        {profile.isAvailable ? 'Available' : 'Unavailable'}
-                      </div>
-                    </div>
-                  )}
-                </div>
-                <div className="text-right">
-                  <div className="text-lg font-semibold">{assignedTours.filter(t => t.status === 'pending').length}</div>
-                  <div className="text-purple-100 text-sm">Pending Tours</div>
-                </div>
-              </div>
-            </div>
+  // Generate greeting message with stats
+  const stats = {
+    pendingTours: assignedTours.filter(t => 
+      t.status === 'pending' || 
+      t.status === 'Pending' ||
+      t.status === 'Confirmed' ||
+      t.status === 'confirmed' ||
+      t.status === 'Started' ||
+      t.status === 'started' ||
+      t.status === 'Processing' ||
+      t.status === 'processing'
+    ).length
+  };
+  const { greeting, subtitle } = getGreetingMessage(user?.name, 'tourGuide', stats);
 
-            {/* Error Message */}
-            {error && (
-              <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
-                <p className="text-sm text-red-800">{error}</p>
-              </div>
-            )}
+  return (
+    <RoleGuard requiredRole="tourGuide">
+      <div className="flex flex-col min-h-screen bg-[#F4F6FF]">
+        <Navbar />
+        <div className="flex-1 pt-28 pb-10">
+          <div className="mx-auto max-w-7xl px-4">
+            <div className="grid grid-cols-12 gap-4">
+              {/* LEFT SIDEBAR */}
+              <aside className="col-span-12 lg:col-span-3">
+                <div className="group relative overflow-hidden rounded-2xl lg:rounded-3xl bg-white/80 backdrop-blur-xl border border-white/20 shadow-xl lg:shadow-2xl p-4 lg:p-6 sticky top-20 lg:top-24 transition-all duration-500 hover:shadow-2xl lg:hover:shadow-3xl">
+                  <div className="absolute inset-0 bg-gradient-to-br from-blue-50/30 to-indigo-50/30"></div>
+                  <div className="relative z-10">
+                    {/* Mobile Header - Horizontal Layout */}
+                    <div className="flex items-center justify-between lg:justify-start gap-3 mb-4 lg:mb-6">
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 lg:p-3 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl lg:rounded-2xl shadow-lg">
+                          <svg className="w-5 h-5 lg:w-6 lg:h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                          </svg>
+                        </div>
+                        <div className="hidden sm:block">
+                          <div className="text-lg lg:text-xl font-bold text-gray-800">Tour Guide Portal</div>
+                          <div className="text-xs lg:text-sm text-gray-500">Wild Lanka Go</div>
+                        </div>
+                        <div className="block sm:hidden">
+                          <div className="text-sm font-bold text-gray-800">Tour Guide</div>
+                        </div>
+                      </div>
+                      {/* Mobile Menu Toggle - Hidden on desktop */}
+                      <button className="lg:hidden p-2 rounded-lg bg-gray-100 hover:bg-gray-200 transition-colors">
+                        <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16" />
+                        </svg>
+                      </button>
+                    </div>
+
+                    {[
+                      { key: 'overview', label: 'Overview', icon: (
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                          </svg>
+                      )},
+                      { key: 'assignments', label: 'Assignments', icon: (
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                          </svg>
+                      )},
+                      { key: 'history', label: 'Tour History', icon: (
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                      )},
+                    ].map(item => (
+                      <button
+                        key={item.key}
+                        onClick={() => setActiveTab(item.key)}
+                        className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-all duration-300 mb-2 ${
+                          activeTab === item.key
+                            ? 'bg-gradient-to-r from-blue-500 to-indigo-500 text-white shadow-lg transform scale-105'
+                            : 'text-gray-600 hover:bg-white/60 hover:text-gray-800 hover:shadow-md'
+                        }`}
+                      >
+                        {item.icon}
+                        <span className="text-sm font-medium">{item.label}</span>
+                      </button>
+                    ))}
+                    
+                    <div className="mt-6 pt-4 border-t border-gray-200/50">
+                      <button
+                        onClick={() => setActiveTab('assignments')}
+                        className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl px-4 py-3 text-sm font-medium shadow-lg transition-all duration-300 hover:shadow-xl hover:scale-105"
+                      >
+                        View Assignments
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </aside>
+
+              {/* MAIN CONTENT */}
+              <main className="col-span-12 lg:col-span-9">
+                {/* Top greeting banner */}
+                <div className="mb-6">
+                  <div className="bg-blue-600 text-white rounded-2xl p-4 lg:p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-sm">
+                    <div className="flex-1">
+                      <h2 className="text-base sm:text-lg lg:text-xl font-semibold">
+                        {`Good ${new Date().getHours() < 12 ? 'Morning' : new Date().getHours() < 18 ? 'Afternoon' : 'Evening'}, ${user?.firstName || user?.name?.split(' ')[0] || 'Tour Guide'}`}
+                      </h2>
+                      <p className="text-xs sm:text-sm opacity-90 mt-1">
+                        You have {assignedTours.filter(t => 
+                          t.status === 'pending' || 
+                          t.status === 'Pending' ||
+                          t.status === 'Confirmed' ||
+                          t.status === 'confirmed' ||
+                          t.status === 'Started' ||
+                          t.status === 'started' ||
+                          t.status === 'Processing' ||
+                          t.status === 'processing'
+                        ).length} assigned tours and {assignedTours.filter(t => 
+                          t.status === 'Ended' || 
+                          t.status === 'ended' ||
+                          t.status === 'Completed' ||
+                          t.status === 'completed'
+                        ).length} completed tours. Stay ready for your next adventure!
+                      </p>
+                      <button
+                        onClick={() => setActiveTab('assignments')}
+                        className="mt-3 bg-white/20 hover:bg-white/30 text-white rounded-lg px-3 py-1.5 text-sm transition-colors"
+                      >
+                        View Assignments
+                      </button>
+                    </div>
+                    <div className="hidden md:block">
+                      {/* simple illustration block */}
+                      <div className="w-28 h-20 rounded-xl bg-white/10 backdrop-blur-sm" />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Error Message */}
+                {error && (
+                  <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
+                    <p className="text-sm text-red-800">{error}</p>
+                  </div>
+                )}
 
             {/* Active Tour Alert */}
             {activeTour && (
@@ -235,157 +489,179 @@ const TourGuideDashboard = () => {
                   <div>
                     <h3 className="text-lg font-medium text-blue-900">Active Tour in Progress</h3>
                     <p className="text-blue-700 text-sm">
-                      {activeTour.activityName} - {activeTour.touristName}
+                      {activeTour.activityName || 'Tour Activity'}{activeTour.touristName ? ` - ${activeTour.touristName}` : ''}
                     </p>
                   </div>
                   <div className="flex space-x-2">
                     <button
-                      onClick={() => updateTourStatus(activeTour._id, 'break')}
-                      className="px-3 py-1 bg-yellow-500 text-white rounded hover:bg-yellow-600 text-sm"
+                      onClick={() => setActiveTab('assignments')}
+                      className="px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 text-sm"
                     >
-                      Take Break
-                    </button>
-                    <button
-                      onClick={() => updateTourStatus(activeTour._id, 'completed')}
-                      className="px-3 py-1 bg-green-500 text-white rounded hover:bg-green-600 text-sm"
-                    >
-                      End Tour
+                      View
                     </button>
                   </div>
                 </div>
               </div>
             )}
 
-            {/* Stats Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-              <div className="bg-white rounded-lg shadow p-6">
-                <div className="flex items-center">
-                  <div className="p-2 bg-blue-100 rounded-lg">
-                    <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                    </svg>
-                  </div>
-                  <div className="ml-4">
-                    <p className="text-sm font-medium text-gray-600">Pending Tours</p>
-                    <p className="text-2xl font-semibold text-gray-900">
-                      {assignedTours.filter(t => t.status === 'pending').length}
-                    </p>
-                  </div>
-                </div>
-              </div>
 
-              <div className="bg-white rounded-lg shadow p-6">
-                <div className="flex items-center">
-                  <div className="p-2 bg-green-100 rounded-lg">
-                    <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                  </div>
-                  <div className="ml-4">
-                    <p className="text-sm font-medium text-gray-600">Completed Tours</p>
-                    <p className="text-2xl font-semibold text-gray-900">{tourHistory.length}</p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-white rounded-lg shadow p-6">
-                <div className="flex items-center">
-                  <div className="p-2 bg-yellow-100 rounded-lg">
-                    <svg className="w-6 h-6 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
-                    </svg>
-                  </div>
-                  <div className="ml-4">
-                    <p className="text-sm font-medium text-gray-600">Average Rating</p>
-                    <p className="text-2xl font-semibold text-gray-900">{ratings.average.toFixed(1)}</p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-white rounded-lg shadow p-6">
-                <div className="flex items-center">
-                  <div className="p-2 bg-purple-100 rounded-lg">
-                    <svg className="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
-                    </svg>
-                  </div>
-                  <div className="ml-4">
-                    <p className="text-sm font-medium text-gray-600">Materials</p>
-                    <p className="text-2xl font-semibold text-gray-900">{tourMaterials.length}</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Navigation Tabs */}
-            <div className="bg-white rounded-lg shadow mb-8">
-              <div className="border-b border-gray-200">
-                <nav className="-mb-px flex space-x-8 px-6">
+                {/* Tab buttons (for center area) */}
+                <div className="flex flex-wrap gap-2 mb-4">
                   {[
-                    { id: 'overview', name: 'Overview', icon: '📊' },
-                    { id: 'assignments', name: 'Tour Assignments', icon: '📋' },
-                    { id: 'progress', name: 'Tour Progress', icon: '🎯' },
-                    { id: 'materials', name: 'Tour Materials', icon: '📚' },
-                    { id: 'reports', name: 'Reports', icon: '📄' },
-                    { id: 'profile', name: 'Profile', icon: '👤' }
-                  ].map((tab) => (
+                    { k: 'overview', t: 'Overview' },
+                    { k: 'assignments', t: 'Tour Assignments' },
+                    { k: 'history', t: 'Tour History' }
+                  ].map(({ k, t }) => (
                     <button
-                      key={tab.id}
-                      onClick={() => setActiveTab(tab.id)}
-                      className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                        activeTab === tab.id
-                          ? 'border-purple-500 text-purple-600'
-                          : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                      }`}
+                      key={k}
+                      onClick={() => setActiveTab(k)}
+                      className={`px-4 py-2 rounded-lg text-sm font-medium transition
+                      ${activeTab === k ? 'bg-blue-600 text-white' : 'bg-white text-gray-700 border border-gray-200 hover:bg-gray-50'}`}
                     >
-                      <span className="mr-2">{tab.icon}</span>
-                      {tab.name}
+                      {t}
                     </button>
                   ))}
-                </nav>
-              </div>
+                </div>
 
-              <div className="p-6">
+                {/* CENTER PANELS */}
+                <div className="space-y-6">
                 {/* Overview Tab */}
                 {activeTab === 'overview' && (
-                  <div>
-                    <h3 className="text-lg font-medium text-gray-900 mb-4">Dashboard Overview</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      <div className="bg-gray-50 rounded-lg p-4">
-                        <h4 className="font-medium text-gray-900 mb-2">Recent Activity</h4>
-                        <div className="space-y-2 text-sm text-gray-600">
-                          {tourHistory.slice(0, 5).map((tour) => (
-                            <div key={tour._id} className="flex justify-between">
-                              <span>✅ {tour.activityName}</span>
-                              <span>{new Date(tour.completedAt).toLocaleDateString()}</span>
+                  <div className="space-y-6">
+                    {/* Stat Cards */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6">
+                      <div className="group relative overflow-hidden rounded-2xl lg:rounded-3xl bg-gradient-to-br from-blue-500 via-indigo-500 to-blue-600 p-4 lg:p-6 text-white shadow-xl lg:shadow-2xl transition-all duration-500 hover:scale-105 hover:shadow-2xl lg:hover:shadow-3xl">
+                        <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent"></div>
+                        <div className="relative z-10">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <p className="text-blue-100 text-xs lg:text-sm font-medium">Assigned Tours</p>
+                              <p className="text-2xl lg:text-4xl font-bold mt-1 lg:mt-2">{assignedTours.filter(t => 
+                                t.status === 'pending' || 
+                                t.status === 'Pending' ||
+                                t.status === 'Confirmed' ||
+                                t.status === 'confirmed' ||
+                                t.status === 'Started' ||
+                                t.status === 'started' ||
+                                t.status === 'Processing' ||
+                                t.status === 'processing'
+                              ).length}</p>
+                              <p className="text-blue-200 text-xs mt-1">Ready for adventure</p>
                             </div>
-                          ))}
-                          {tourHistory.length === 0 && (
-                            <p className="text-gray-500">No completed tours yet</p>
-                          )}
+                            <div className="p-3 lg:p-4 bg-white/20 rounded-xl lg:rounded-2xl backdrop-blur-sm">
+                              <svg className="w-6 h-6 lg:w-8 lg:h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                              </svg>
+                            </div>
+                          </div>
                         </div>
                       </div>
-                      <div className="bg-gray-50 rounded-lg p-4">
-                        <h4 className="font-medium text-gray-900 mb-2">Quick Actions</h4>
-                        <div className="space-y-2">
-                          <button
-                            onClick={() => setActiveTab('assignments')}
-                            className="block w-full text-left px-3 py-2 bg-white border border-gray-300 rounded-md hover:bg-gray-50 text-sm"
-                          >
-                            📋 View Tour Assignments
-                          </button>
-                          <button
-                            onClick={() => setActiveTab('materials')}
-                            className="block w-full text-left px-3 py-2 bg-white border border-gray-300 rounded-md hover:bg-gray-50 text-sm"
-                          >
-                            📚 Manage Materials
-                          </button>
-                          <button
-                            onClick={() => generateReport('weekly')}
-                            className="block w-full text-left px-3 py-2 bg-white border border-gray-300 rounded-md hover:bg-gray-50 text-sm"
-                          >
-                            📄 Generate Report
-                          </button>
+
+                      <div className="group relative overflow-hidden rounded-3xl bg-gradient-to-br from-blue-500 via-indigo-500 to-purple-600 p-6 text-white shadow-2xl transition-all duration-500 hover:scale-105 hover:shadow-3xl">
+                        <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent"></div>
+                        <div className="relative z-10">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <p className="text-blue-100 text-xs lg:text-sm font-medium">Completed Tours</p>
+                              <p className="text-2xl lg:text-4xl font-bold mt-1 lg:mt-2">{assignedTours.filter(t => 
+                                t.status === 'Ended' || 
+                                t.status === 'ended' ||
+                                t.status === 'Completed' ||
+                                t.status === 'completed'
+                              ).length}</p>
+                              <p className="text-blue-200 text-xs mt-1">Successful adventures</p>
+                            </div>
+                            <div className="p-3 lg:p-4 bg-white/20 rounded-xl lg:rounded-2xl backdrop-blur-sm">
+                              <svg className="w-6 h-6 lg:w-8 lg:h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                              </svg>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="group relative overflow-hidden rounded-3xl bg-gradient-to-br from-cyan-500 via-blue-500 to-indigo-600 p-6 text-white shadow-2xl transition-all duration-500 hover:scale-105 hover:shadow-3xl">
+                        <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent"></div>
+                        <div className="relative z-10">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <p className="text-cyan-100 text-xs lg:text-sm font-medium">Average Rating</p>
+                              <p className="text-2xl lg:text-4xl font-bold mt-1 lg:mt-2">{ratings.average.toFixed(1)}</p>
+                              <p className="text-cyan-200 text-xs mt-1">Customer satisfaction</p>
+                            </div>
+                            <div className="p-3 lg:p-4 bg-white/20 rounded-xl lg:rounded-2xl backdrop-blur-sm">
+                              <svg className="w-6 h-6 lg:w-8 lg:h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
+                              </svg>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="group relative overflow-hidden rounded-3xl bg-gradient-to-br from-green-500 via-emerald-500 to-teal-600 p-6 text-white shadow-2xl transition-all duration-500 hover:scale-105 hover:shadow-3xl">
+                        <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent"></div>
+                        <div className="relative z-10">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <p className="text-green-100 text-xs lg:text-sm font-medium">Total Reviews</p>
+                              <p className="text-2xl lg:text-4xl font-bold mt-1 lg:mt-2">{ratings.total}</p>
+                              <p className="text-green-200 text-xs mt-1">Customer feedback</p>
+                            </div>
+                            <div className="p-3 lg:p-4 bg-white/20 rounded-xl lg:rounded-2xl backdrop-blur-sm">
+                              <svg className="w-6 h-6 lg:w-8 lg:h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                              </svg>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    {/* Recent Tours */}
+                    <div className="group relative overflow-hidden rounded-3xl bg-white/80 backdrop-blur-xl border border-white/20 shadow-2xl transition-all duration-500 hover:shadow-3xl">
+                      <div className="absolute inset-0 bg-gradient-to-br from-blue-50/50 to-indigo-50/50"></div>
+                      <div className="relative z-10">
+                        <div className="px-8 py-6 border-b border-gray-100/50">
+                          <div className="flex items-center justify-between">
+                            <h4 className="text-xl font-bold text-gray-800">Recent Tours</h4>
+                            <div className="p-2 bg-blue-100 rounded-xl">
+                              <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                              </svg>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="p-8">
+                          {assignedTours.length > 0 ? (
+                            <div className="space-y-4">
+                              {assignedTours.slice(0, 3).map((tour) => (
+                                <div key={tour._id} className="flex items-center justify-between p-4 bg-white/60 rounded-2xl border border-white/50 backdrop-blur-sm hover:bg-white/80 transition-all duration-300">
+                                  <div className="flex-1">
+                                    <h3 className="font-semibold text-gray-900 text-lg">{tour.bookingId?.activityName || tour.bookingId?.type || 'Safari Tour'}</h3>
+                                    <p className="text-sm text-gray-600 mt-1">{tour.bookingId?.pickupLocation || 'Park Entrance'}</p>
+                                    <p className="text-sm text-gray-500 mt-1">Date: {new Date(tour.preferredDate).toLocaleDateString()}</p>
+                                  </div>
+                                  <div className="text-right">
+                                    <span className={`inline-flex px-3 py-1 text-sm font-semibold rounded-full ${
+                                      tour.status === 'Ended' || tour.status === 'ended' || tour.status === 'Completed' || tour.status === 'completed'
+                                        ? 'bg-green-100 text-green-800' 
+                                        : 'bg-yellow-100 text-yellow-800'
+                                    }`}>
+                                      {tour.status}
+                                    </span>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <div className="text-center py-12">
+                              <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                              </svg>
+                              <h3 className="mt-2 text-sm font-medium text-gray-900">No tours recorded</h3>
+                              <p className="mt-1 text-sm text-gray-500">All clear! No recent tour activities.</p>
+                            </div>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -394,90 +670,166 @@ const TourGuideDashboard = () => {
 
                 {/* Tour Assignments Tab */}
                 {activeTab === 'assignments' && (
-                  <div>
-                    <h3 className="text-lg font-medium text-gray-900 mb-4">Tour Assignment Panel</h3>
-                    <div className="space-y-4">
-                      {assignedTours.filter(t => t.status === 'pending').map((tour) => (
-                        <div key={tour._id} className="border border-gray-200 rounded-lg p-4 bg-yellow-50">
-                          <div className="flex justify-between items-start">
-                            <div>
-                              <h4 className="font-medium text-gray-900">{tour.activityName}</h4>
-                              <div className="text-sm text-gray-600 mt-1 space-y-1">
-                                <div>👤 Tourist: {tour.touristName}</div>
-                                <div>📅 Date: {new Date(tour.date).toLocaleDateString()}</div>
-                                <div>🕒 Time: {tour.time}</div>
-                                <div>👥 Participants: {tour.participants}</div>
-                                <div>📍 Location: {tour.location}</div>
-                                <div>💰 Fee: ${tour.guideFee}</div>
+                  <div className="space-y-6">
+                    <div className="group relative overflow-hidden rounded-3xl bg-white/80 backdrop-blur-xl border border-white/20 shadow-2xl transition-all duration-500 hover:shadow-3xl">
+                      <div className="absolute inset-0 bg-gradient-to-br from-blue-50/50 to-indigo-50/50"></div>
+                      <div className="relative z-10">
+                        <div className="px-8 py-6 border-b border-gray-100/50">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-4">
+                              <div className="p-3 bg-blue-100 rounded-2xl">
+                                <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                </svg>
                               </div>
+                              <h2 className="text-2xl font-bold text-gray-800">Tour Assignments</h2>
                             </div>
-                            <div className="flex flex-col space-y-2">
-                              <button
-                                onClick={() => acceptTour(tour._id)}
-                                className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 text-sm"
-                              >
-                                Accept Tour
-                              </button>
-                              <button
-                                onClick={() => setRejectionForm({ tourId: tour._id, reason: '' })}
-                                className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 text-sm"
-                              >
-                                Reject Tour
-                              </button>
-                            </div>
+                            <button
+                              onClick={generateTourHistoryPDF}
+                              className="px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl hover:from-blue-700 hover:to-indigo-700 shadow-lg transition-all duration-300 hover:shadow-xl hover:scale-105"
+                            >
+                              Export PDF
+                            </button>
                           </div>
                         </div>
-                      ))}
-                      {assignedTours.filter(t => t.status === 'pending').length === 0 && (
-                        <div className="text-center py-12">
-                          <div className="text-gray-400 mb-2">
-                            <svg className="w-12 h-12 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                            </svg>
-                          </div>
-                          <p className="text-gray-500">No pending tour assignments</p>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Rejection Modal */}
-                    {rejectionForm.tourId && (
-                      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-                        <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
-                          <h3 className="text-lg font-medium text-gray-900 mb-4">Reject Tour</h3>
-                          <form onSubmit={rejectTour}>
-                            <div className="mb-4">
-                              <label className="block text-sm font-medium text-gray-700 mb-2">
-                                Reason for Rejection
-                              </label>
-                              <textarea
-                                value={rejectionForm.reason}
-                                onChange={(e) => setRejectionForm({...rejectionForm, reason: e.target.value})}
-                                rows="4"
-                                required
-                                className="w-full border border-gray-300 rounded-md px-3 py-2"
-                                placeholder="Please provide a reason for rejecting this tour..."
-                              />
+                        <div className="p-8">
+                          {assignedTours.filter(t => 
+                            t.status === 'pending' || 
+                            t.status === 'Pending' ||
+                            t.status === 'Confirmed' ||
+                            t.status === 'confirmed' ||
+                            t.status === 'Started' ||
+                            t.status === 'started' ||
+                            t.status === 'Processing' ||
+                            t.status === 'processing'
+                          ).length > 0 ? (
+                            <div className="space-y-4">
+                              {assignedTours.filter(t => 
+                                t.status === 'pending' || 
+                                t.status === 'Pending' ||
+                                t.status === 'Confirmed' ||
+                                t.status === 'confirmed' ||
+                                t.status === 'Started' ||
+                                t.status === 'started' ||
+                                t.status === 'Processing' ||
+                                t.status === 'processing'
+                              ).map((tour) => (
+                                <div key={tour._id} className="bg-white/60 rounded-2xl border border-white/50 backdrop-blur-sm p-6 hover:bg-white/80 transition-all duration-300">
+                                  <div className="flex justify-between items-start">
+                                    <div className="flex-1">
+                                      <h3 className="text-lg font-semibold text-gray-900">{tour.bookingId?.activityName || tour.bookingId?.type || 'Safari Tour'}</h3>
+                                      <div className="text-sm text-gray-600 mt-2 space-y-1">
+                                        <div>👤 Tourist: {tour.bookingId?.customer?.firstName} {tour.bookingId?.customer?.lastName}</div>
+                                        <div>📅 Date: {new Date(tour.preferredDate).toLocaleDateString()}</div>
+                                        <div>🕒 Time: {tour.bookingId?.preferredTime || '09:00'}</div>
+                                        <div>👥 Participants: {tour.bookingId?.participants || 1}</div>
+                                        <div>📍 Location: {tour.bookingId?.pickupLocation || 'Park Entrance'}</div>
+                                        <div>💰 Fee: ${tour.bookingId?.pricing?.guidePrice || 0}</div>
+                                        <div>📝 Notes: {tour.tourNotes || 'No notes'}</div>
+                                      </div>
+                                    </div>
+                                    <div className="flex flex-col items-end gap-2">
+                                      <span className={`inline-flex px-3 py-1 text-xs font-semibold rounded-full ${
+                                        tour.status === 'Started' || tour.status === 'started' || tour.status === 'Processing' || tour.status === 'processing'
+                                          ? 'bg-yellow-100 text-yellow-800' 
+                                          : 'bg-blue-100 text-blue-800'
+                                      }`}>
+                                        {tour.status}
+                                      </span>
+                                    </div>
+                                  </div>
+                                </div>
+                              ))}
                             </div>
-                            <div className="flex space-x-3">
-                              <button
-                                type="button"
-                                onClick={() => setRejectionForm({ tourId: '', reason: '' })}
-                                className="flex-1 px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50"
-                              >
-                                Cancel
-                              </button>
-                              <button
-                                type="submit"
-                                className="flex-1 px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700"
-                              >
-                                Reject Tour
-                              </button>
+                          ) : (
+                            <div className="text-center py-12">
+                              <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                              </svg>
+                              <h3 className="mt-2 text-sm font-medium text-gray-900">No assigned tours</h3>
+                              <p className="mt-1 text-sm text-gray-500">No tour assignments at the moment.</p>
                             </div>
-                          </form>
+                          )}
                         </div>
                       </div>
-                    )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Tour History Tab */}
+                {activeTab === 'history' && (
+                  <div className="space-y-6">
+                    <div className="group relative overflow-hidden rounded-3xl bg-white/80 backdrop-blur-xl border border-white/20 shadow-2xl transition-all duration-500 hover:shadow-3xl">
+                      <div className="absolute inset-0 bg-gradient-to-br from-blue-50/50 to-indigo-50/50"></div>
+                      <div className="relative z-10">
+                        <div className="px-8 py-6 border-b border-gray-100/50">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-4">
+                              <div className="p-3 bg-blue-100 rounded-2xl">
+                                <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                              </div>
+                              <h2 className="text-2xl font-bold text-gray-800">Tour History</h2>
+                            </div>
+                            <button
+                              onClick={generateTourHistoryPDF}
+                              className="px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl hover:from-blue-700 hover:to-indigo-700 shadow-lg transition-all duration-300 hover:shadow-xl hover:scale-105"
+                            >
+                              Export PDF
+                            </button>
+                          </div>
+                        </div>
+                        <div className="p-8">
+                          {assignedTours.filter(t => 
+                            t.status === 'Ended' || 
+                            t.status === 'ended' ||
+                            t.status === 'Completed' ||
+                            t.status === 'completed'
+                          ).length > 0 ? (
+                            <div className="space-y-4">
+                              {assignedTours.filter(t => 
+                                t.status === 'Ended' || 
+                                t.status === 'ended' ||
+                                t.status === 'Completed' ||
+                                t.status === 'completed'
+                              ).map((tour) => (
+                                <div key={tour._id} className="bg-white/60 rounded-2xl border border-white/50 backdrop-blur-sm p-6 hover:bg-white/80 transition-all duration-300">
+                                  <div className="flex justify-between items-start">
+                                    <div className="flex-1">
+                                      <h3 className="text-lg font-semibold text-gray-900">{tour.bookingId?.activityName || tour.bookingId?.type || 'Safari Tour'}</h3>
+                                      <div className="text-sm text-gray-600 mt-2 space-y-1">
+                                        <div>👤 Tourist: {tour.bookingId?.customer?.firstName} {tour.bookingId?.customer?.lastName}</div>
+                                        <div>📅 Date: {new Date(tour.preferredDate).toLocaleDateString()}</div>
+                                        <div>🕒 Time: {tour.bookingId?.preferredTime || '09:00'}</div>
+                                        <div>👥 Participants: {tour.bookingId?.participants || 1}</div>
+                                        <div>📍 Location: {tour.bookingId?.pickupLocation || 'Park Entrance'}</div>
+                                        <div>💰 Fee: ${tour.bookingId?.pricing?.guidePrice || 0}</div>
+                                        <div>📝 Notes: {tour.tourNotes || 'No notes'}</div>
+                                        <div>✅ Completed: {new Date(tour.updatedAt).toLocaleDateString()}</div>
+                                      </div>
+                                    </div>
+                                    <div className="flex flex-col items-end gap-2">
+                                      <span className="px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm font-medium">
+                                        ✅ Completed
+                                      </span>
+                                    </div>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <div className="text-center py-12">
+                              <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                              </svg>
+                              <h3 className="mt-2 text-sm font-medium text-gray-900">No completed tours</h3>
+                              <p className="mt-1 text-sm text-gray-500">No completed tours yet.</p>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 )}
 
@@ -567,12 +919,6 @@ const TourGuideDashboard = () => {
                               </div>
                               <div className="flex space-x-2">
                                 <button
-                                  onClick={() => downloadTourMaterial(tour.materialId, 'tour-materials.zip')}
-                                  className="px-3 py-1 bg-blue-600 text-white rounded text-sm hover:bg-blue-700"
-                                >
-                                  📥 Download Materials
-                                </button>
-                                <button
                                   onClick={() => updateTourStatus(tour._id, 'started')}
                                   className="px-3 py-1 bg-green-600 text-white rounded text-sm hover:bg-green-700"
                                 >
@@ -587,122 +933,6 @@ const TourGuideDashboard = () => {
                   </div>
                 )}
 
-                {/* Tour Materials Tab */}
-                {activeTab === 'materials' && (
-                  <div>
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                      {/* Upload Material */}
-                      <div>
-                        <h3 className="text-lg font-medium text-gray-900 mb-4">Upload Tour Material</h3>
-                        <form onSubmit={uploadTourMaterial} className="bg-gray-50 rounded-lg p-6">
-                          <div className="mb-4">
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                              Title
-                            </label>
-                            <input
-                              type="text"
-                              value={materialForm.title}
-                              onChange={(e) => setMaterialForm({...materialForm, title: e.target.value})}
-                              required
-                              className="w-full border border-gray-300 rounded-md px-3 py-2"
-                              placeholder="Material title"
-                            />
-                          </div>
-                          <div className="mb-4">
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                              Type
-                            </label>
-                            <select
-                              value={materialForm.type}
-                              onChange={(e) => setMaterialForm({...materialForm, type: e.target.value})}
-                              className="w-full border border-gray-300 rounded-md px-3 py-2"
-                            >
-                              <option value="document">Document</option>
-                              <option value="image">Image</option>
-                              <option value="audio">Audio</option>
-                              <option value="video">Video</option>
-                            </select>
-                          </div>
-                          <div className="mb-4">
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                              Description
-                            </label>
-                            <textarea
-                              value={materialForm.description}
-                              onChange={(e) => setMaterialForm({...materialForm, description: e.target.value})}
-                              rows="3"
-                              className="w-full border border-gray-300 rounded-md px-3 py-2"
-                              placeholder="Material description"
-                            />
-                          </div>
-                          <div className="mb-4">
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                              File
-                            </label>
-                            <input
-                              type="file"
-                              onChange={(e) => setMaterialForm({...materialForm, file: e.target.files[0]})}
-                              className="w-full border border-gray-300 rounded-md px-3 py-2"
-                            />
-                          </div>
-                          <button
-                            type="submit"
-                            className="w-full px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700"
-                          >
-                            📤 Upload Material
-                          </button>
-                        </form>
-                      </div>
-
-                      {/* Materials List */}
-                      <div>
-                        <h3 className="text-lg font-medium text-gray-900 mb-4">My Tour Materials</h3>
-                        <div className="space-y-4">
-                          {tourMaterials.map((material) => (
-                            <div key={material._id} className="border border-gray-200 rounded-lg p-4">
-                              <div className="flex justify-between items-start">
-                                <div>
-                                  <h4 className="font-medium text-gray-900">{material.title}</h4>
-                                  <p className="text-sm text-gray-600 mt-1">{material.description}</p>
-                                  <div className="flex items-center space-x-2 mt-2">
-                                    <span className={`px-2 py-1 text-xs rounded-full ${
-                                      material.type === 'document' ? 'bg-blue-100 text-blue-800' :
-                                      material.type === 'image' ? 'bg-green-100 text-green-800' :
-                                      material.type === 'audio' ? 'bg-yellow-100 text-yellow-800' :
-                                      'bg-purple-100 text-purple-800'
-                                    }`}>
-                                      {material.type.toUpperCase()}
-                                    </span>
-                                    <span className="text-xs text-gray-500">
-                                      {new Date(material.createdAt).toLocaleDateString()}
-                                    </span>
-                                  </div>
-                                </div>
-                                <div className="flex space-x-2">
-                                  <button
-                                    onClick={() => downloadTourMaterial(material._id, material.filename)}
-                                    className="text-blue-600 hover:text-blue-800 text-sm"
-                                  >
-                                    📥 Download
-                                  </button>
-                                  <button
-                                    onClick={() => deleteTourMaterial(material._id)}
-                                    className="text-red-600 hover:text-red-800 text-sm"
-                                  >
-                                    🗑️ Delete
-                                  </button>
-                                </div>
-                              </div>
-                            </div>
-                          ))}
-                          {tourMaterials.length === 0 && (
-                            <p className="text-gray-500 text-center py-8">No materials uploaded yet</p>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
 
                 {/* Reports Tab */}
                 {activeTab === 'reports' && (
@@ -761,60 +991,14 @@ const TourGuideDashboard = () => {
                   </div>
                 )}
 
-                {/* Profile Tab */}
-                {activeTab === 'profile' && (
-                  <div>
-                    <h3 className="text-lg font-medium text-gray-900 mb-4">Profile Management</h3>
-                    {profile && (
-                      <div className="max-w-2xl">
-                        <div className="bg-gray-50 rounded-lg p-6">
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div>
-                              <label className="block text-sm font-medium text-gray-700 mb-1">Full Name</label>
-                              <p className="text-gray-900">{profile.fullName}</p>
-                            </div>
-                            <div>
-                              <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-                              <p className="text-gray-900">{profile.email}</p>
-                            </div>
-                            <div>
-                              <label className="block text-sm font-medium text-gray-700 mb-1">Phone</label>
-                              <p className="text-gray-900">{profile.phone}</p>
-                            </div>
-                            <div>
-                              <label className="block text-sm font-medium text-gray-700 mb-1">Experience</label>
-                              <p className="text-gray-900">{profile.experience} years</p>
-                            </div>
-                            <div>
-                              <label className="block text-sm font-medium text-gray-700 mb-1">Languages</label>
-                              <p className="text-gray-900">{profile.languages?.join(', ') || 'Not specified'}</p>
-                            </div>
-                            <div>
-                              <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
-                              <span className={`px-2 py-1 text-xs rounded-full ${
-                                profile.isAvailable ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                              }`}>
-                                {profile.isAvailable ? 'Available' : 'Unavailable'}
-                              </span>
-                            </div>
-                          </div>
-                          <div className="mt-6">
-                            <button className="px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700">
-                              Edit Profile
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
+                </div>
+              </main>
             </div>
           </div>
         </div>
         <Footer />
       </div>
-    </ProtectedRoute>
+    </RoleGuard>
   );
 };
 

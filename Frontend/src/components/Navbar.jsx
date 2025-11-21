@@ -1,20 +1,30 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
-import { useAuthContext } from '../contexts/AuthContext';
+import { Link, useLocation } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
 import ProfileImage from './ProfileImage';
+import NotificationBell from './NotificationBell';
 import logo from '../assets/logo.png';
 
 const NavBar = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
+  const location = useLocation();
   const { 
-    isFullyAuthenticated, 
-    isLoading, 
+    isAuthenticated, 
+    loading, 
     user, 
-    backendUser, 
-    loginWithRedirect, 
     logout 
-  } = useAuthContext();
+  } = useAuth();
+
+  // Check if we're on a dashboard page or pages with white backgrounds
+  const isDashboardPage = location.pathname.includes('/dashboard') || 
+                         location.pathname.includes('/admin') || 
+                         location.pathname.includes('/tour-guide') || 
+                         location.pathname.includes('/wildlife-officer') || 
+                         location.pathname.includes('/safari-driver') || 
+                         location.pathname.includes('/call-operator') ||
+                         location.pathname.includes('/feedback') ||
+                         location.pathname.includes('/profile');
 
   const publicNavLinks = [
     { name: 'Home', path: '/', icon: 'M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6' },
@@ -27,6 +37,7 @@ const NavBar = () => {
 
   const protectedNavLinks = [
     { name: 'Dashboard', path: '/dashboard', icon: 'M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z' },
+    { name: 'Feedback', path: '/feedback', icon: 'M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z' },
     { name: 'Profile', path: '/profile', icon: 'M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z' },
   ];
 
@@ -45,7 +56,7 @@ const NavBar = () => {
       className={`w-full px-6 py-3 md:px-8 lg:px-12
         flex items-center justify-between 
         fixed top-0 left-0 z-50 transition-all duration-300
-        ${isScrolled 
+        ${isDashboardPage || isScrolled 
           ? 'backdrop-blur-xl bg-white/90 shadow-lg border-b border-emerald-100' 
           : 'bg-transparent'
         }
@@ -74,11 +85,15 @@ const NavBar = () => {
       {/* Desktop Navigation */}
       <div className="hidden lg:flex items-center">
         <ul className="flex items-center gap-1">
-          {!isFullyAuthenticated && publicNavLinks.map((link, index) => (
+          {!isAuthenticated() && publicNavLinks.map((link, index) => (
             <li key={index}>
               <Link 
                 to={link.path} 
-                className="group flex items-center gap-2 px-4 py-2 rounded-xl text-gray-700 hover:text-emerald-600 hover:bg-emerald-50/80 transition-all duration-300 font-medium"
+                className={`group flex items-center gap-2 px-4 py-2 rounded-xl transition-all duration-300 font-medium ${
+                  isDashboardPage || isScrolled 
+                    ? 'text-gray-700 hover:text-emerald-600 hover:bg-emerald-50/80' 
+                    : 'text-white hover:text-emerald-300 hover:bg-white/20'
+                }`}
               >
                 <svg className="w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d={link.icon} />
@@ -90,12 +105,16 @@ const NavBar = () => {
               </Link>
             </li>
           ))}
-          {isFullyAuthenticated && [
+          {isAuthenticated() && [
             ...publicNavLinks.map((link, index) => (
               <li key={`public-${index}`}>
                 <Link 
                   to={link.path} 
-                  className="group flex items-center gap-2 px-4 py-2 rounded-xl text-gray-700 hover:text-emerald-600 hover:bg-emerald-50/80 transition-all duration-300 font-medium"
+                  className={`group flex items-center gap-2 px-4 py-2 rounded-xl transition-all duration-300 font-medium ${
+                    isDashboardPage || isScrolled 
+                      ? 'text-gray-700 hover:text-emerald-600 hover:bg-emerald-50/80' 
+                      : 'text-white hover:text-emerald-300 hover:bg-white/20'
+                  }`}
                 >
                   <svg className="w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d={link.icon} />
@@ -111,7 +130,11 @@ const NavBar = () => {
               <li key={`protected-${index}`}>
                 <Link 
                   to={link.path} 
-                  className="group flex items-center gap-2 px-4 py-2 rounded-xl text-gray-700 hover:text-emerald-600 hover:bg-emerald-50/80 transition-all duration-300 font-medium"
+                  className={`group flex items-center gap-2 px-4 py-2 rounded-xl transition-all duration-300 font-medium ${
+                    isDashboardPage || isScrolled 
+                      ? 'text-gray-700 hover:text-emerald-600 hover:bg-emerald-50/80' 
+                      : 'text-white hover:text-emerald-300 hover:bg-white/20'
+                  }`}
                 >
                   <svg className="w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d={link.icon} />
@@ -130,14 +153,13 @@ const NavBar = () => {
       {/* Right Section */}
       <div className="flex items-center gap-4">
         {/* Authentication Buttons */}
-        {!isFullyAuthenticated ? (
-          <button
+        {!isAuthenticated() ? (
+          <Link
+            to="/login"
             className="group relative px-6 py-2.5 bg-gradient-to-r from-emerald-500 to-teal-600 text-white font-semibold rounded-full shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-0.5 disabled:opacity-50"
-            onClick={() => loginWithRedirect()}
-            disabled={isLoading}
           >
             <span className="relative z-10 flex items-center gap-2">
-              {isLoading ? (
+              {loading ? (
                 <>
                   <svg className="animate-spin w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
@@ -154,11 +176,19 @@ const NavBar = () => {
               )}
             </span>
             <div className="absolute inset-0 bg-gradient-to-r from-emerald-600 to-teal-700 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-          </button>
+          </Link>
         ) : (
           <div className="flex items-center gap-4">
             {/* User Profile Section */}
             <div className="hidden md:flex items-center gap-3 bg-white/80 backdrop-blur-sm rounded-full px-4 py-2 shadow-lg border border-emerald-100">
+              {/* Notification Bell for Safari Drivers */}
+              {user?.role === 'safariDriver' && (
+                <NotificationBell 
+                  driverId={user?.driverId || user?._id || user?.userId}
+                  className="text-gray-600 hover:text-emerald-600"
+                />
+              )}
+              
               <ProfileImage
                 src={user?.picture}
                 alt={user?.name}
@@ -189,13 +219,17 @@ const NavBar = () => {
         <button
           aria-label="Toggle menu"
           type="button"
-          className="lg:hidden relative w-10 h-10 bg-white/80 backdrop-blur-sm rounded-full shadow-lg border border-emerald-100 flex items-center justify-center transition-all duration-300 hover:bg-emerald-50"
+          className={`lg:hidden relative w-10 h-10 backdrop-blur-sm rounded-full shadow-lg border flex items-center justify-center transition-all duration-300 ${
+            isDashboardPage || isScrolled 
+              ? 'bg-white/80 border-emerald-100 hover:bg-emerald-50' 
+              : 'bg-white/20 border-white/30 hover:bg-white/30'
+          }`}
           onClick={() => setIsMenuOpen(!isMenuOpen)}
         >
           <div className="relative w-5 h-5">
-            <span className={`absolute block w-5 h-0.5 bg-gray-700 transition-all duration-300 ${isMenuOpen ? 'top-2 rotate-45' : 'top-1'}`}></span>
-            <span className={`absolute block w-5 h-0.5 bg-gray-700 transition-all duration-300 ${isMenuOpen ? 'opacity-0' : 'top-2'}`}></span>
-            <span className={`absolute block w-5 h-0.5 bg-gray-700 transition-all duration-300 ${isMenuOpen ? 'top-2 -rotate-45' : 'top-3'}`}></span>
+            <span className={`absolute block w-5 h-0.5 transition-all duration-300 ${isDashboardPage || isScrolled ? 'bg-gray-700' : 'bg-white'} ${isMenuOpen ? 'top-2 rotate-45' : 'top-1'}`}></span>
+            <span className={`absolute block w-5 h-0.5 transition-all duration-300 ${isDashboardPage || isScrolled ? 'bg-gray-700' : 'bg-white'} ${isMenuOpen ? 'opacity-0' : 'top-2'}`}></span>
+            <span className={`absolute block w-5 h-0.5 transition-all duration-300 ${isDashboardPage || isScrolled ? 'bg-gray-700' : 'bg-white'} ${isMenuOpen ? 'top-2 -rotate-45' : 'top-3'}`}></span>
           </div>
         </button>
       </div>
@@ -237,7 +271,7 @@ const NavBar = () => {
             {/* Mobile Navigation Links */}
             <div className="p-6">
               <ul className="space-y-2">
-                {!isFullyAuthenticated && publicNavLinks.map((link, index) => (
+                {!isAuthenticated() && publicNavLinks.map((link, index) => (
                   <li key={index}>
                     <Link 
                       to={link.path} 
@@ -251,7 +285,7 @@ const NavBar = () => {
                     </Link>
                   </li>
                 ))}
-                {isFullyAuthenticated && [
+                {isAuthenticated() && [
                   ...publicNavLinks.map((link, index) => (
                     <li key={`mobile-public-${index}`}>
                       <Link 
@@ -285,17 +319,14 @@ const NavBar = () => {
 
               {/* Mobile Authentication Section */}
               <div className="mt-8 pt-6 border-t border-gray-100">
-                {!isFullyAuthenticated ? (
-                  <button
-                    className="w-full bg-gradient-to-r from-emerald-500 to-teal-600 text-white font-semibold py-3 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 disabled:opacity-50"
-                    onClick={() => {
-                      loginWithRedirect();
-                      setIsMenuOpen(false);
-                    }}
-                    disabled={isLoading}
+                {!isAuthenticated() ? (
+                  <Link
+                    to="/login"
+                    className="w-full bg-gradient-to-r from-emerald-500 to-teal-600 text-white font-semibold py-3 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 disabled:opacity-50 block text-center"
+                    onClick={() => setIsMenuOpen(false)}
                   >
                     <span className="flex items-center justify-center gap-2">
-                      {isLoading ? (
+                      {loading ? (
                         <>
                           <svg className="animate-spin w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
@@ -311,11 +342,19 @@ const NavBar = () => {
                         </>
                       )}
                     </span>
-                  </button>
+                  </Link>
                 ) : (
                   <div className="space-y-4">
                     {/* User Profile in Mobile */}
                     <div className="flex items-center gap-3 p-4 bg-emerald-50 rounded-xl">
+                      {/* Notification Bell for Safari Drivers */}
+                      {user?.role === 'safariDriver' && (
+                        <NotificationBell 
+                          driverId={user?.driverId || user?._id || user?.userId}
+                          className="text-gray-600 hover:text-emerald-600"
+                        />
+                      )}
+                      
                       <ProfileImage
                         src={user?.picture}
                         alt={user?.name}

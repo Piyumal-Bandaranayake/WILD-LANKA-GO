@@ -90,7 +90,7 @@ export const AdminOnly = ({ children, fallback = null, showFallback = false }) =
 export const StaffOnly = ({ children, fallback = null, showFallback = false }) => {
   return (
     <RoleGuard
-      roles={['admin', 'WildlifeOfficer', 'tourGuide', 'safariDriver', 'vet', 'callOperator', 'EmergencyOfficer']}
+      roles={['admin', 'wildlifeOfficer', 'tourGuide', 'safariDriver', 'vet', 'callOperator', 'emergencyOfficer']}
       fallback={fallback}
       showFallback={showFallback}
     >
@@ -116,7 +116,7 @@ export const TouristOnly = ({ children, fallback = null, showFallback = false })
 export const ManagerOnly = ({ children, fallback = null, showFallback = false }) => {
   return (
     <RoleGuard
-      roles={['admin', 'WildlifeOfficer']}
+      roles={['admin', 'wildlifeOfficer']}
       fallback={fallback}
       showFallback={showFallback}
     >
@@ -131,7 +131,7 @@ export const ManagerOnly = ({ children, fallback = null, showFallback = false })
 export const EmergencyPersonnelOnly = ({ children, fallback = null, showFallback = false }) => {
   return (
     <RoleGuard
-      roles={['callOperator', 'EmergencyOfficer']}
+      roles={['callOperator', 'emergencyOfficer']}
       fallback={fallback}
       showFallback={showFallback}
     >
@@ -146,7 +146,7 @@ export const EmergencyPersonnelOnly = ({ children, fallback = null, showFallback
 export const FieldPersonnelOnly = ({ children, fallback = null, showFallback = false }) => {
   return (
     <RoleGuard
-      roles={['tourGuide', 'safariDriver', 'vet', 'EmergencyOfficer']}
+      roles={['tourGuide', 'safariDriver', 'vet', 'emergencyOfficer']}
       fallback={fallback}
       showFallback={showFallback}
     >

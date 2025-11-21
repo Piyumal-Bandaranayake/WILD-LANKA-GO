@@ -2,13 +2,13 @@
 
 export const ROLES = {
   ADMIN: 'admin',
-  WILDLIFE_OFFICER: 'WildlifeOfficer',
+  WILDLIFE_OFFICER: 'wildlifeOfficer',
   TOURIST: 'tourist',
   TOUR_GUIDE: 'tourGuide',
   SAFARI_DRIVER: 'safariDriver',
   VET: 'vet',
   CALL_OPERATOR: 'callOperator',
-  EMERGENCY_OFFICER: 'EmergencyOfficer'
+  EMERGENCY_OFFICER: 'emergencyOfficer'
 };
 
 export const ROLE_DISPLAY_NAMES = {

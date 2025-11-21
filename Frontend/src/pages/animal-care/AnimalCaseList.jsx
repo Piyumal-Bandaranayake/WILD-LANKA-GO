@@ -1,37 +1,20 @@
 import React, { useState, useEffect } from 'react';
 import { protectedApi } from '../../services/authService';
-import { useAuthContext } from '../../contexts/AuthContext';
+import { useAuth } from '../../contexts/AuthContext';
 import Navbar from '../../components/Navbar';
 import Footer from '../../components/footer';
+import { formatLocation } from '../../utils/formatters';
 
 const AnimalCaseList = () => {
-    const { backendUser } = useAuthContext();
+    const { backendUser } = useAuth();
     const [cases, setCases] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
-    const [showCreateModal, setShowCreateModal] = useState(false);
     const [selectedCase, setSelectedCase] = useState(null);
 
     // Debug logging
     console.log('🐾 AnimalCaseList - backendUser:', backendUser);
     console.log('🐾 AnimalCaseList - cases state:', cases, 'is array:', Array.isArray(cases));
-
-    const [newCase, setNewCase] = useState({
-        animalType: '',
-        description: '',
-        location: '',
-        priority: 'Medium',
-        status: 'Open',
-        reportedBy: '',
-        contactInfo: '',
-        symptoms: '',
-        estimatedAge: '',
-        weight: '',
-        images: []
-    });
-
-    const [selectedImages, setSelectedImages] = useState([]);
-    const [uploadingImages, setUploadingImages] = useState(false);
 
     useEffect(() => {
         // Only fetch cases when user is authenticated with backend
@@ -91,60 +74,6 @@ const AnimalCaseList = () => {
         }
     };
 
-    const handleImageSelect = (e) => {
-        const files = Array.from(e.target.files);
-        setSelectedImages(files);
-
-        // Preview images
-        const imageUrls = files.map(file => URL.createObjectURL(file));
-        setNewCase({...newCase, previewImages: imageUrls});
-    };
-
-    const handleCreateCase = async (e) => {
-        e.preventDefault();
-        try {
-            setUploadingImages(true);
-
-            // Create FormData for file upload
-            const formData = new FormData();
-
-            // Add all case data
-            Object.keys(newCase).forEach(key => {
-                if (key !== 'images' && key !== 'previewImages') {
-                    formData.append(key, newCase[key]);
-                }
-            });
-
-            // Add images
-            selectedImages.forEach((image, index) => {
-                formData.append('images', image);
-            });
-
-            await protectedApi.createAnimalCaseWithImages(formData);
-
-            setShowCreateModal(false);
-            setNewCase({
-                animalType: '',
-                description: '',
-                location: '',
-                priority: 'Medium',
-                status: 'Open',
-                reportedBy: '',
-                contactInfo: '',
-                symptoms: '',
-                estimatedAge: '',
-                weight: '',
-                images: []
-            });
-            setSelectedImages([]);
-            fetchCases();
-        } catch (error) {
-            console.error('Failed to create animal case:', error);
-            setError('Failed to create animal case');
-        } finally {
-            setUploadingImages(false);
-        }
-    };
 
     const handleUpdateCaseStatus = async (caseId, newStatus) => {
         try {
@@ -247,12 +176,6 @@ const AnimalCaseList = () => {
                                 </svg>
                                 Refresh
                             </button>
-                            <button
-                                onClick={() => setShowCreateModal(true)}
-                                className="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 transition-colors"
-                            >
-                                Report New Case
-                            </button>
                         </div>
                     </div>
 
@@ -311,7 +234,7 @@ const AnimalCaseList = () => {
 
                                 <div className="space-y-3 text-sm">
                                     <p><span className="font-medium">Animal:</span> {animalCase.animalType}</p>
-                                    <p><span className="font-medium">Location:</span> {animalCase.location}</p>
+                                    <p><span className="font-medium">Location:</span> {formatLocation(animalCase.location)}</p>
                                     <p><span className="font-medium">Description:</span> {animalCase.description}</p>
                                     {animalCase.symptoms && (
                                         <p><span className="font-medium">Symptoms:</span> {animalCase.symptoms}</p>
@@ -406,182 +329,6 @@ const AnimalCaseList = () => {
                 </div>
             </div>
 
-            {/* Create Case Modal */}
-            {showCreateModal && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-                    <div className="bg-white rounded-lg p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
-                        <h2 className="text-2xl font-bold mb-4">Report Animal Case</h2>
-                        <form onSubmit={handleCreateCase}>
-                            <div className="space-y-4">
-                                <div>
-                                    <label className="block text-sm font-medium mb-1">Animal Type</label>
-                                    <input
-                                        type="text"
-                                        value={newCase.animalType}
-                                        onChange={(e) => setNewCase({...newCase, animalType: e.target.value})}
-                                        className="w-full border border-gray-300 rounded-lg px-3 py-2"
-                                        placeholder="e.g., Elephant, Leopard, etc."
-                                        required
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium mb-1">Location</label>
-                                    <input
-                                        type="text"
-                                        value={newCase.location}
-                                        onChange={(e) => setNewCase({...newCase, location: e.target.value})}
-                                        className="w-full border border-gray-300 rounded-lg px-3 py-2"
-                                        required
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium mb-1">Description</label>
-                                    <textarea
-                                        value={newCase.description}
-                                        onChange={(e) => setNewCase({...newCase, description: e.target.value})}
-                                        className="w-full border border-gray-300 rounded-lg px-3 py-2"
-                                        rows="3"
-                                        required
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium mb-1">Symptoms</label>
-                                    <textarea
-                                        value={newCase.symptoms}
-                                        onChange={(e) => setNewCase({...newCase, symptoms: e.target.value})}
-                                        className="w-full border border-gray-300 rounded-lg px-3 py-2"
-                                        rows="2"
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium mb-1">Priority</label>
-                                    <select
-                                        value={newCase.priority}
-                                        onChange={(e) => setNewCase({...newCase, priority: e.target.value})}
-                                        className="w-full border border-gray-300 rounded-lg px-3 py-2"
-                                    >
-                                        <option value="Low">Low</option>
-                                        <option value="Medium">Medium</option>
-                                        <option value="High">High</option>
-                                    </select>
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium mb-1">Reported By</label>
-                                    <input
-                                        type="text"
-                                        value={newCase.reportedBy}
-                                        onChange={(e) => setNewCase({...newCase, reportedBy: e.target.value})}
-                                        className="w-full border border-gray-300 rounded-lg px-3 py-2"
-                                        required
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium mb-1">Contact Information</label>
-                                    <input
-                                        type="text"
-                                        value={newCase.contactInfo}
-                                        onChange={(e) => setNewCase({...newCase, contactInfo: e.target.value})}
-                                        className="w-full border border-gray-300 rounded-lg px-3 py-2"
-                                        placeholder="Phone number or email"
-                                        required
-                                    />
-                                </div>
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div>
-                                        <label className="block text-sm font-medium mb-1">Estimated Age</label>
-                                        <input
-                                            type="text"
-                                            value={newCase.estimatedAge}
-                                            onChange={(e) => setNewCase({...newCase, estimatedAge: e.target.value})}
-                                            className="w-full border border-gray-300 rounded-lg px-3 py-2"
-                                            placeholder="e.g., Adult, Juvenile"
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className="block text-sm font-medium mb-1">Weight (kg)</label>
-                                        <input
-                                            type="text"
-                                            value={newCase.weight}
-                                            onChange={(e) => setNewCase({...newCase, weight: e.target.value})}
-                                            className="w-full border border-gray-300 rounded-lg px-3 py-2"
-                                            placeholder="Estimated weight"
-                                        />
-                                    </div>
-                                </div>
-
-                                {/* Image Upload Section */}
-                                <div>
-                                    <label className="block text-sm font-medium mb-1">Animal Images</label>
-                                    <input
-                                        type="file"
-                                        multiple
-                                        accept="image/*"
-                                        onChange={handleImageSelect}
-                                        className="w-full border border-gray-300 rounded-lg px-3 py-2"
-                                    />
-                                    <p className="text-xs text-gray-500 mt-1">
-                                        Upload multiple images for better identification and monitoring (max 10 files)
-                                    </p>
-                                </div>
-
-                                {/* Image Preview */}
-                                {newCase.previewImages && newCase.previewImages.length > 0 && (
-                                    <div>
-                                        <label className="block text-sm font-medium mb-2">Image Preview</label>
-                                        <div className="grid grid-cols-3 gap-2">
-                                            {newCase.previewImages.map((imageUrl, index) => (
-                                                <div key={index} className="relative">
-                                                    <img
-                                                        src={imageUrl}
-                                                        alt={`Preview ${index + 1}`}
-                                                        className="w-full h-20 object-cover rounded border"
-                                                    />
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => {
-                                                            const newPreview = newCase.previewImages.filter((_, i) => i !== index);
-                                                            const newFiles = selectedImages.filter((_, i) => i !== index);
-                                                            setNewCase({...newCase, previewImages: newPreview});
-                                                            setSelectedImages(newFiles);
-                                                        }}
-                                                        className="absolute top-1 right-1 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs hover:bg-red-600"
-                                                    >
-                                                        ×
-                                                    </button>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
-                            <div className="flex gap-4 mt-6">
-                                <button
-                                    type="button"
-                                    onClick={() => setShowCreateModal(false)}
-                                    className="flex-1 bg-gray-500 text-white py-2 rounded-lg hover:bg-gray-600 transition-colors"
-                                >
-                                    Cancel
-                                </button>
-                                <button
-                                    type="submit"
-                                    disabled={uploadingImages}
-                                    className={`flex-1 ${uploadingImages ? 'bg-gray-400' : 'bg-green-600 hover:bg-green-700'} text-white py-2 rounded-lg transition-colors flex items-center justify-center`}
-                                >
-                                    {uploadingImages ? (
-                                        <>
-                                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                                            Uploading Images...
-                                        </>
-                                    ) : (
-                                        'Report Case'
-                                    )}
-                                </button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
-            )}
-
             {/* Case Details Modal */}
             {selectedCase && (
                 <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
@@ -605,7 +352,7 @@ const AnimalCaseList = () => {
                                 </p>
                                 <p><span className="font-medium">Animal:</span> {selectedCase.animalType}</p>
                                 <p><span className="font-medium">Priority:</span> {selectedCase.priority}</p>
-                                <p><span className="font-medium">Location:</span> {selectedCase.location}</p>
+                                <p><span className="font-medium">Location:</span> {formatLocation(selectedCase.location)}</p>
                                 <p><span className="font-medium">Date:</span> {new Date(selectedCase.createdAt).toLocaleDateString()}</p>
                             </div>
                             <div>

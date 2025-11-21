@@ -33,7 +33,7 @@ export const API_ENDPOINTS = {
   MEDICATION: '/inventory',
 
   // Feedback & Complaints
-  FEEDBACKS: '/feedbacks',
+  FEEDBACKS: '/feedback',
   COMPLAINTS: '/complaints',
 
   // Chatbot

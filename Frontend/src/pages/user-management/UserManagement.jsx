@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { protectedApi } from '../../services/authService';
-import { useAuthContext } from '../../contexts/AuthContext';
+import { useAuth } from '../../contexts/AuthContext';
 import Navbar from '../../components/Navbar';
 import Footer from '../../components/footer';
 
 const UserManagement = () => {
-    const { backendUser } = useAuthContext();
+    const { backendUser } = useAuth();
     const [users, setUsers] = useState([]);
     const [tourGuides, setTourGuides] = useState([]);
     const [drivers, setDrivers] = useState([]);

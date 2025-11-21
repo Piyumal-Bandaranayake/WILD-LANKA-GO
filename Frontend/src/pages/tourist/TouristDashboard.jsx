@@ -1,54 +1,42 @@
 import React, { useState, useEffect } from 'react';
-import { useAuthContext } from '../../contexts/AuthContext';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../../contexts/AuthContext';
 import { protectedApi } from '../../services/authService';
-import ProtectedRoute from '../../components/ProtectedRoute';
+import { API_BASE_URL } from '../../config/api';
+import RoleGuard from '../../components/RoleGuard';
 import Navbar from '../../components/Navbar';
 import Footer from '../../components/footer';
+import EventRegistrationQRCode from '../../components/EventRegistrationQRCode';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
+import logoImage from '../../assets/logo.png';
 
 const TouristDashboard = () => {
-  const { backendUser, user } = useAuthContext();
+  const navigate = useNavigate();
+  const { user, logout } = useAuth();
   const [activeTab, setActiveTab] = useState('overview');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
   // Dashboard data states
-  const [activities, setActivities] = useState([]);
-  const [events, setEvents] = useState([]);
   const [myBookings, setMyBookings] = useState([]);
   const [myRegistrations, setMyRegistrations] = useState([]);
   const [myDonations, setMyDonations] = useState([]);
   const [myFeedback, setMyFeedback] = useState([]);
   const [myComplaints, setMyComplaints] = useState([]);
 
-  // Form states
-  const [selectedActivity, setSelectedActivity] = useState(null);
-  const [bookingForm, setBookingForm] = useState({
-    date: '',
-    participants: 1,
-    requestGuide: false
-  });
+  // QR Code modal states
+  const [showQRCodeModal, setShowQRCodeModal] = useState(false);
+  const [selectedRegistration, setSelectedRegistration] = useState(null);
   const [selectedEvent, setSelectedEvent] = useState(null);
-  const [registrationForm, setRegistrationForm] = useState({
-    participants: 1
-  });
+
+  // Form states
   const [donationForm, setDonationForm] = useState({
     amount: '',
+    cause: '',
     message: ''
   });
-  const [feedbackForm, setFeedbackForm] = useState({
-    subject: '',
-    message: '',
-    rating: 5
-  });
-  const [complaintForm, setComplaintForm] = useState({
-    subject: '',
-    description: ''
-  });
-  const [emergencyForm, setEmergencyForm] = useState({
-    type: '',
-    description: '',
-    location: ''
-  });
+  const [submittingDonation, setSubmittingDonation] = useState(false);
 
   useEffect(() => {
     fetchDashboardData();
@@ -57,173 +45,601 @@ const TouristDashboard = () => {
   const fetchDashboardData = async () => {
     try {
       setLoading(true);
+      setError(null);
 
-      const [
-        activitiesRes,
-        eventsRes,
-        bookingsRes,
-        registrationsRes,
-        donationsRes,
-        feedbackRes,
-        complaintsRes
-      ] = await Promise.all([
-        protectedApi.getActivities(),
-        protectedApi.getEvents(),
-        protectedApi.getMyBookings(),
-        protectedApi.getMyEventRegistrations(),
-        protectedApi.getMyDonations(),
-        protectedApi.getMyFeedback(),
-        protectedApi.getMyComplaints()
-      ]);
+      console.log('Fetching dashboard data...');
+      console.log('User context:', { user });
+      
+      // Check if user is properly authenticated
+      if (!user) {
+        console.error('No user authentication found');
+        setError('Please log in to access your dashboard');
+        return;
+      }
 
-      setActivities(activitiesRes.data || []);
-      setEvents(eventsRes.data || []);
-      setMyBookings(bookingsRes.data || []);
-      setMyRegistrations(registrationsRes.data || []);
-      setMyDonations(donationsRes.data || []);
-      setMyFeedback(feedbackRes.data || []);
-      setMyComplaints(complaintsRes.data || []);
+      // Fetch real data from API
+
+      try {
+        console.log('Fetching user bookings...');
+        const bookingsRes = await protectedApi.getMyBookings();
+        console.log('🔍 Full bookings response:', bookingsRes);
+        console.log('🔍 bookingsRes.data:', bookingsRes.data);
+        console.log('🔍 bookingsRes.data type:', typeof bookingsRes.data);
+        console.log('🔍 bookingsRes.data isArray:', Array.isArray(bookingsRes.data));
+        console.log('🔍 bookingsRes.data.data:', bookingsRes.data?.data);
+        console.log('🔍 bookingsRes.data.data isArray:', Array.isArray(bookingsRes.data?.data));
+        console.log('🔍 bookingsRes.data.bookings:', bookingsRes.data?.bookings);
+        console.log('🔍 bookingsRes.data.count:', bookingsRes.data?.count);
+        
+        // Handle the response structure properly - try multiple paths
+        let bookingsData = [];
+        if (bookingsRes.data?.data?.data && Array.isArray(bookingsRes.data.data.data)) {
+          bookingsData = bookingsRes.data.data.data;
+          console.log('✅ Using bookingsRes.data.data.data');
+        } else if (bookingsRes.data?.data?.bookings && Array.isArray(bookingsRes.data.data.bookings)) {
+          bookingsData = bookingsRes.data.data.bookings;
+          console.log('✅ Using bookingsRes.data.data.bookings');
+        } else if (bookingsRes.data?.data && Array.isArray(bookingsRes.data.data)) {
+          bookingsData = bookingsRes.data.data;
+          console.log('✅ Using bookingsRes.data.data');
+        } else if (bookingsRes.data?.bookings && Array.isArray(bookingsRes.data.bookings)) {
+          bookingsData = bookingsRes.data.bookings;
+          console.log('✅ Using bookingsRes.data.bookings');
+        } else if (Array.isArray(bookingsRes.data)) {
+          bookingsData = bookingsRes.data;
+          console.log('✅ Using bookingsRes.data directly');
+        } else {
+          console.log('❌ No valid bookings data found');
+        }
+        
+        setMyBookings(bookingsData);
+        console.log('Final bookings set:', bookingsData.length);
+      } catch (error) {
+        console.error('Error fetching bookings:', error);
+        setMyBookings([]);
+      }
+
+      try {
+        console.log('Fetching event registrations...');
+        const registrationsRes = await protectedApi.getMyEventRegistrations();
+        console.log('🔍 Full registrations response:', registrationsRes);
+        
+        // Handle the response structure properly - try multiple paths like bookings
+        let registrationsData = [];
+        if (registrationsRes.data?.data?.data && Array.isArray(registrationsRes.data.data.data)) {
+          registrationsData = registrationsRes.data.data.data;
+          console.log('✅ Using registrationsRes.data.data.data');
+        } else if (registrationsRes.data?.data?.registrations && Array.isArray(registrationsRes.data.data.registrations)) {
+          registrationsData = registrationsRes.data.data.registrations;
+          console.log('✅ Using registrationsRes.data.data.registrations');
+        } else if (registrationsRes.data?.data && Array.isArray(registrationsRes.data.data)) {
+          registrationsData = registrationsRes.data.data;
+          console.log('✅ Using registrationsRes.data.data');
+        } else if (Array.isArray(registrationsRes.data)) {
+          registrationsData = registrationsRes.data;
+          console.log('✅ Using registrationsRes.data directly');
+        } else {
+          console.log('❌ No valid registrations data found');
+        }
+        
+        setMyRegistrations(registrationsData);
+        console.log('Final registrations set:', registrationsData.length);
+      } catch (error) {
+        console.error('Error fetching event registrations:', error);
+        setMyRegistrations([]);
+      }
+
+      try {
+        console.log('Fetching donations...');
+        console.log('🔍 Calling protectedApi.getMyDonations() - should hit /donations/my-donations');
+        const donationsRes = await protectedApi.getMyDonations();
+        console.log('🔍 Full donations response:', donationsRes);
+        console.log('🔍 donationsRes.data:', donationsRes.data);
+        console.log('🔍 donationsRes.data type:', typeof donationsRes.data);
+        console.log('🔍 donationsRes.data isArray:', Array.isArray(donationsRes.data));
+        
+        // Handle the response structure properly - try multiple paths like registrations
+        let donationsData = [];
+        if (donationsRes.data?.data?.data && Array.isArray(donationsRes.data.data.data)) {
+          donationsData = donationsRes.data.data.data;
+          console.log('✅ Using donationsRes.data.data.data');
+        } else if (donationsRes.data?.data?.donations && Array.isArray(donationsRes.data.data.donations)) {
+          donationsData = donationsRes.data.data.donations;
+          console.log('✅ Using donationsRes.data.data.donations');
+        } else if (donationsRes.data?.data && Array.isArray(donationsRes.data.data)) {
+          donationsData = donationsRes.data.data;
+          console.log('✅ Using donationsRes.data.data');
+        } else if (donationsRes.data?.donations && Array.isArray(donationsRes.data.donations)) {
+          donationsData = donationsRes.data.donations;
+          console.log('✅ Using donationsRes.data.donations');
+        } else if (Array.isArray(donationsRes.data)) {
+          donationsData = donationsRes.data;
+          console.log('✅ Using donationsRes.data directly');
+        } else {
+          console.log('❌ No valid donations data found');
+          console.log('Available keys:', Object.keys(donationsRes.data || {}));
+        }
+        
+        setMyDonations(Array.isArray(donationsData) ? donationsData : []);
+        console.log('Final donations set:', donationsData.length);
+        console.log('Sample donation:', donationsData[0]);
+      } catch (error) {
+        console.error('Error fetching donations:', error);
+        console.error('Error details:', {
+          message: error.message,
+          status: error.status,
+          response: error.response?.data
+        });
+        setMyDonations([]);
+      }
+
+      try {
+        console.log('Fetching feedback...');
+        const feedbackRes = await protectedApi.getMyFeedback();
+        console.log('🔍 Full feedback response:', feedbackRes);
+        
+        // Handle the response structure properly
+        const feedbackData = feedbackRes.data?.data || feedbackRes.data || [];
+        setMyFeedback(Array.isArray(feedbackData) ? feedbackData : []);
+        console.log('Feedback fetched:', feedbackData?.length || 0);
+      } catch (error) {
+        console.error('Error fetching feedback:', error);
+        setMyFeedback([]);
+      }
+
+      try {
+        console.log('Fetching complaints...');
+        const complaintsRes = await protectedApi.getMyComplaints();
+        console.log('🔍 Full complaints response:', complaintsRes);
+        
+        // Handle the response structure properly
+        const complaintsData = complaintsRes.data?.data || complaintsRes.data || [];
+        setMyComplaints(Array.isArray(complaintsData) ? complaintsData : []);
+        console.log('Complaints fetched:', complaintsData?.length || 0);
+      } catch (error) {
+        console.error('Error fetching complaints:', error);
+        setMyComplaints([]);
+      }
+
+      console.log('Dashboard data loaded successfully');
 
     } catch (error) {
-      console.error('Failed to fetch dashboard data:', error);
-      setError('Failed to load dashboard data');
+      console.error('Dashboard data fetch error:', error);
+      setError('Failed to load dashboard data. Please try again.');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleActivityBooking = async (e) => {
-    e.preventDefault();
-    if (!selectedActivity) return;
+  const handleLogout = () => {
+    logout();
+    navigate('/');
+  };
 
+  // QR Code function
+  const showQRCodeForRegistration = (registration) => {
+    // Create event object from registration data
+    const event = {
+      _id: registration.eventId?._id || registration.eventId,
+      title: registration.eventTitle || 'Event',
+      date: registration.eventDate,
+      time: registration.eventTime,
+      location: registration.eventLocation || 'Location',
+      description: registration.eventDescription || ''
+    };
+    
+    setSelectedRegistration(registration);
+    setSelectedEvent(event);
+    setShowQRCodeModal(true);
+  };
+
+
+
+  // Donation form handler
+  const handleDonationSubmit = async (e) => {
+    e.preventDefault();
+    setSubmittingDonation(true);
     try {
-      await protectedApi.bookActivity({
-        activityId: selectedActivity._id,
-        ...bookingForm
+      const resp = await fetch(`${API_BASE_URL}/donations/create-checkout-session`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          amount: parseFloat(donationForm.amount),
+          currency: 'lkr',
+          donorName: user?.firstName && user?.lastName ? `${user.firstName} ${user.lastName}` : user?.name || user?.username || 'Anonymous',
+          donorEmail: user?.email,
+          isMonthly: false,
+          message: donationForm.message,
+          cause: donationForm.cause,
+        }),
       });
-      setSelectedActivity(null);
-      setBookingForm({ date: '', participants: 1, requestGuide: false });
-      await fetchDashboardData();
-      setError(null);
+      if (!resp.ok) {
+        const err = await resp.json().catch(() => ({}));
+        throw new Error(err?.message || 'Failed to start Stripe checkout');
+      }
+      const data = await resp.json();
+      const url = data?.data?.url || data?.url;
+      if (!url) throw new Error('No checkout URL');
+      window.location.href = url;
     } catch (error) {
-      setError('Failed to book activity. Please try again.');
+      alert(error.message || 'Could not start Stripe checkout');
+    } finally {
+      setSubmittingDonation(false);
     }
   };
 
-  const handleEventRegistration = async (e) => {
-    e.preventDefault();
-    if (!selectedEvent) return;
-
+  // PDF Generation Functions
+  const createFormalHeader = (doc, title, subtitle = '') => {
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const margin = 20;
+    
+    // Header background with gradient effect
+    doc.setFillColor(30, 64, 175); // Blue-800
+    doc.rect(0, 0, pageWidth, 60, 'F');
+    
+    // Add actual logo
     try {
-      await protectedApi.registerForEvent({
-        eventId: selectedEvent._id,
-        ...registrationForm
+      // Add logo image (resize to fit nicely in header)
+      doc.addImage(logoImage, 'PNG', 15, 10, 35, 35);
+    } catch (error) {
+      console.warn('Could not load logo image, using text fallback:', error);
+      // Fallback to text logo if image fails
+      doc.setFillColor(255, 255, 255);
+      doc.circle(32, 27, 15, 'F');
+      doc.setTextColor(30, 64, 175);
+      doc.setFontSize(14);
+      doc.setFont('helvetica', 'bold');
+      doc.text('WLG', 27, 32, { align: 'center' });
+    }
+    
+    // Company name - positioned after logo
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(18);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Wild Lanka Go', 60, 25);
+    doc.setFontSize(11);
+    doc.setFont('helvetica', 'normal');
+    doc.text('Wildlife Conservation Portal', 60, 35);
+    
+    // Contact info on the right - properly spaced
+    doc.setFontSize(9);
+    doc.text('123 Wildlife Sanctuary Road', pageWidth - margin, 20, { align: 'right' });
+    doc.text('Colombo, Sri Lanka', pageWidth - margin, 28, { align: 'right' });
+    doc.text('info@wildlankago.com', pageWidth - margin, 36, { align: 'right' });
+    doc.text('+94 11 234 5678', pageWidth - margin, 44, { align: 'right' });
+    
+    // Document title section - positioned below header with proper spacing
+    doc.setTextColor(55, 65, 81); // Gray-700
+    doc.setFontSize(18);
+    doc.setFont('helvetica', 'bold');
+    doc.text(title, margin, 85);
+    
+    // Subtitle if provided - positioned below title with more space
+    if (subtitle) {
+      doc.setFontSize(13);
+      doc.setFont('helvetica', 'normal');
+      doc.text(subtitle, margin, 105);
+    }
+    
+    // Date and user info - positioned on the right side with proper spacing
+    doc.setFontSize(10);
+    doc.text(`Generated on: ${new Date().toLocaleDateString()}`, pageWidth - margin, 85, { align: 'right' });
+    
+    // User info - positioned below date
+    doc.setFontSize(10);
+    doc.text(`Tourist: ${user?.firstName && user?.lastName ? `${user.firstName} ${user.lastName}` : user?.name || 'Anonymous'}`, pageWidth - margin, 105, { align: 'right' });
+    
+    // Line separator - positioned below all content
+    doc.setDrawColor(200, 200, 200);
+    doc.setLineWidth(0.5);
+    doc.line(margin, 125, pageWidth - margin, 125);
+    
+    return 135; // Return Y position for content with proper spacing
+  };
+
+  const generateBookingsPDF = () => {
+    if (!myBookings || myBookings.length === 0) {
+      alert('No bookings found to generate PDF');
+      return;
+    }
+
+    const doc = new jsPDF();
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+    const margin = 20;
+    
+    let yPosition = createFormalHeader(doc, 'Booking History Report', 'Complete record of your wildlife activity bookings');
+    
+    // Table data
+    const tableColumns = ['Activity', 'Location', 'Date', 'Participants', 'Status', 'Amount (Rs.)'];
+    const tableRows = myBookings.map(booking => [
+      booking.activityId?.name || 'Activity',
+      booking.activityId?.location || 'Location',
+      new Date(booking.preferredDate || booking.bookingDate).toLocaleDateString(),
+      booking.numberOfParticipants || 0,
+      booking.status || 'Pending',
+      booking.totalAmount?.toLocaleString() || '0'
+    ]);
+
+    // Generate table
+    autoTable(doc, {
+      head: [tableColumns],
+      body: tableRows,
+      startY: yPosition,
+      theme: 'grid',
+      headStyles: {
+        fillColor: [30, 64, 175], // Blue-800
+        textColor: 255,
+        fontStyle: 'bold',
+        halign: 'center',
+        fontSize: 10
+      },
+      bodyStyles: {
+        fontSize: 9,
+        textColor: 55,
+        halign: 'center'
+      },
+      alternateRowStyles: {
+        fillColor: [248, 250, 252] // Gray-50
+      },
+      columnStyles: {
+        0: { cellWidth: 40, halign: 'left' }, // Activity
+        1: { cellWidth: 35, halign: 'left' }, // Location
+        2: { cellWidth: 25, halign: 'center' }, // Date
+        3: { cellWidth: 20, halign: 'center' }, // Participants
+        4: { cellWidth: 25, halign: 'center' }, // Status
+        5: { cellWidth: 25, halign: 'right' } // Amount
+      },
+      margin: { left: margin, right: margin },
+      didDrawPage: function (data) {
+        // Footer
+        doc.setFontSize(8);
+        doc.setFont('helvetica', 'italic');
+        doc.setTextColor(100);
+        doc.text('Wild Lanka Go - Tourist Portal', margin, pageHeight - 15);
+        doc.text(`Page ${doc.internal.getCurrentPageInfo().pageNumber}`, pageWidth - margin, pageHeight - 15, { align: 'right' });
+      }
+    });
+
+    doc.save(`bookings-history-${new Date().toISOString().split('T')[0]}.pdf`);
+  };
+
+  const generateRegistrationsPDF = () => {
+    if (!myRegistrations || myRegistrations.length === 0) {
+      alert('No event registrations found to generate PDF');
+      return;
+    }
+
+    const doc = new jsPDF();
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+    const margin = 20;
+    
+    let yPosition = createFormalHeader(doc, 'Event Registration Report', 'Complete record of your wildlife event registrations');
+    
+    // Table data
+    const tableColumns = ['Event', 'Location', 'Date', 'Time', 'Participants', 'Status', 'Amount (Rs.)'];
+    const tableRows = myRegistrations.map(registration => [
+      registration.eventTitle || 'Event',
+      registration.eventLocation || 'Location',
+      registration.eventDate ? new Date(registration.eventDate).toLocaleDateString() : 'TBD',
+      registration.eventTime || 'TBD',
+      registration.numberOfParticipants || registration.participants || 0,
+      registration.status === 'registered' ? 'Registered' :
+      registration.status === 'attended' ? 'Attended' :
+      registration.status === 'cancelled' ? 'Cancelled' :
+      registration.status || 'Pending',
+      registration.paymentAmount?.toLocaleString() || '0'
+    ]);
+
+    // Generate table
+    autoTable(doc, {
+      head: [tableColumns],
+      body: tableRows,
+      startY: yPosition,
+      theme: 'grid',
+      headStyles: {
+        fillColor: [30, 64, 175], // Blue-800
+        textColor: 255,
+        fontStyle: 'bold',
+        halign: 'center',
+        fontSize: 10
+      },
+      bodyStyles: {
+        fontSize: 9,
+        textColor: 55,
+        halign: 'center'
+      },
+      alternateRowStyles: {
+        fillColor: [248, 250, 252] // Gray-50
+      },
+      columnStyles: {
+        0: { cellWidth: 35, halign: 'left' }, // Event
+        1: { cellWidth: 30, halign: 'left' }, // Location
+        2: { cellWidth: 25, halign: 'center' }, // Date
+        3: { cellWidth: 20, halign: 'center' }, // Time
+        4: { cellWidth: 20, halign: 'center' }, // Participants
+        5: { cellWidth: 25, halign: 'center' }, // Status
+        6: { cellWidth: 25, halign: 'right' } // Amount
+      },
+      margin: { left: margin, right: margin },
+      didDrawPage: function (data) {
+        // Footer
+        doc.setFontSize(8);
+        doc.setFont('helvetica', 'italic');
+        doc.setTextColor(100);
+        doc.text('Wild Lanka Go - Tourist Portal', margin, pageHeight - 15);
+        doc.text(`Page ${doc.internal.getCurrentPageInfo().pageNumber}`, pageWidth - margin, pageHeight - 15, { align: 'right' });
+      }
+    });
+
+    doc.save(`event-registrations-${new Date().toISOString().split('T')[0]}.pdf`);
+  };
+
+  const generateDonationsPDF = () => {
+    if (!myDonations || myDonations.length === 0) {
+      alert('No donations found to generate PDF');
+      return;
+    }
+
+    const doc = new jsPDF();
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+    const margin = 20;
+    
+    let yPosition = createFormalHeader(doc, 'Donation History Report', 'Complete record of your wildlife conservation donations');
+    
+    // Table data
+    const tableColumns = ['Amount (Rs.)', 'Cause', 'Date', 'Status', 'Message'];
+    const tableRows = myDonations.map(donation => [
+      donation.amount?.toLocaleString() || '0',
+      donation.cause || 'General Support',
+      donation.date ? new Date(donation.date).toLocaleDateString() : 'Date N/A',
+      'Completed',
+      donation.message ? (donation.message.length > 30 ? donation.message.substring(0, 30) + '...' : donation.message) : 'No message'
+    ]);
+
+    // Generate table
+    autoTable(doc, {
+      head: [tableColumns],
+      body: tableRows,
+      startY: yPosition,
+      theme: 'grid',
+      headStyles: {
+        fillColor: [30, 64, 175], // Blue-800
+        textColor: 255,
+        fontStyle: 'bold',
+        halign: 'center',
+        fontSize: 10
+      },
+      bodyStyles: {
+        fontSize: 9,
+        textColor: 55,
+        halign: 'center'
+      },
+      alternateRowStyles: {
+        fillColor: [248, 250, 252] // Gray-50
+      },
+      columnStyles: {
+        0: { cellWidth: 30, halign: 'right' }, // Amount
+        1: { cellWidth: 40, halign: 'left' }, // Cause
+        2: { cellWidth: 25, halign: 'center' }, // Date
+        3: { cellWidth: 20, halign: 'center' }, // Status
+        4: { cellWidth: 45, halign: 'left' } // Message
+      },
+      margin: { left: margin, right: margin },
+      didDrawPage: function (data) {
+        // Footer
+        doc.setFontSize(8);
+        doc.setFont('helvetica', 'italic');
+        doc.setTextColor(100);
+        doc.text('Wild Lanka Go - Tourist Portal', margin, pageHeight - 15);
+        doc.text(`Page ${doc.internal.getCurrentPageInfo().pageNumber}`, pageWidth - margin, pageHeight - 15, { align: 'right' });
+      }
+    });
+
+    // Add summary
+    const finalY = doc.lastAutoTable.finalY + 20;
+    doc.setFontSize(12);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(30, 64, 175);
+    doc.text('Donation Summary', margin, finalY);
+    
+    const totalAmount = myDonations.reduce((sum, donation) => sum + (donation.amount || 0), 0);
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(55, 65, 81);
+    doc.text(`Total Donated: Rs. ${totalAmount.toLocaleString()}`, margin, finalY + 10);
+    doc.text(`Number of Donations: ${myDonations.length}`, margin, finalY + 20);
+    doc.text(`Average Donation: Rs. ${Math.round(totalAmount / myDonations.length).toLocaleString()}`, margin, finalY + 30);
+
+    doc.save(`donations-history-${new Date().toISOString().split('T')[0]}.pdf`);
+  };
+
+  const generateCompleteReportPDF = () => {
+    const doc = new jsPDF();
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+    const margin = 20;
+    
+    let yPosition = createFormalHeader(doc, 'Complete Tourist Report', 'Comprehensive overview of your Wild Lanka Go activities');
+    
+    // Summary section
+    doc.setFontSize(14);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(30, 64, 175);
+    doc.text('Activity Summary', margin, yPosition);
+    
+    yPosition += 15;
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(55, 65, 81);
+    
+    const summaryData = [
+      `Total Bookings: ${myBookings.length}`,
+      `Total Event Registrations: ${myRegistrations.length}`,
+      `Total Donations: ${myDonations.length}`,
+      `Total Donation Amount: Rs. ${myDonations.reduce((sum, donation) => sum + (donation.amount || 0), 0).toLocaleString()}`
+    ];
+    
+    summaryData.forEach(line => {
+      doc.text(line, margin, yPosition);
+      yPosition += 8;
+    });
+    
+    yPosition += 10;
+    
+    // Bookings section
+    if (myBookings.length > 0) {
+      doc.setFontSize(12);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(30, 64, 175);
+      doc.text('Recent Bookings', margin, yPosition);
+      yPosition += 10;
+      
+      const tableColumns = ['Activity', 'Date', 'Status', 'Amount'];
+      const tableRows = myBookings.slice(0, 5).map(booking => [
+        booking.activityId?.name || 'Activity',
+        new Date(booking.preferredDate || booking.bookingDate).toLocaleDateString(),
+        booking.status || 'Pending',
+        `Rs. ${booking.totalAmount?.toLocaleString() || '0'}`
+      ]);
+      
+      autoTable(doc, {
+        head: [tableColumns],
+        body: tableRows,
+        startY: yPosition,
+        theme: 'grid',
+        headStyles: {
+          fillColor: [30, 64, 175],
+          textColor: 255,
+          fontStyle: 'bold',
+          fontSize: 9
+        },
+        bodyStyles: {
+          fontSize: 8,
+          textColor: 55
+        },
+        margin: { left: margin, right: margin }
       });
-      setSelectedEvent(null);
-      setRegistrationForm({ participants: 1 });
-      await fetchDashboardData();
-      setError(null);
-    } catch (error) {
-      setError('Failed to register for event. Please try again.');
+      
+      yPosition = doc.lastAutoTable.finalY + 15;
     }
-  };
+    
+    // Add footer
+    doc.setFontSize(8);
+    doc.setFont('helvetica', 'italic');
+    doc.setTextColor(100);
+    doc.text('Wild Lanka Go - Tourist Portal', margin, pageHeight - 15);
+    doc.text(`Generated on: ${new Date().toLocaleDateString()}`, pageWidth - margin, pageHeight - 15, { align: 'right' });
 
-  const handleDonation = async (e) => {
-    e.preventDefault();
-    try {
-      await protectedApi.makeDonation(donationForm);
-      setDonationForm({ amount: '', message: '' });
-      await fetchDashboardData();
-      setError(null);
-    } catch (error) {
-      setError('Failed to process donation. Please try again.');
-    }
-  };
-
-  const handleFeedbackSubmit = async (e) => {
-    e.preventDefault();
-    try {
-      await protectedApi.submitFeedback(feedbackForm);
-      setFeedbackForm({ subject: '', message: '', rating: 5 });
-      await fetchDashboardData();
-      setError(null);
-    } catch (error) {
-      setError('Failed to submit feedback. Please try again.');
-    }
-  };
-
-  const handleComplaintSubmit = async (e) => {
-    e.preventDefault();
-    try {
-      await protectedApi.submitComplaint(complaintForm);
-      setComplaintForm({ subject: '', description: '' });
-      await fetchDashboardData();
-      setError(null);
-    } catch (error) {
-      setError('Failed to submit complaint. Please try again.');
-    }
-  };
-
-  const handleEmergencyReport = async (e) => {
-    e.preventDefault();
-    try {
-      await protectedApi.reportEmergency(emergencyForm);
-      setEmergencyForm({ type: '', description: '', location: '' });
-      setError(null);
-      alert('Emergency reported successfully. Help is on the way!');
-    } catch (error) {
-      setError('Failed to report emergency. Please try calling directly.');
-    }
-  };
-
-  const updateEventRegistration = async (registrationId, participants) => {
-    try {
-      await protectedApi.updateEventRegistration(registrationId, { participants });
-      await fetchDashboardData();
-    } catch (error) {
-      setError('Failed to update registration.');
-    }
-  };
-
-  const cancelEventRegistration = async (registrationId) => {
-    try {
-      await protectedApi.cancelEventRegistration(registrationId);
-      await fetchDashboardData();
-    } catch (error) {
-      setError('Failed to cancel registration.');
-    }
-  };
-
-  const updateDonationMessage = async (donationId, message) => {
-    try {
-      await protectedApi.updateDonationMessage(donationId, { message });
-      await fetchDashboardData();
-    } catch (error) {
-      setError('Failed to update donation message.');
-    }
-  };
-
-  const deleteFeedback = async (feedbackId) => {
-    try {
-      await protectedApi.deleteFeedback(feedbackId);
-      await fetchDashboardData();
-    } catch (error) {
-      setError('Failed to delete feedback.');
-    }
-  };
-
-  const deleteComplaint = async (complaintId) => {
-    try {
-      await protectedApi.deleteComplaint(complaintId);
-      await fetchDashboardData();
-    } catch (error) {
-      setError('Failed to delete complaint.');
-    }
+    doc.save(`complete-tourist-report-${new Date().toISOString().split('T')[0]}.pdf`);
   };
 
   if (loading) {
     return (
-      <ProtectedRoute allowedRoles={['tourist']}>
+      <RoleGuard requiredRole="tourist">
         <div className="flex flex-col min-h-screen">
           <Navbar />
           <div className="flex-1 flex items-center justify-center pt-32">
@@ -234,12 +650,12 @@ const TouristDashboard = () => {
           </div>
           <Footer />
         </div>
-      </ProtectedRoute>
+      </RoleGuard>
     );
   }
 
   return (
-    <ProtectedRoute allowedRoles={['tourist']}>
+    <RoleGuard requiredRole="tourist">
       <div className="flex flex-col min-h-screen bg-[#F4F6FF]">
         <Navbar />
         
@@ -247,34 +663,39 @@ const TouristDashboard = () => {
         <div className="flex-1 pt-28 pb-10">
           <div className="mx-auto max-w-7xl px-4">
             {/* Grid: Sidebar | Main | Right */}
-            <div className="grid grid-cols-12 gap-6">
+            <div className="grid grid-cols-12 gap-4">
               {/* LEFT SIDEBAR */}
-              <aside className="col-span-12 md:col-span-2">
-                <div className="bg-white rounded-2xl shadow-sm p-4 sticky top-24">
-                  <div className="flex items-center gap-2 mb-4">
-                    <div className="w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold">T</div>
-                    <div className="font-semibold">Tourist Portal</div>
-                  </div>
+              <aside className="col-span-12 lg:col-span-3">
+                <div className="group relative overflow-hidden rounded-2xl lg:rounded-3xl bg-white/80 backdrop-blur-xl border border-white/20 shadow-xl lg:shadow-2xl p-4 lg:p-6 sticky top-20 lg:top-24 transition-all duration-500 hover:shadow-2xl lg:hover:shadow-3xl">
+                  <div className="absolute inset-0 bg-gradient-to-br from-blue-50/30 to-indigo-50/30"></div>
+                  <div className="relative z-10">
+                    <div className="flex items-center gap-2 mb-4">
+                      <div className="p-2 lg:p-3 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl lg:rounded-2xl shadow-lg">
+                        <div className="w-6 h-6 lg:w-8 lg:h-8 rounded-full bg-white text-blue-600 flex items-center justify-center font-bold text-sm lg:text-base">T</div>
+                      </div>
+                      <div className="font-semibold text-gray-800">Tourist Portal</div>
+                    </div>
 
                   {[
                     { key: 'overview', label: 'Overview', icon: (
                         <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0h6" />
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2H5a2 2 0 00-2-2z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M8 5a2 2 0 012-2h4a2 2 0 012 2v2H8V5z" />
                         </svg>
                     )},
-                    { key: 'activities', label: 'Activities', icon: (
+                    { key: 'bookings', label: 'My Bookings', icon: (
                         <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
                         </svg>
-                    )},
-                    { key: 'events', label: 'Events', icon: (
+                      )},
+                    { key: 'registrations', label: 'Event Registrations', icon: (
                         <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                         </svg>
-                    )},
+                      )},
                     { key: 'donations', label: 'Donations', icon: (
                         <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636 10.682 6.318a4.5 4.5 0 00-6.364 0z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
                         </svg>
                     )},
                     { key: 'feedback', label: 'Feedback', icon: (
@@ -284,1402 +705,777 @@ const TouristDashboard = () => {
                     )},
                     { key: 'complaints', label: 'Complaints', icon: (
                         <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                        </svg>
-                    )},
-                    { key: 'emergency', label: 'Emergency', icon: (
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
                         </svg>
-                    )},
-                    { key: 'myBookings', label: 'My Bookings', icon: (
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2" />
-                        </svg>
                     )}
-                  ].map(item => (
+                  ].map(({ key, label, icon }) => (
                     <button
-                      key={item.key}
-                      onClick={() => setActiveTab(item.key)}
-                      className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl mb-1 transition
-                        ${activeTab === item.key ? 'bg-blue-50 text-blue-700 border border-blue-100' : 'text-gray-600 hover:bg-gray-50'}`}
+                      key={key}
+                      onClick={() => setActiveTab(key)}
+                      className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-left transition-all duration-300 ${
+                        activeTab === key
+                          ? 'bg-gradient-to-r from-blue-500 to-indigo-500 text-white shadow-lg transform scale-105'
+                          : 'text-gray-600 hover:bg-white/50 hover:shadow-md'
+                      }`}
                     >
-                      <span className={`p-2 rounded-lg ${activeTab === item.key ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-500'}`}>
-                        {item.icon}
-                      </span>
-                      <span className="text-sm font-medium">{item.label}</span>
+                      {icon}
+                      <span className="text-sm font-medium">{label}</span>
                     </button>
                   ))}
-                </div>
+
+                  {/* Logout Button */}
+                  <div className="mt-6 pt-4 border-t border-gray-200/50">
+                      <button
+                      onClick={handleLogout}
+                      className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-left text-red-600 hover:bg-red-50/50 transition-all duration-300 hover:shadow-md"
+                      >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                      </svg>
+                      <span className="text-sm font-medium">Logout</span>
+                      </button>
+                    </div>
+                    </div>
+                  </div>
               </aside>
 
               {/* MAIN CONTENT */}
-              <main className="col-span-12 md:col-span-7">
-                {/* Top greeting banner */}
-                <div className="mb-6">
-                  <div className="bg-blue-600 text-white rounded-2xl p-5 flex items-center justify-between shadow-sm">
-                    <div>
-                      <h2 className="text-lg md:text-xl font-semibold">
-                        {`Good ${new Date().getHours() < 12 ? 'Morning' : new Date().getHours() < 18 ? 'Afternoon' : 'Evening'}, ${user?.name?.split(' ')[0] || 'Tourist'}`}
-                      </h2>
-                      <p className="text-sm opacity-90 mt-1">
-                        Welcome to Wild Lanka Go! You have {myBookings.length} active bookings and {myRegistrations.length} event registrations.
-                      </p>
-                      <button
-                        onClick={() => setActiveTab('activities')}
-                        className="mt-3 bg-white/20 hover:bg-white/30 text-white rounded-lg px-3 py-1.5 text-sm"
-                      >
-                        Explore Activities
-                      </button>
-                    </div>
-                    <div className="hidden md:block">
-                      {/* simple illustration block */}
-                      <div className="w-28 h-20 rounded-xl bg-white/10 backdrop-blur-sm" />
-                    </div>
-                  </div>
-                </div>
-
-                {/* Error Message */}
-                {error && (
-                  <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
-                    <p className="text-sm text-red-800">{error}</p>
-                  </div>
-                )}
-
-                {/* Stats */}
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-                  <StatCard title="My Bookings" value={myBookings.length} color="blue" iconPath="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                  <StatCard title="Event Registrations" value={myRegistrations.length} color="purple" iconPath="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                  <StatCard title="Total Donations" value={`$${myDonations.reduce((sum, d) => sum + d.amount, 0)}`} color="green" iconPath="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2" />
-                  <StatCard title="Emergency" value="REPORT" color="yellow" iconPath="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
-                </div>
-
-                {/* Tab buttons */}
-                <div className="flex flex-wrap gap-2 mb-4">
-                  {[
-                    { k: 'overview', t: 'Overview' },
-                    { k: 'activities', t: 'Book Activities' },
-                    { k: 'events', t: 'Register Events' },
-                    { k: 'donations', t: 'Donations' },
-                    { k: 'feedback', t: 'Feedback' },
-                    { k: 'complaints', t: 'Complaints' },
-                    { k: 'emergency', t: 'Emergency' },
-                    { k: 'myBookings', t: 'My Bookings' }
-                  ].map(({ k, t }) => (
-                    <button
-                      key={k}
-                      onClick={() => setActiveTab(k)}
-                      className={`px-4 py-2 rounded-lg text-sm font-medium transition
-                      ${activeTab === k ? 'bg-blue-600 text-white' : 'bg-white text-gray-700 border border-gray-200 hover:bg-gray-50'}`}
-                    >
-                      {t}
-                    </button>
-                  ))}
-                </div>
-                {/* CENTER PANELS */}
+              <main className="col-span-12 lg:col-span-7">
                 <div className="space-y-6">
-                  {/* Overview Tab */}
+                  {/* Top greeting banner */}
+                  <div className="mb-6">
+                    <div className="bg-blue-600 text-white rounded-2xl p-4 lg:p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-sm">
+                      <div className="flex-1">
+                        <h2 className="text-base sm:text-lg lg:text-xl font-semibold">
+                          {`Good ${new Date().getHours() < 12 ? 'Morning' : new Date().getHours() < 18 ? 'Afternoon' : 'Evening'}, ${user?.firstName || user?.name?.split(' ')[0] || 'Tourist'}`}
+                        </h2>
+                        <p className="text-xs sm:text-sm opacity-90 mt-1">
+                          Explore Sri Lanka's incredible wildlife and natural wonders. You have {myBookings.length} bookings and {myRegistrations.length} event registrations.
+                        </p>
+                        <button
+                          onClick={() => setActiveTab('donations')}
+                          className="mt-3 bg-white/20 hover:bg-white/30 text-white rounded-lg px-3 py-1.5 text-sm transition-colors"
+                        >
+                          Make Donation
+                        </button>
+                      </div>
+                      <div className="hidden md:block">
+                        <div className="text-right">
+                          <div className="text-sm opacity-90">Today</div>
+                          <div className="text-lg font-semibold">
+                            {new Date().toLocaleDateString('en-US', { 
+                              weekday: 'long', 
+                              year: 'numeric', 
+                              month: 'long', 
+                              day: 'numeric' 
+                            })}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Error Message */}
+                  {error && (
+                    <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                      <div className="flex">
+                        <div className="flex-shrink-0">
+                          <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                          </svg>
+                          </div>
+                        <div className="ml-3">
+                          <h3 className="text-sm font-medium text-red-800">Error</h3>
+                          <div className="mt-2 text-sm text-red-700">
+                            <p>{error}</p>
+                          </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                  {/* Tab Content */}
                   {activeTab === 'overview' && (
-                    <div className="bg-white rounded-2xl shadow-sm p-6">
-                      <h3 className="text-lg font-semibold text-gray-800 mb-4">Welcome to Your Portal</h3>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div className="bg-gray-50 rounded-lg p-4">
-                          <h4 className="font-medium text-gray-900 mb-2">Quick Actions</h4>
-                          <div className="space-y-2">
-                            <button
-                              onClick={() => setActiveTab('activities')}
-                              className="block w-full text-left px-3 py-2 bg-white border border-gray-300 rounded-md hover:bg-gray-50 text-sm"
-                            >
-                              🏃 Book New Activity
-                            </button>
-                            <button
-                              onClick={() => setActiveTab('events')}
-                              className="block w-full text-left px-3 py-2 bg-white border border-gray-300 rounded-md hover:bg-gray-50 text-sm"
-                            >
-                              🎪 Register for Event
-                            </button>
-                            <button
-                              onClick={() => setActiveTab('donations')}
-                              className="block w-full text-left px-3 py-2 bg-white border border-gray-300 rounded-md hover:bg-gray-50 text-sm"
-                            >
-                              💝 Make a Donation
-                            </button>
-                            <button
-                              onClick={() => setActiveTab('emergency')}
-                              className="block w-full text-left px-3 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 text-sm"
-                            >
-                              🚨 Report Emergency
-                            </button>
+                    <div className="space-y-6">
+                      {/* Stats Cards */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6">
+                        <div className="group relative overflow-hidden rounded-2xl lg:rounded-3xl bg-gradient-to-br from-blue-500 via-indigo-500 to-blue-600 p-4 lg:p-6 text-white shadow-xl lg:shadow-2xl transition-all duration-500 hover:scale-105 hover:shadow-2xl lg:hover:shadow-3xl">
+                          <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent"></div>
+                          <div className="relative z-10">
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <p className="text-blue-100 text-sm font-medium">My Bookings</p>
+                                <p className="text-2xl lg:text-3xl font-bold mt-1">{myBookings.length}</p>
+                              </div>
+                              <div className="p-3 bg-white/20 rounded-2xl">
+                                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                                </svg>
+                              </div>
+                            </div>
                           </div>
                         </div>
-                        <div className="bg-gray-50 rounded-lg p-4">
-                          <h4 className="font-medium text-gray-900 mb-2">Recent Activity</h4>
-                          <div className="space-y-2 text-sm text-gray-600">
-                            {myBookings.slice(0, 3).map((booking) => (
-                              <div key={booking._id} className="flex justify-between">
-                                <span>🏃 {booking.activityName}</span>
-                                <span>{new Date(booking.date).toLocaleDateString()}</span>
+                        
+                        <div className="group relative overflow-hidden rounded-3xl bg-gradient-to-br from-blue-500 via-indigo-500 to-purple-600 p-6 text-white shadow-2xl transition-all duration-500 hover:scale-105 hover:shadow-3xl">
+                          <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent"></div>
+                          <div className="relative z-10">
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <p className="text-blue-100 text-sm font-medium">Events Registered</p>
+                                <p className="text-2xl lg:text-3xl font-bold mt-1">{myRegistrations.length}</p>
                               </div>
-                            ))}
-                            {myDonations.slice(0, 2).map((donation) => (
-                              <div key={donation._id} className="flex justify-between">
-                                <span>💝 Donation</span>
-                                <span>${donation.amount}</span>
+                              <div className="p-3 bg-white/20 rounded-2xl">
+                                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                </svg>
                               </div>
-                            ))}
+                            </div>
+                          </div>
+                        </div>
+                        
+                        <div className="group relative overflow-hidden rounded-3xl bg-gradient-to-br from-cyan-500 via-blue-500 to-indigo-600 p-6 text-white shadow-2xl transition-all duration-500 hover:scale-105 hover:shadow-3xl">
+                          <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent"></div>
+                          <div className="relative z-10">
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <p className="text-blue-100 text-sm font-medium">Donations Made</p>
+                                <p className="text-2xl lg:text-3xl font-bold mt-1">{myDonations.length}</p>
+                              </div>
+                              <div className="p-3 bg-white/20 rounded-2xl">
+                                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                                </svg>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                        
+                        <div className="group relative overflow-hidden rounded-3xl bg-gradient-to-br from-green-500 via-emerald-500 to-teal-600 p-6 text-white shadow-2xl transition-all duration-500 hover:scale-105 hover:shadow-3xl">
+                          <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent"></div>
+                          <div className="relative z-10">
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <p className="text-green-100 text-sm font-medium">Feedback Given</p>
+                                <p className="text-2xl lg:text-3xl font-bold mt-1">{myFeedback.length}</p>
+                              </div>
+                              <div className="p-3 bg-white/20 rounded-2xl">
+                                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                                </svg>
+                              </div>
+                            </div>
                           </div>
                         </div>
                       </div>
-                    </div>
-                  )}
 
-                  {/* Activities Tab */}
-                  {activeTab === 'activities' && (
-                    <div className="bg-white rounded-2xl shadow-sm p-6">
-                      <h3 className="text-lg font-semibold text-gray-800 mb-4">Available Activities</h3>
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                        {activities.map((activity) => (
-                          <div key={activity._id} className="border border-gray-200 rounded-lg p-4">
-                            {activity.image && (
-                              <img
-                                src={activity.image}
-                                alt={activity.title}
-                                className="w-full h-40 object-cover rounded-md mb-3"
-                              />
-                            )}
-                            <h4 className="font-medium text-gray-900">{activity.title}</h4>
-                            <p className="text-sm text-gray-600 mt-1">{activity.description}</p>
-                            <div className="mt-3 flex justify-between items-center">
-                              <span className="font-bold text-green-600">${activity.price}</span>
-                              <span className="text-sm text-gray-500">{activity.duration}</span>
-                            </div>
-                            <div className="mt-2 text-sm text-gray-500">
-                              Max participants: {activity.maxParticipants}
-                            </div>
-                            <button
-                              onClick={() => setSelectedActivity(activity)}
-                              className="mt-3 w-full px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-                            >
-                              Book Now
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-
-                      {/* Booking Modal */}
-                      {selectedActivity && (
-                        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-                          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
-                            <h3 className="text-lg font-medium text-gray-900 mb-4">
-                              Book: {selectedActivity.title}
-                            </h3>
-                            <form onSubmit={handleActivityBooking}>
-                              <div className="mb-4">
-                                <label className="block text-sm font-medium text-gray-700 mb-2">
-                                  Select Date
-                                </label>
-                                <input
-                                  type="date"
-                                  value={bookingForm.date}
-                                  onChange={(e) => setBookingForm({...bookingForm, date: e.target.value})}
-                                  min={new Date().toISOString().split('T')[0]}
-                                  required
-                                  className="w-full border border-gray-300 rounded-md px-3 py-2"
-                                />
-                              </div>
-                              <div className="mb-4">
-                                <label className="block text-sm font-medium text-gray-700 mb-2">
-                                  Number of Participants
-                                </label>
-                                <input
-                                  type="number"
-                                  value={bookingForm.participants}
-                                  onChange={(e) => setBookingForm({...bookingForm, participants: parseInt(e.target.value)})}
-                                  min="1"
-                                  max={selectedActivity.maxParticipants}
-                                  required
-                                  className="w-full border border-gray-300 rounded-md px-3 py-2"
-                                />
-                              </div>
-                              <div className="mb-4">
-                                <label className="flex items-center">
-                                  <input
-                                    type="checkbox"
-                                    checked={bookingForm.requestGuide}
-                                    onChange={(e) => setBookingForm({...bookingForm, requestGuide: e.target.checked})}
-                                    className="mr-2"
-                                  />
-                                  <span className="text-sm text-gray-700">Request Tour Guide (+$25)</span>
-                                </label>
-                              </div>
-                              <div className="mb-4 p-3 bg-gray-50 rounded-md">
-                                <div className="text-sm text-gray-600">
-                                  <div className="flex justify-between">
-                                    <span>Activity Price:</span>
-                                    <span>${selectedActivity.price} × {bookingForm.participants}</span>
-                                  </div>
-                                  {bookingForm.requestGuide && (
-                                    <div className="flex justify-between">
-                                      <span>Tour Guide:</span>
-                                      <span>$25</span>
-                                    </div>
-                                  )}
-                                  <div className="flex justify-between font-bold border-t pt-2">
-                                    <span>Total:</span>
-                                    <span>
-                                      ${(selectedActivity.price * bookingForm.participants) + (bookingForm.requestGuide ? 25 : 0)}
-                                    </span>
-                                  </div>
+                      {/* Recent Bookings */}
+                      <div className="group relative overflow-hidden rounded-3xl bg-white/80 backdrop-blur-xl border border-white/20 shadow-2xl transition-all duration-500 hover:shadow-3xl">
+                        <div className="absolute inset-0 bg-gradient-to-br from-blue-50/50 to-indigo-50/50"></div>
+                        <div className="relative z-10">
+                          <div className="px-8 py-6 border-b border-gray-100/50">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-4">
+                                <div className="p-3 bg-blue-100 rounded-2xl">
+                                  <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                                  </svg>
                                 </div>
+                                <h2 className="text-2xl font-bold text-gray-800">Recent Bookings</h2>
                               </div>
-                              <div className="bg-yellow-50 border border-yellow-200 rounded-md p-3 mb-4">
-                                <p className="text-sm text-yellow-800">
-                                  ⚠️ Important: Once confirmed, bookings cannot be updated or cancelled.
-                                </p>
-                              </div>
-                              <div className="flex space-x-3">
-                                <button
-                                  type="button"
-                                  onClick={() => setSelectedActivity(null)}
-                                  className="flex-1 px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50"
-                                >
-                                  Cancel
-                                </button>
-                                <button
-                                  type="submit"
-                                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-                                >
-                                  Confirm Booking
-                                </button>
-                              </div>
-                            </form>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                {/* Events Tab */}
-                {activeTab === 'events' && (
-                  <div>
-                    <h3 className="text-lg font-medium text-gray-900 mb-4">Upcoming Events</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                      {events.map((event) => (
-                        <div key={event._id} className="border border-gray-200 rounded-lg p-4">
-                          {event.image && (
-                            <img
-                              src={event.image}
-                              alt={event.title}
-                              className="w-full h-40 object-cover rounded-md mb-3"
-                            />
-                          )}
-                          <h4 className="font-medium text-gray-900">{event.title}</h4>
-                          <p className="text-sm text-gray-600 mt-1">{event.description}</p>
-                          <div className="mt-3 space-y-1 text-sm text-gray-500">
-                            <div>📅 {new Date(event.date).toLocaleDateString()}</div>
-                            <div>🕒 {event.time}</div>
-                            <div>📍 {event.location}</div>
-                            <div>👥 {event.availableSlots} slots available</div>
-                            <div className="font-bold text-green-600">${event.price}</div>
-                          </div>
-                          <button
-                            onClick={() => setSelectedEvent(event)}
-                            disabled={event.availableSlots === 0}
-                            className={`mt-3 w-full px-4 py-2 rounded-md ${
-                              event.availableSlots === 0
-                                ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                                : 'bg-purple-600 text-white hover:bg-purple-700'
-                            }`}
-                          >
-                            {event.availableSlots === 0 ? 'Fully Booked' : 'Register Now'}
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-
-                    {/* Event Registration Modal */}
-                    {selectedEvent && (
-                      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-                        <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
-                          <h3 className="text-lg font-medium text-gray-900 mb-4">
-                            Register for: {selectedEvent.title}
-                          </h3>
-                          <form onSubmit={handleEventRegistration}>
-                            <div className="mb-4">
-                              <label className="block text-sm font-medium text-gray-700 mb-2">
-                                Number of Participants
-                              </label>
-                              <input
-                                type="number"
-                                value={registrationForm.participants}
-                                onChange={(e) => setRegistrationForm({...registrationForm, participants: parseInt(e.target.value)})}
-                                min="1"
-                                max={selectedEvent.availableSlots}
-                                required
-                                className="w-full border border-gray-300 rounded-md px-3 py-2"
-                              />
-                            </div>
-                            <div className="mb-4 p-3 bg-gray-50 rounded-md">
-                              <div className="text-sm text-gray-600">
-                                <div className="flex justify-between">
-                                  <span>Price per person:</span>
-                                  <span>${selectedEvent.price}</span>
-                                </div>
-                                <div className="flex justify-between">
-                                  <span>Participants:</span>
-                                  <span>{registrationForm.participants}</span>
-                                </div>
-                                <div className="flex justify-between font-bold border-t pt-2">
-                                  <span>Total:</span>
-                                  <span>${selectedEvent.price * registrationForm.participants}</span>
-                                </div>
-                              </div>
-                            </div>
-                            <div className="bg-green-50 border border-green-200 rounded-md p-3 mb-4">
-                              <p className="text-sm text-green-800">
-                                ✅ You can modify or cancel this registration after confirmation.
-                              </p>
-                            </div>
-                            <div className="flex space-x-3">
                               <button
-                                type="button"
-                                onClick={() => setSelectedEvent(null)}
-                                className="flex-1 px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50"
+                                onClick={generateCompleteReportPDF}
+                                className="px-4 py-2 bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 text-white rounded-lg font-medium transition-all duration-300 shadow-lg hover:shadow-xl hover:scale-105 flex items-center gap-2"
                               >
-                                Cancel
-                              </button>
-                              <button
-                                type="submit"
-                                className="flex-1 px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700"
-                              >
-                                Register
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                </svg>
+                                Complete Report
                               </button>
                             </div>
-                          </form>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {/* Donations Tab */}
-                {activeTab === 'donations' && (
-                  <div>
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                      {/* Make Donation */}
-                      <div>
-                        <h3 className="text-lg font-medium text-gray-900 mb-4">Make a Donation</h3>
-                        <form onSubmit={handleDonation} className="bg-gray-50 rounded-lg p-6">
-                          <div className="mb-4">
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                              Donation Amount ($)
-                            </label>
-                            <input
-                              type="number"
-                              value={donationForm.amount}
-                              onChange={(e) => setDonationForm({...donationForm, amount: e.target.value})}
-                              min="1"
-                              step="0.01"
-                              required
-                              className="w-full border border-gray-300 rounded-md px-3 py-2"
-                              placeholder="Enter amount"
-                            />
                           </div>
-                          <div className="mb-4">
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                              Message (Optional)
-                            </label>
-                            <textarea
-                              value={donationForm.message}
-                              onChange={(e) => setDonationForm({...donationForm, message: e.target.value})}
-                              rows="3"
-                              className="w-full border border-gray-300 rounded-md px-3 py-2"
-                              placeholder="Leave a message with your donation..."
-                            />
-                          </div>
-                          <button
-                            type="submit"
-                            className="w-full px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700"
-                          >
-                            Donate Now
-                          </button>
-                        </form>
-                      </div>
-
-                      {/* Donation History */}
+                          <div className="p-8">
+                        {myBookings.length > 0 ? (
+                          <div className="space-y-3">
+                            {myBookings.map((booking) => (
+                              <div key={booking._id} className="flex items-center justify-between p-4 bg-white/50 rounded-lg border border-white/30">
                       <div>
-                        <h3 className="text-lg font-medium text-gray-900 mb-4">Donation History</h3>
-                        <div className="space-y-4">
-                          {myDonations.map((donation) => (
-                            <div key={donation._id} className="border border-gray-200 rounded-lg p-4">
-                              <div className="flex justify-between items-start">
-                                <div>
-                                  <div className="font-medium text-gray-900">${donation.amount}</div>
-                                  <div className="text-sm text-gray-600 mt-1">{donation.message}</div>
-                                  <div className="text-xs text-gray-500 mt-2">
-                                    {new Date(donation.createdAt).toLocaleDateString()}
-                                  </div>
+                                  <h3 className="font-medium text-gray-900">{booking.activityId?.name || 'Activity'}</h3>
+                                  <p className="text-sm text-gray-600">{booking.activityId?.location || 'Location'}</p>
+                                  <p className="text-sm text-gray-500">Date: {new Date(booking.preferredDate || booking.bookingDate).toLocaleDateString()}</p>
+                                  <p className="text-sm text-gray-500">Participants: {booking.numberOfParticipants}</p>
                                 </div>
-                                <button
-                                  onClick={() => {
-                                    const newMessage = prompt('Update donation message:', donation.message);
-                                    if (newMessage !== null) {
-                                      updateDonationMessage(donation._id, newMessage);
-                                    }
-                                  }}
-                                  className="text-blue-600 hover:text-blue-800 text-sm"
-                                >
-                                  Edit Message
-                                </button>
-                              </div>
-                            </div>
-                          ))}
-                          {myDonations.length === 0 && (
-                            <p className="text-gray-500 text-center py-8">No donations yet</p>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* Feedback Tab */}
-                {activeTab === 'feedback' && (
-                  <div>
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                      {/* Submit Feedback */}
-                      <div>
-                        <h3 className="text-lg font-medium text-gray-900 mb-4">Submit Feedback</h3>
-                        <form onSubmit={handleFeedbackSubmit} className="bg-gray-50 rounded-lg p-6">
-                          <div className="mb-4">
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                              Subject
-                            </label>
-                            <input
-                              type="text"
-                              value={feedbackForm.subject}
-                              onChange={(e) => setFeedbackForm({...feedbackForm, subject: e.target.value})}
-                              required
-                              className="w-full border border-gray-300 rounded-md px-3 py-2"
-                              placeholder="Feedback subject"
-                            />
-                          </div>
-                          <div className="mb-4">
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                              Rating
-                            </label>
-                            <select
-                              value={feedbackForm.rating}
-                              onChange={(e) => setFeedbackForm({...feedbackForm, rating: parseInt(e.target.value)})}
-                              className="w-full border border-gray-300 rounded-md px-3 py-2"
-                            >
-                              <option value={5}>⭐⭐⭐⭐⭐ Excellent</option>
-                              <option value={4}>⭐⭐⭐⭐ Good</option>
-                              <option value={3}>⭐⭐⭐ Average</option>
-                              <option value={2}>⭐⭐ Poor</option>
-                              <option value={1}>⭐ Very Poor</option>
-                            </select>
-                          </div>
-                          <div className="mb-4">
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                              Message
-                            </label>
-                            <textarea
-                              value={feedbackForm.message}
-                              onChange={(e) => setFeedbackForm({...feedbackForm, message: e.target.value})}
-                              rows="4"
-                              required
-                              className="w-full border border-gray-300 rounded-md px-3 py-2"
-                              placeholder="Share your experience..."
-                            />
-                          </div>
-                          <button
-                            type="submit"
-                            className="w-full px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-                          >
-                            Submit Feedback
-                          </button>
-                        </form>
-                      </div>
-
-                      {/* My Feedback */}
-                      <div>
-                        <h3 className="text-lg font-medium text-gray-900 mb-4">My Feedback</h3>
-                        <div className="space-y-4">
-                          {myFeedback.map((feedback) => (
-                            <div key={feedback._id} className="border border-gray-200 rounded-lg p-4">
-                              <div className="flex justify-between items-start">
-                                <div className="flex-1">
-                                  <div className="flex items-center space-x-2">
-                                    <h4 className="font-medium text-gray-900">{feedback.subject}</h4>
-                                    <span className="text-sm">
-                                      {'⭐'.repeat(feedback.rating)}
+                                <div className="text-right">
+                                  <span className={`px-2 py-1 text-xs font-medium rounded-full ${
+                                    booking.status === 'Confirmed' 
+                                      ? 'bg-green-100 text-green-800' 
+                                      : booking.status === 'Pending'
+                                      ? 'bg-yellow-100 text-yellow-800'
+                                      : 'bg-red-100 text-red-800'
+                                  }`}>
+                                    {booking.status || 'Pending'}
                                     </span>
-                                  </div>
-                                  <p className="text-sm text-gray-600 mt-1">{feedback.message}</p>
-                                  <p className="text-xs text-gray-500 mt-2">
-                                    {new Date(feedback.createdAt).toLocaleDateString()}
+                                  <p className="text-sm font-medium text-gray-900 mt-1">
+                                    Rs. {booking.totalAmount?.toLocaleString() || '0'}
                                   </p>
                                 </div>
-                                <div className="flex space-x-2">
-                                  <button
-                                    onClick={() => {
-                                      // Edit feedback logic
-                                    }}
-                                    className="text-blue-600 hover:text-blue-800 text-sm"
-                                  >
-                                    Edit
-                                  </button>
-                                  <button
-                                    onClick={() => deleteFeedback(feedback._id)}
-                                    className="text-red-600 hover:text-red-800 text-sm"
-                                  >
-                                    Delete
-                                  </button>
+                                        </div>
+                                      ))}
+                                    </div>
+                        ) : (
+                          <p className="text-gray-500 text-center py-8">No bookings yet. Start exploring activities!</p>
+                                  )}
                                 </div>
-                              </div>
-                            </div>
-                          ))}
-                          {myFeedback.length === 0 && (
-                            <p className="text-gray-500 text-center py-8">No feedback submitted yet</p>
-                          )}
+                          </div>
                         </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
 
-                {/* Complaints Tab */}
-                {activeTab === 'complaints' && (
-                  <div>
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                      {/* Submit Complaint */}
-                      <div>
-                        <h3 className="text-lg font-medium text-gray-900 mb-4">Submit Complaint</h3>
-                        <form onSubmit={handleComplaintSubmit} className="bg-gray-50 rounded-lg p-6">
-                          <div className="mb-4">
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                              Subject
-                            </label>
-                            <input
-                              type="text"
-                              value={complaintForm.subject}
-                              onChange={(e) => setComplaintForm({...complaintForm, subject: e.target.value})}
-                              required
-                              className="w-full border border-gray-300 rounded-md px-3 py-2"
-                              placeholder="Complaint subject"
-                            />
+                      {/* Recent Event Registrations */}
+                      <div className="group relative overflow-hidden rounded-3xl bg-white/80 backdrop-blur-xl border border-white/20 shadow-2xl transition-all duration-500 hover:shadow-3xl">
+                        <div className="absolute inset-0 bg-gradient-to-br from-blue-50/50 to-indigo-50/50"></div>
+                        <div className="relative z-10">
+                          <div className="px-8 py-6 border-b border-gray-100/50">
+                            <div className="flex items-center gap-4">
+                              <div className="p-3 bg-blue-100 rounded-2xl">
+                                <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                </svg>
+                              </div>
+                              <h2 className="text-2xl font-bold text-gray-800">Recent Event Registrations</h2>
+                            </div>
                           </div>
-                          <div className="mb-4">
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                              Description
-                            </label>
-                            <textarea
-                              value={complaintForm.description}
-                              onChange={(e) => setComplaintForm({...complaintForm, description: e.target.value})}
-                              rows="4"
-                              required
-                              className="w-full border border-gray-300 rounded-md px-3 py-2"
-                              placeholder="Describe your complaint in detail..."
-                            />
-                          </div>
-                          <button
-                            type="submit"
-                            className="w-full px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700"
-                          >
-                            Submit Complaint
-                          </button>
-                        </form>
-                      </div>
-
-                      {/* My Complaints */}
-                      <div>
-                        <h3 className="text-lg font-medium text-gray-900 mb-4">My Complaints</h3>
-                        <div className="space-y-4">
-                          {myComplaints.map((complaint) => (
-                            <div key={complaint._id} className="border border-gray-200 rounded-lg p-4">
-                              <div className="flex justify-between items-start">
-                                <div className="flex-1">
-                                  <h4 className="font-medium text-gray-900">{complaint.subject}</h4>
-                                  <p className="text-sm text-gray-600 mt-1">{complaint.description}</p>
-                                  <div className="flex items-center space-x-2 mt-2">
-                                    <span className={`px-2 py-1 text-xs rounded-full ${
-                                      complaint.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                                      complaint.status === 'in-review' ? 'bg-blue-100 text-blue-800' :
-                                      'bg-green-100 text-green-800'
-                                    }`}>
-                                      {complaint.status.toUpperCase()}
-                                    </span>
-                                    <span className="text-xs text-gray-500">
-                                      {new Date(complaint.createdAt).toLocaleDateString()}
-                                    </span>
+                          <div className="p-8">
+                            {myRegistrations.length > 0 ? (
+                              <div className="space-y-3">
+                                {myRegistrations.slice(0, 3).map((registration) => (
+                                  <div key={registration._id} className="flex items-center justify-between p-4 bg-white/50 rounded-lg border border-white/30">
+                                    <div>
+                                      <h3 className="font-medium text-gray-900">{registration.eventTitle || 'Event'}</h3>
+                                      <p className="text-sm text-gray-600">{registration.eventLocation || 'Location'}</p>
+                                      <p className="text-sm text-gray-500">
+                                        Date: {registration.eventDate ? new Date(registration.eventDate).toLocaleDateString() : 'TBD'}
+                                      </p>
+                                      <p className="text-sm text-gray-500">Participants: {registration.numberOfParticipants || registration.participants}</p>
+                                    </div>
+                                    <div className="text-right">
+                                      <span className={`px-2 py-1 text-xs font-medium rounded-full ${
+                                        registration.status === 'registered' 
+                                          ? 'bg-green-100 text-green-800' 
+                                          : registration.status === 'attended'
+                                          ? 'bg-blue-100 text-blue-800'
+                                          : registration.status === 'cancelled'
+                                          ? 'bg-red-100 text-red-800'
+                                          : 'bg-yellow-100 text-yellow-800'
+                                      }`}>
+                                        {registration.status === 'registered' ? 'Registered' :
+                                         registration.status === 'attended' ? 'Attended' :
+                                         registration.status === 'cancelled' ? 'Cancelled' :
+                                         registration.status || 'Pending'}
+                                      </span>
+                                      
+                                      {/* QR Code Button - only show for registered events */}
+                                      {registration.status === 'registered' && (
+                                        <button
+                                          onClick={() => showQRCodeForRegistration(registration)}
+                                          className="mt-2 px-2 py-1 bg-blue-500 hover:bg-blue-600 text-white text-xs font-medium rounded transition-colors flex items-center gap-1"
+                                          title="View Registration QR Code"
+                                        >
+                                          📱 QR
+                                        </button>
+                                      )}
+                                      
+                                      {registration.paymentAmount > 0 && (
+                                        <p className="text-sm font-medium text-gray-900 mt-1">
+                                          Rs. {registration.paymentAmount.toLocaleString()}
+                                        </p>
+                                      )}
+                                    </div>
                                   </div>
+                                ))}
+                              </div>
+                            ) : (
+                              <p className="text-gray-500 text-center py-8">No event registrations yet. Explore upcoming events!</p>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                  </div>
+                )}
+
+
+
+                  {activeTab === 'bookings' && (
+                    <div className="space-y-6">
+                      <div className="group relative overflow-hidden rounded-3xl bg-white/80 backdrop-blur-xl border border-white/20 shadow-2xl transition-all duration-500 hover:shadow-3xl">
+                        <div className="absolute inset-0 bg-gradient-to-br from-blue-50/50 to-indigo-50/50"></div>
+                        <div className="relative z-10">
+                          <div className="px-8 py-6 border-b border-gray-100/50">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-4">
+                                <div className="p-3 bg-blue-100 rounded-2xl">
+                                  <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                                  </svg>
                                 </div>
-                                <div className="flex space-x-2">
-                                  <button
-                                    onClick={() => {
-                                      // Edit complaint logic
-                                    }}
-                                    className="text-blue-600 hover:text-blue-800 text-sm"
-                                  >
-                                    Edit
-                                  </button>
-                                  <button
-                                    onClick={() => deleteComplaint(complaint._id)}
-                                    className="text-red-600 hover:text-red-800 text-sm"
-                                  >
-                                    Delete
-                                  </button>
-                                </div>
+                                <h2 className="text-2xl font-bold text-gray-800">My Bookings</h2>
+                              </div>
+                              {myBookings.length > 0 && (
+                                <button
+                                  onClick={generateBookingsPDF}
+                                  className="px-4 py-2 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white rounded-lg font-medium transition-all duration-300 shadow-lg hover:shadow-xl hover:scale-105 flex items-center gap-2"
+                                >
+                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                  </svg>
+                                  Export PDF
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                          <div className="p-8">
+                        {myBookings.length > 0 ? (
+                          <div className="space-y-3">
+                            {myBookings.map((booking) => (
+                              <div key={booking._id} className="border border-white/30 rounded-lg p-4 bg-white/50">
+                                <div className="flex justify-between items-start">
+                              <div>
+                                    <h3 className="font-semibold text-gray-900">{booking.activityId?.name || 'Activity'}</h3>
+                                    <p className="text-sm text-gray-600">{booking.activityId?.location || 'Location'}</p>
+                                    <p className="text-sm text-gray-500">Date: {new Date(booking.preferredDate || booking.bookingDate).toLocaleDateString()}</p>
+                                    <p className="text-sm text-gray-500">Participants: {booking.numberOfParticipants}</p>
+                              </div>
+                              <div className="text-right">
+                                    <span className={`px-2 py-1 text-xs font-medium rounded-full ${
+                                      booking.status === 'Confirmed' 
+                                        ? 'bg-green-100 text-green-800' 
+                                        : booking.status === 'Pending'
+                                        ? 'bg-yellow-100 text-yellow-800'
+                                        : 'bg-red-100 text-red-800'
+                                    }`}>
+                                      {booking.status || 'Pending'}
+                                </span>
+                                    <p className="text-sm font-medium text-gray-900 mt-2">
+                                      Rs. {booking.totalAmount?.toLocaleString() || '0'}
+                                    </p>
+                              </div>
                               </div>
                             </div>
                           ))}
-                          {myComplaints.length === 0 && (
-                            <p className="text-gray-500 text-center py-8">No complaints submitted</p>
-                          )}
+                              </div>
+                        ) : (
+                          <p className="text-gray-500 text-center py-8">No bookings yet. Start exploring activities!</p>
+                        )}
+                          </div>
                         </div>
                       </div>
                     </div>
-                  </div>
-                )}
+                  )}
 
-                {/* Emergency Tab */}
-                {activeTab === 'emergency' && (
-                  <div>
-                    <div className="bg-red-50 border border-red-200 rounded-lg p-6 mb-6">
-                      <div className="flex items-center">
-                        <div className="text-red-600 mr-3">
-                          <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
-                          </svg>
-                        </div>
-                        <div>
-                          <h3 className="text-lg font-bold text-red-800">Emergency Reporting</h3>
-                          <p className="text-red-700 text-sm">
-                            For life-threatening emergencies, call emergency services immediately. Use this form for park-related incidents.
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="max-w-md mx-auto">
-                      <form onSubmit={handleEmergencyReport} className="bg-white border border-gray-200 rounded-lg p-6">
-                        <h3 className="text-lg font-medium text-gray-900 mb-4">Report Emergency</h3>
-
-                        <div className="mb-4">
-                          <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Emergency Type
-                          </label>
-                          <select
-                            value={emergencyForm.type}
-                            onChange={(e) => setEmergencyForm({...emergencyForm, type: e.target.value})}
-                            required
-                            className="w-full border border-gray-300 rounded-md px-3 py-2"
-                          >
-                            <option value="">Select type</option>
-                            <option value="medical">Medical Emergency</option>
-                            <option value="animal">Animal Incident</option>
-                            <option value="fire">Fire</option>
-                            <option value="accident">Accident</option>
-                            <option value="lost">Lost Person</option>
-                            <option value="other">Other</option>
-                          </select>
-                        </div>
-
-                        <div className="mb-4">
-                          <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Location
-                          </label>
-                          <input
-                            type="text"
-                            value={emergencyForm.location}
-                            onChange={(e) => setEmergencyForm({...emergencyForm, location: e.target.value})}
-                            required
-                            className="w-full border border-gray-300 rounded-md px-3 py-2"
-                            placeholder="Describe your current location"
-                          />
-                        </div>
-
-                        <div className="mb-4">
-                          <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Description
-                          </label>
-                          <textarea
-                            value={emergencyForm.description}
-                            onChange={(e) => setEmergencyForm({...emergencyForm, description: e.target.value})}
-                            rows="4"
-                            required
-                            className="w-full border border-gray-300 rounded-md px-3 py-2"
-                            placeholder="Describe the emergency situation..."
-                          />
-                        </div>
-
-                        <button
-                          type="submit"
-                          className="w-full px-4 py-3 bg-red-600 text-white rounded-md hover:bg-red-700 font-medium"
-                        >
-                          🚨 REPORT EMERGENCY
-                        </button>
-                      </form>
-
-                      <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                        <h4 className="font-medium text-blue-900 mb-2">Emergency Contacts</h4>
-                        <div className="text-sm text-blue-800 space-y-1">
-                          <div>🚨 Emergency Services: 911</div>
-                          <div>🏥 Park Medical: (555) 123-4567</div>
-                          <div>🐾 Wildlife Emergency: (555) 123-4568</div>
-                          <div>🔥 Fire Department: (555) 123-4569</div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                  {/* My Bookings Tab */}
-                  {activeTab === 'myBookings' && (
-                    <div className="bg-white rounded-2xl shadow-sm p-6">
-                      <h3 className="text-lg font-semibold text-gray-800 mb-4">My Bookings & Registrations</h3>
-
-                      {/* Activity Bookings */}
-                      <div className="mb-8">
-                        <h4 className="font-medium text-gray-900 mb-3">Activity Bookings</h4>
-                        <div className="space-y-4">
-                          {myBookings.map((booking) => (
-                            <div key={booking._id} className="border border-gray-200 rounded-lg p-4">
-                              <div className="flex justify-between items-start">
-                                <div>
-                                  <h5 className="font-medium text-gray-900">{booking.activityName}</h5>
-                                  <div className="text-sm text-gray-600 mt-1 space-y-1">
-                                    <div>📅 {new Date(booking.date).toLocaleDateString()}</div>
-                                    <div>👥 {booking.participants} participants</div>
-                                    <div>💰 ${booking.totalAmount}</div>
-                                    {booking.guideRequested && (
-                                      <div>🎯 Tour guide requested</div>
+                  {activeTab === 'registrations' && (
+                    <div className="space-y-6">
+                      <div className="group relative overflow-hidden rounded-3xl bg-white/80 backdrop-blur-xl border border-white/20 shadow-2xl transition-all duration-500 hover:shadow-3xl">
+                        <div className="absolute inset-0 bg-gradient-to-br from-blue-50/50 to-indigo-50/50"></div>
+                        <div className="relative z-10">
+                          <div className="px-8 py-6 border-b border-gray-100/50">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-4">
+                                <div className="p-3 bg-blue-100 rounded-2xl">
+                                  <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                  </svg>
+                                </div>
+                                <h2 className="text-2xl font-bold text-gray-800">My Event Registrations</h2>
+                              </div>
+                              {myRegistrations.length > 0 && (
+                                <button
+                                  onClick={generateRegistrationsPDF}
+                                  className="px-4 py-2 bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white rounded-lg font-medium transition-all duration-300 shadow-lg hover:shadow-xl hover:scale-105 flex items-center gap-2"
+                                >
+                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                  </svg>
+                                  Export PDF
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                          <div className="p-8">
+                        {myRegistrations.length > 0 ? (
+                          <div className="space-y-3">
+                            {myRegistrations.map((registration) => (
+                              <div key={registration._id} className="border border-white/30 rounded-lg p-4 bg-white/50">
+                                <div className="flex justify-between items-start">
+                                  <div>
+                                    <h3 className="font-semibold text-gray-900">{registration.eventTitle || 'Event'}</h3>
+                                    <p className="text-sm text-gray-600">{registration.eventLocation || 'Location'}</p>
+                                    <p className="text-sm text-gray-500">
+                                      Date: {registration.eventDate ? new Date(registration.eventDate).toLocaleDateString() : 'TBD'}
+                                    </p>
+                                    {registration.eventTime && (
+                                      <p className="text-sm text-gray-500">Time: {registration.eventTime}</p>
+                                    )}
+                                    <p className="text-sm text-gray-500">Participants: {registration.numberOfParticipants || registration.participants}</p>
+                                    <p className="text-sm text-gray-500">
+                                      Registered: {new Date(registration.registeredAt || registration.createdAt).toLocaleDateString()}
+                                    </p>
+                                    {registration.specialRequests && (
+                                      <p className="text-sm text-gray-500 mt-1">
+                                        <span className="font-medium">Special Requests:</span> {registration.specialRequests}
+                                      </p>
+                                    )}
+                                  </div>
+                                  <div className="text-right">
+                                    <span className={`px-2 py-1 text-xs font-medium rounded-full ${
+                                      registration.status === 'registered' 
+                                        ? 'bg-green-100 text-green-800' 
+                                        : registration.status === 'attended'
+                                        ? 'bg-blue-100 text-blue-800'
+                                        : registration.status === 'cancelled'
+                                        ? 'bg-red-100 text-red-800'
+                                        : 'bg-yellow-100 text-yellow-800'
+                                    }`}>
+                                      {registration.status === 'registered' ? 'Registered' :
+                                       registration.status === 'attended' ? 'Attended' :
+                                       registration.status === 'cancelled' ? 'Cancelled' :
+                                       registration.status || 'Pending'}
+                                    </span>
+                                    
+                                    {/* QR Code Button - only show for registered events */}
+                                    {registration.status === 'registered' && (
+                                      <button
+                                        onClick={() => showQRCodeForRegistration(registration)}
+                                        className="mt-2 px-3 py-1 bg-blue-500 hover:bg-blue-600 text-white text-xs font-medium rounded-lg transition-colors flex items-center gap-1"
+                                        title="View Registration QR Code"
+                                      >
+                                        📱 QR Code
+                                      </button>
+                                    )}
+                                    
+                                    {registration.paymentAmount > 0 && (
+                                      <div className="mt-2">
+                                        <p className="text-sm font-medium text-gray-900">
+                                          Rs. {registration.paymentAmount.toLocaleString()}
+                                        </p>
+                                        <span className={`px-2 py-1 text-xs font-medium rounded-full ${
+                                          registration.paymentStatus === 'paid' 
+                                            ? 'bg-green-100 text-green-800' 
+                                            : registration.paymentStatus === 'pending'
+                                            ? 'bg-yellow-100 text-yellow-800'
+                                            : 'bg-gray-100 text-gray-800'
+                                        }`}>
+                                          {registration.paymentStatus || 'pending'}
+                                        </span>
+                                      </div>
                                     )}
                                   </div>
                                 </div>
-                                <span className={`px-2 py-1 text-xs rounded-full ${
-                                  booking.status === 'confirmed' ? 'bg-green-100 text-green-800' :
-                                  booking.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                                  'bg-red-100 text-red-800'
-                                }`}>
-                                  {booking.status.toUpperCase()}
-                                </span>
                               </div>
-                            </div>
-                          ))}
-                          {myBookings.length === 0 && (
-                            <p className="text-gray-500 text-center py-8">No activity bookings yet</p>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* Event Registrations */}
-                      <div>
-                        <h4 className="font-medium text-gray-900 mb-3">Event Registrations</h4>
-                        <div className="space-y-4">
-                          {myRegistrations.map((registration) => (
-                            <div key={registration._id} className="border border-gray-200 rounded-lg p-4">
-                              <div className="flex justify-between items-start">
-                                <div>
-                                  <h5 className="font-medium text-gray-900">{registration.eventName}</h5>
-                                  <div className="text-sm text-gray-600 mt-1 space-y-1">
-                                    <div>📅 {new Date(registration.eventDate).toLocaleDateString()}</div>
-                                    <div>👥 {registration.participants} participants</div>
-                                    <div>💰 ${registration.totalAmount}</div>
-                                  </div>
-                                </div>
-                                <div className="flex space-x-2">
-                                  <span className={`px-2 py-1 text-xs rounded-full ${
-                                    registration.status === 'confirmed' ? 'bg-green-100 text-green-800' :
-                                    'bg-yellow-100 text-yellow-800'
-                                  }`}>
-                                    {registration.status.toUpperCase()}
-                                  </span>
-                                  <button
-                                    onClick={() => {
-                                      const newParticipants = prompt('Update participants:', registration.participants);
-                                      if (newParticipants && newParticipants !== registration.participants.toString()) {
-                                        updateEventRegistration(registration._id, parseInt(newParticipants));
-                                      }
-                                    }}
-                                    className="text-blue-600 hover:text-blue-800 text-sm"
-                                  >
-                                    Edit
-                                  </button>
-                                  <button
-                                    onClick={() => {
-                                      if (confirm('Are you sure you want to cancel this registration?')) {
-                                        cancelEventRegistration(registration._id);
-                                      }
-                                    }}
-                                    className="text-red-600 hover:text-red-800 text-sm"
-                                  >
-                                    Cancel
-                                  </button>
-                                </div>
-                              </div>
-                            </div>
-                          ))}
-                          {myRegistrations.length === 0 && (
-                            <p className="text-gray-500 text-center py-8">No event registrations yet</p>
-                          )}
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="text-gray-500 text-center py-8">No event registrations yet. Explore upcoming events!</p>
+                        )}
+                          </div>
                         </div>
                       </div>
                     </div>
                   )}
 
-                  {/* Add other remaining tabs here - events, donations, feedback, complaints, emergency */}
-                  
-                  {/* Events Tab */}
-                  {activeTab === 'events' && (
-                    <div className="bg-white rounded-2xl shadow-sm p-6">
-                      <h3 className="text-lg font-semibold text-gray-800 mb-4">Upcoming Events</h3>
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                        {events.map((event) => (
-                          <div key={event._id} className="border border-gray-200 rounded-lg p-4">
-                            {event.image && (
-                              <img
-                                src={event.image}
-                                alt={event.title}
-                                className="w-full h-40 object-cover rounded-md mb-3"
-                              />
-                            )}
-                            <h4 className="font-medium text-gray-900">{event.title}</h4>
-                            <p className="text-sm text-gray-600 mt-1">{event.description}</p>
-                            <div className="mt-3 space-y-1 text-sm text-gray-500">
-                              <div>📅 {new Date(event.date).toLocaleDateString()}</div>
-                              <div>🕒 {event.time}</div>
-                              <div>📍 {event.location}</div>
-                              <div>👥 {event.availableSlots} slots available</div>
-                              <div className="font-bold text-green-600">${event.price}</div>
-                            </div>
-                            <button
-                              onClick={() => setSelectedEvent(event)}
-                              disabled={event.availableSlots === 0}
-                              className={`mt-3 w-full px-4 py-2 rounded-md ${
-                                event.availableSlots === 0
-                                  ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                                  : 'bg-blue-600 text-white hover:bg-blue-700'
-                              }`}
-                            >
-                              {event.availableSlots === 0 ? 'Fully Booked' : 'Register Now'}
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-
-                      {/* Event Registration Modal */}
-                      {selectedEvent && (
-                        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-                          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
-                            <h3 className="text-lg font-medium text-gray-900 mb-4">
-                              Register for: {selectedEvent.title}
-                            </h3>
-                            <form onSubmit={handleEventRegistration}>
-                              <div className="mb-4">
-                                <label className="block text-sm font-medium text-gray-700 mb-2">
-                                  Number of Participants
-                                </label>
-                                <input
-                                  type="number"
-                                  value={registrationForm.participants}
-                                  onChange={(e) => setRegistrationForm({...registrationForm, participants: parseInt(e.target.value)})}
-                                  min="1"
-                                  max={selectedEvent.availableSlots}
-                                  required
-                                  className="w-full border border-gray-300 rounded-md px-3 py-2"
-                                />
-                              </div>
-                              <div className="mb-4 p-3 bg-gray-50 rounded-md">
-                                <div className="text-sm text-gray-600">
-                                  <div className="flex justify-between">
-                                    <span>Price per person:</span>
-                                    <span>${selectedEvent.price}</span>
-                                  </div>
-                                  <div className="flex justify-between">
-                                    <span>Participants:</span>
-                                    <span>{registrationForm.participants}</span>
-                                  </div>
-                                  <div className="flex justify-between font-bold border-t pt-2">
-                                    <span>Total:</span>
-                                    <span>${selectedEvent.price * registrationForm.participants}</span>
-                                  </div>
-                                </div>
-                              </div>
-                              <div className="bg-green-50 border border-green-200 rounded-md p-3 mb-4">
-                                <p className="text-sm text-green-800">
-                                  ✅ You can modify or cancel this registration after confirmation.
-                                </p>
-                              </div>
-                              <div className="flex space-x-3">
-                                <button
-                                  type="button"
-                                  onClick={() => setSelectedEvent(null)}
-                                  className="flex-1 px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50"
-                                >
-                                  Cancel
-                                </button>
-                                <button
-                                  type="submit"
-                                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-                                >
-                                  Register
-                                </button>
-                              </div>
-                            </form>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {/* Donations Tab */}
                   {activeTab === 'donations' && (
-                    <div className="bg-white rounded-2xl shadow-sm p-6">
-                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                        {/* Make Donation */}
-                        <div>
-                          <h3 className="text-lg font-semibold text-gray-800 mb-4">Make a Donation</h3>
-                          <form onSubmit={handleDonation} className="bg-gray-50 rounded-lg p-6">
-                            <div className="mb-4">
+                    <div className="space-y-6">
+                      {/* Make Donation Form */}
+                    <div className="group relative overflow-hidden rounded-3xl bg-white/80 backdrop-blur-xl border border-white/20 shadow-2xl transition-all duration-500 hover:shadow-3xl">
+                        <div className="absolute inset-0 bg-gradient-to-br from-blue-50/50 to-indigo-50/50"></div>
+                        <div className="relative z-10">
+                          <div className="px-8 py-6 border-b border-gray-100/50">
+                            <div className="flex items-center gap-4">
+                              <div className="p-3 bg-blue-100 rounded-2xl">
+                                <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                                </svg>
+                              </div>
+                              <h2 className="text-2xl font-bold text-gray-800">Make a Donation</h2>
+                            </div>
+                          </div>
+                          <div className="p-8">
+                        <p className="text-sm text-gray-600 mb-6">
+                          Support Sri Lanka's wildlife conservation efforts. Your contribution helps protect endangered species and preserve natural habitats.
+                        </p>
+                        
+                        <form onSubmit={handleDonationSubmit} className="space-y-4">
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
                               <label className="block text-sm font-medium text-gray-700 mb-2">
-                                Donation Amount ($)
+                                Donation Amount (Rs.) *
                               </label>
                               <input
                                 type="number"
-                                value={donationForm.amount}
-                                onChange={(e) => setDonationForm({...donationForm, amount: e.target.value})}
                                 min="1"
                                 step="0.01"
+                                value={donationForm.amount}
+                                onChange={(e) => setDonationForm(prev => ({ ...prev, amount: e.target.value }))}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                                placeholder="Enter amount (e.g., 1000)"
                                 required
-                                className="w-full border border-gray-300 rounded-md px-3 py-2"
-                                placeholder="Enter amount"
                               />
+                              <p className="text-xs text-gray-500 mt-1">Minimum donation: Rs. 1</p>
                             </div>
-                            <div className="mb-4">
+                            
+                            <div>
                               <label className="block text-sm font-medium text-gray-700 mb-2">
-                                Message (Optional)
-                              </label>
-                              <textarea
-                                value={donationForm.message}
-                                onChange={(e) => setDonationForm({...donationForm, message: e.target.value})}
-                                rows="3"
-                                className="w-full border border-gray-300 rounded-md px-3 py-2"
-                                placeholder="Leave a message with your donation..."
-                              />
-                            </div>
-                            <button
-                              type="submit"
-                              className="w-full px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-                            >
-                              Donate Now
-                            </button>
-                          </form>
-                        </div>
-
-                        {/* Donation History */}
-                        <div>
-                          <h3 className="text-lg font-semibold text-gray-800 mb-4">Donation History</h3>
-                          <div className="space-y-4">
-                            {myDonations.map((donation) => (
-                              <div key={donation._id} className="border border-gray-200 rounded-lg p-4">
-                                <div className="flex justify-between items-start">
-                                  <div>
-                                    <div className="font-medium text-gray-900">${donation.amount}</div>
-                                    <div className="text-sm text-gray-600 mt-1">{donation.message}</div>
-                                    <div className="text-xs text-gray-500 mt-2">
-                                      {new Date(donation.createdAt).toLocaleDateString()}
-                                    </div>
-                                  </div>
-                                  <button
-                                    onClick={() => {
-                                      const newMessage = prompt('Update donation message:', donation.message);
-                                      if (newMessage !== null) {
-                                        updateDonationMessage(donation._id, newMessage);
-                                      }
-                                    }}
-                                    className="text-blue-600 hover:text-blue-800 text-sm"
-                                  >
-                                    Edit Message
-                                  </button>
-                                </div>
-                              </div>
-                            ))}
-                            {myDonations.length === 0 && (
-                              <p className="text-gray-500 text-center py-8">No donations yet</p>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Feedback Tab */}
-                  {activeTab === 'feedback' && (
-                    <div className="bg-white rounded-2xl shadow-sm p-6">
-                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                        {/* Submit Feedback */}
-                        <div>
-                          <h3 className="text-lg font-semibold text-gray-800 mb-4">Submit Feedback</h3>
-                          <form onSubmit={handleFeedbackSubmit} className="bg-gray-50 rounded-lg p-6">
-                            <div className="mb-4">
-                              <label className="block text-sm font-medium text-gray-700 mb-2">
-                                Subject
-                              </label>
-                              <input
-                                type="text"
-                                value={feedbackForm.subject}
-                                onChange={(e) => setFeedbackForm({...feedbackForm, subject: e.target.value})}
-                                required
-                                className="w-full border border-gray-300 rounded-md px-3 py-2"
-                                placeholder="Feedback subject"
-                              />
-                            </div>
-                            <div className="mb-4">
-                              <label className="block text-sm font-medium text-gray-700 mb-2">
-                                Rating
+                                Cause/Purpose *
                               </label>
                               <select
-                                value={feedbackForm.rating}
-                                onChange={(e) => setFeedbackForm({...feedbackForm, rating: parseInt(e.target.value)})}
-                                className="w-full border border-gray-300 rounded-md px-3 py-2"
+                                value={donationForm.cause}
+                                onChange={(e) => setDonationForm(prev => ({ ...prev, cause: e.target.value }))}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                                required
                               >
-                                <option value={5}>⭐⭐⭐⭐⭐ Excellent</option>
-                                <option value={4}>⭐⭐⭐⭐ Good</option>
-                                <option value={3}>⭐⭐⭐ Average</option>
-                                <option value={2}>⭐⭐ Poor</option>
-                                <option value={1}>⭐ Very Poor</option>
+                                <option value="">Select a cause</option>
+                                <option value="Wildlife Conservation">Wildlife Conservation</option>
+                                <option value="Habitat Protection">Habitat Protection</option>
+                                <option value="Anti-Poaching Efforts">Anti-Poaching Efforts</option>
+                                <option value="Research & Education">Research & Education</option>
+                                <option value="Community Development">Community Development</option>
+                                <option value="Emergency Wildlife Rescue">Emergency Wildlife Rescue</option>
+                                <option value="Park Maintenance">Park Maintenance</option>
+                                <option value="General Support">General Support</option>
                               </select>
                             </div>
-                            <div className="mb-4">
-                              <label className="block text-sm font-medium text-gray-700 mb-2">
-                                Message
-                              </label>
-                              <textarea
-                                value={feedbackForm.message}
-                                onChange={(e) => setFeedbackForm({...feedbackForm, message: e.target.value})}
-                                rows="4"
-                                required
-                                className="w-full border border-gray-300 rounded-md px-3 py-2"
-                                placeholder="Share your experience..."
-                              />
-                            </div>
-                            <button
-                              type="submit"
-                              className="w-full px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-                            >
-                              Submit Feedback
-                            </button>
-                          </form>
-                        </div>
-
-                        {/* My Feedback */}
-                        <div>
-                          <h3 className="text-lg font-semibold text-gray-800 mb-4">My Feedback</h3>
-                          <div className="space-y-4">
-                            {myFeedback.map((feedback) => (
-                              <div key={feedback._id} className="border border-gray-200 rounded-lg p-4">
-                                <div className="flex justify-between items-start">
-                                  <div className="flex-1">
-                                    <div className="flex items-center space-x-2">
-                                      <h4 className="font-medium text-gray-900">{feedback.subject}</h4>
-                                      <span className="text-sm">
-                                        {'⭐'.repeat(feedback.rating)}
-                                      </span>
-                                    </div>
-                                    <p className="text-sm text-gray-600 mt-1">{feedback.message}</p>
-                                    <p className="text-xs text-gray-500 mt-2">
-                                      {new Date(feedback.createdAt).toLocaleDateString()}
-                                    </p>
-                                  </div>
-                                  <div className="flex space-x-2">
-                                    <button
-                                      onClick={() => {
-                                        // Edit feedback logic
-                                      }}
-                                      className="text-blue-600 hover:text-blue-800 text-sm"
-                                    >
-                                      Edit
-                                    </button>
-                                    <button
-                                      onClick={() => deleteFeedback(feedback._id)}
-                                      className="text-red-600 hover:text-red-800 text-sm"
-                                    >
-                                      Delete
-                                    </button>
-                                  </div>
-                                </div>
-                              </div>
-                            ))}
-                            {myFeedback.length === 0 && (
-                              <p className="text-gray-500 text-center py-8">No feedback submitted yet</p>
-                            )}
                           </div>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Complaints Tab */}
-                  {activeTab === 'complaints' && (
-                    <div className="bg-white rounded-2xl shadow-sm p-6">
-                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                        {/* Submit Complaint */}
-                        <div>
-                          <h3 className="text-lg font-semibold text-gray-800 mb-4">Submit Complaint</h3>
-                          <form onSubmit={handleComplaintSubmit} className="bg-gray-50 rounded-lg p-6">
-                            <div className="mb-4">
-                              <label className="block text-sm font-medium text-gray-700 mb-2">
-                                Subject
-                              </label>
-                              <input
-                                type="text"
-                                value={complaintForm.subject}
-                                onChange={(e) => setComplaintForm({...complaintForm, subject: e.target.value})}
-                                required
-                                className="w-full border border-gray-300 rounded-md px-3 py-2"
-                                placeholder="Complaint subject"
-                              />
-                            </div>
-                            <div className="mb-4">
-                              <label className="block text-sm font-medium text-gray-700 mb-2">
-                                Description
-                              </label>
-                              <textarea
-                                value={complaintForm.description}
-                                onChange={(e) => setComplaintForm({...complaintForm, description: e.target.value})}
-                                rows="4"
-                                required
-                                className="w-full border border-gray-300 rounded-md px-3 py-2"
-                                placeholder="Describe your complaint in detail..."
-                              />
-                            </div>
-                            <button
-                              type="submit"
-                              className="w-full px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700"
-                            >
-                              Submit Complaint
-                            </button>
-                          </form>
-                        </div>
-
-                        {/* My Complaints */}
-                        <div>
-                          <h3 className="text-lg font-semibold text-gray-800 mb-4">My Complaints</h3>
-                          <div className="space-y-4">
-                            {myComplaints.map((complaint) => (
-                              <div key={complaint._id} className="border border-gray-200 rounded-lg p-4">
-                                <div className="flex justify-between items-start">
-                                  <div className="flex-1">
-                                    <h4 className="font-medium text-gray-900">{complaint.subject}</h4>
-                                    <p className="text-sm text-gray-600 mt-1">{complaint.description}</p>
-                                    <div className="flex items-center space-x-2 mt-2">
-                                      <span className={`px-2 py-1 text-xs rounded-full ${
-                                        complaint.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                                        complaint.status === 'in-review' ? 'bg-blue-100 text-blue-800' :
-                                        'bg-green-100 text-green-800'
-                                      }`}>
-                                        {complaint.status.toUpperCase()}
-                                      </span>
-                                      <span className="text-xs text-gray-500">
-                                        {new Date(complaint.createdAt).toLocaleDateString()}
-                                      </span>
-                                    </div>
-                                  </div>
-                                  <div className="flex space-x-2">
-                                    <button
-                                      onClick={() => {
-                                        // Edit complaint logic
-                                      }}
-                                      className="text-blue-600 hover:text-blue-800 text-sm"
-                                    >
-                                      Edit
-                                    </button>
-                                    <button
-                                      onClick={() => deleteComplaint(complaint._id)}
-                                      className="text-red-600 hover:text-red-800 text-sm"
-                                    >
-                                      Delete
-                                    </button>
-                                  </div>
-                                </div>
-                              </div>
-                            ))}
-                            {myComplaints.length === 0 && (
-                              <p className="text-gray-500 text-center py-8">No complaints submitted</p>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Emergency Tab */}
-                  {activeTab === 'emergency' && (
-                    <div className="bg-white rounded-2xl shadow-sm p-6">
-                      <div className="bg-red-50 border border-red-200 rounded-lg p-6 mb-6">
-                        <div className="flex items-center">
-                          <div className="text-red-600 mr-3">
-                            <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
-                            </svg>
-                          </div>
+                          
                           <div>
-                            <h3 className="text-lg font-bold text-red-800">Emergency Reporting</h3>
-                            <p className="text-red-700 text-sm">
-                              For life-threatening emergencies, call emergency services immediately. Use this form for park-related incidents.
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="max-w-md mx-auto">
-                        <form onSubmit={handleEmergencyReport} className="bg-white border border-gray-200 rounded-lg p-6">
-                          <h3 className="text-lg font-medium text-gray-900 mb-4">Report Emergency</h3>
-
-                          <div className="mb-4">
                             <label className="block text-sm font-medium text-gray-700 mb-2">
-                              Emergency Type
-                            </label>
-                            <select
-                              value={emergencyForm.type}
-                              onChange={(e) => setEmergencyForm({...emergencyForm, type: e.target.value})}
-                              required
-                              className="w-full border border-gray-300 rounded-md px-3 py-2"
-                            >
-                              <option value="">Select type</option>
-                              <option value="medical">Medical Emergency</option>
-                              <option value="animal">Animal Incident</option>
-                              <option value="fire">Fire</option>
-                              <option value="accident">Accident</option>
-                              <option value="lost">Lost Person</option>
-                              <option value="other">Other</option>
-                            </select>
-                          </div>
-
-                          <div className="mb-4">
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                              Location
-                            </label>
-                            <input
-                              type="text"
-                              value={emergencyForm.location}
-                              onChange={(e) => setEmergencyForm({...emergencyForm, location: e.target.value})}
-                              required
-                              className="w-full border border-gray-300 rounded-md px-3 py-2"
-                              placeholder="Describe your current location"
-                            />
-                          </div>
-
-                          <div className="mb-4">
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                              Description
+                              Personal Message (Optional)
                             </label>
                             <textarea
-                              value={emergencyForm.description}
-                              onChange={(e) => setEmergencyForm({...emergencyForm, description: e.target.value})}
-                              rows="4"
-                              required
-                              className="w-full border border-gray-300 rounded-md px-3 py-2"
-                              placeholder="Describe the emergency situation..."
+                              value={donationForm.message}
+                              onChange={(e) => setDonationForm(prev => ({ ...prev, message: e.target.value }))}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                              rows="3"
+                              placeholder="Add a personal message or dedication (optional)..."
+                              maxLength="500"
                             />
+                            <p className="text-xs text-gray-500 mt-1">
+                              {donationForm.message.length}/500 characters
+                            </p>
                           </div>
-
+                          
+                          <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                            <div className="flex items-start">
+                              <div className="flex-shrink-0">
+                                <svg className="h-5 w-5 text-green-400" viewBox="0 0 20 20" fill="currentColor">
+                                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                                </svg>
+                              </div>
+                              <div className="ml-3">
+                                <h3 className="text-sm font-medium text-green-800">Your Impact</h3>
+                                <div className="mt-2 text-sm text-green-700">
+                                  <p>100% of your donation goes directly to wildlife conservation efforts. Thank you for making a difference!</p>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                          
                           <button
                             type="submit"
-                            className="w-full px-4 py-3 bg-red-600 text-white rounded-md hover:bg-red-700 font-medium"
+                            disabled={submittingDonation}
+                            className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white py-3 px-4 rounded-lg font-medium disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 flex items-center justify-center gap-2 shadow-lg hover:shadow-xl hover:scale-105"
                           >
-                            🚨 REPORT EMERGENCY
+                            {submittingDonation ? (
+                              <>
+                                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                                Processing Donation...
+                              </>
+                            ) : (
+                              <>
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                                </svg>
+                                Make Donation
+                              </>
+                            )}
                           </button>
                         </form>
+                          </div>
+                        </div>
+                      </div>
 
-                        <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                          <h4 className="font-medium text-blue-900 mb-2">Emergency Contacts</h4>
-                          <div className="text-sm text-blue-800 space-y-1">
-                            <div>🚨 Emergency Services: 911</div>
-                            <div>🏥 Park Medical: (555) 123-4567</div>
-                            <div>🐾 Wildlife Emergency: (555) 123-4568</div>
-                            <div>🔥 Fire Department: (555) 123-4569</div>
+                      {/* My Donations History */}
+                      <div className="group relative overflow-hidden rounded-3xl bg-white/80 backdrop-blur-xl border border-white/20 shadow-2xl transition-all duration-500 hover:shadow-3xl">
+                        <div className="absolute inset-0 bg-gradient-to-br from-blue-50/50 to-indigo-50/50"></div>
+                        <div className="relative z-10">
+                          <div className="px-8 py-6 border-b border-gray-100/50">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-4">
+                                <div className="p-3 bg-blue-100 rounded-2xl">
+                                  <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20z" />
+                                  </svg>
+                                </div>
+                                <h2 className="text-2xl font-bold text-gray-800">My Donation History</h2>
+                              </div>
+                              {myDonations.length > 0 && (
+                                <button
+                                  onClick={generateDonationsPDF}
+                                  className="px-4 py-2 bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white rounded-lg font-medium transition-all duration-300 shadow-lg hover:shadow-xl hover:scale-105 flex items-center gap-2"
+                                >
+                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                  </svg>
+                                  Export PDF
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                          <div className="p-8">
+                            {myDonations.length > 0 ? (
+                              <div className="space-y-3">
+                                {myDonations.map((donation) => (
+                                  <div key={donation._id} className="border border-white/30 rounded-lg p-4 bg-white/50">
+                                    <div className="flex justify-between items-start">
+                                      <div>
+                                        <p className="font-medium text-gray-900">Rs. {donation.amount?.toLocaleString() || '0'}</p>
+                                        <p className="text-sm text-green-600 font-medium">{donation.cause || 'General Support'}</p>
+                                        {donation.message && (
+                                          <p className="text-sm text-gray-600 mt-1">{donation.message}</p>
+                                        )}
+                                        <p className="text-xs text-gray-500 mt-1">
+                                          Thank you for supporting wildlife conservation!
+                                        </p>
+                                        </div>
+                                      <div className="text-right">
+                                        <span className="text-sm text-gray-500">
+                                          {donation.date ? new Date(donation.date).toLocaleDateString() : 'Date N/A'}
+                                        </span>
+                                        <div className="mt-1">
+                                          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                            Completed
+                                          </span>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            ) : (
+                              <div className="text-center py-8">
+                                <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                                </svg>
+                                <p className="text-gray-500 mt-2">No donations made yet.</p>
+                                <p className="text-sm text-gray-400">Your contributions will appear here once you make a donation.</p>
+                              </div>
+                                )}
                           </div>
                         </div>
                       </div>
                     </div>
                   )}
-                  
+
+                  {activeTab === 'feedback' && (
+                    <div className="space-y-6">
+                      <div className="group relative overflow-hidden rounded-3xl bg-white/80 backdrop-blur-xl border border-white/20 shadow-2xl transition-all duration-500 hover:shadow-3xl">
+                        <div className="absolute inset-0 bg-gradient-to-br from-blue-50/50 to-indigo-50/50"></div>
+                        <div className="relative z-10">
+                          <div className="px-8 py-6 border-b border-gray-100/50">
+                            <div className="flex items-center gap-4">
+                              <div className="p-3 bg-blue-100 rounded-2xl">
+                                <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                                </svg>
+                              </div>
+                              <h2 className="text-2xl font-bold text-gray-800">Feedback Management</h2>
+                            </div>
+                          </div>
+                          <div className="p-8 text-center">
+                            <p className="text-gray-600 mb-6">Manage your feedback and reviews in our dedicated feedback system.</p>
+                            <button
+                              onClick={() => navigate('/feedback')}
+                              className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white py-2 px-6 rounded-lg font-medium transition-all duration-300 shadow-lg hover:shadow-xl hover:scale-105"
+                            >
+                              Go to Feedback Page
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {activeTab === 'complaints' && (
+                    <div className="space-y-6">
+                      <div className="group relative overflow-hidden rounded-3xl bg-white/80 backdrop-blur-xl border border-white/20 shadow-2xl transition-all duration-500 hover:shadow-3xl">
+                        <div className="absolute inset-0 bg-gradient-to-br from-blue-50/50 to-indigo-50/50"></div>
+                        <div className="relative z-10">
+                          <div className="px-8 py-6 border-b border-gray-100/50">
+                            <div className="flex items-center gap-4">
+                              <div className="p-3 bg-blue-100 rounded-2xl">
+                                <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                                </svg>
+                              </div>
+                              <h2 className="text-2xl font-bold text-gray-800">Complaint Management</h2>
+                            </div>
+                          </div>
+                          <div className="p-8 text-center">
+                            <p className="text-gray-600 mb-6">Submit and track your complaints in our dedicated complaint system.</p>
+                            <button
+                              onClick={() => navigate('/complaints')}
+                              className="bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white py-2 px-6 rounded-lg font-medium transition-all duration-300 shadow-lg hover:shadow-xl hover:scale-105"
+                            >
+                              Go to Complaints Page
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </main>
 
-              {/* RIGHT WIDGETS */}
-              <aside className="col-span-12 md:col-span-3">
-                <div className="space-y-6">
-                  {/* Profile mini */}
-                  <div className="bg-white rounded-2xl shadow-sm p-5">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center font-semibold">
-                        {(user?.name || 'Tourist').split(' ').slice(0, 2).map(s => s[0]?.toUpperCase()).join('') || 'T'}
-                      </div>
-                      <div>
-                        <div className="font-semibold text-gray-800">{user?.name || 'Tourist'}</div>
-                        <div className="text-xs text-gray-500">View profile</div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Quick Stats Widget */}
-                  <div className="bg-white rounded-2xl shadow-sm p-5">
-                    <h4 className="font-semibold text-gray-800 mb-3">Quick Stats</h4>
-                    <div className="space-y-3">
-                      <div className="flex justify-between">
-                        <span className="text-sm text-gray-600">Active Bookings</span>
-                        <span className="font-medium text-blue-600">{myBookings.filter(b => b.status === 'confirmed').length}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-sm text-gray-600">Event Registrations</span>
-                        <span className="font-medium text-purple-600">{myRegistrations.length}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-sm text-gray-600">Total Donated</span>
-                        <span className="font-medium text-green-600">${myDonations.reduce((sum, d) => sum + d.amount, 0)}</span>
+              {/* RIGHT PANEL */}
+              <aside className="col-span-12 lg:col-span-2">
+                <div className="space-y-4">
+                  {/* Quick Actions */}
+                  <div className="group relative overflow-hidden rounded-2xl lg:rounded-3xl bg-white/80 backdrop-blur-xl border border-white/20 shadow-xl lg:shadow-2xl p-4 lg:p-6 transition-all duration-500 hover:shadow-2xl lg:hover:shadow-3xl">
+                    <div className="absolute inset-0 bg-gradient-to-br from-blue-50/30 to-indigo-50/30"></div>
+                    <div className="relative z-10">
+                      <h3 className="font-semibold text-gray-900 mb-3">Quick Actions</h3>
+                      <div className="space-y-2">
+                        <button 
+                          onClick={() => setActiveTab('donations')}
+                          className="w-full text-left px-3 py-2 text-sm text-green-600 hover:bg-white/50 rounded-lg transition-all duration-300 flex items-center gap-2 hover:shadow-md"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                          </svg>
+                          Make Donation
+                        </button>
+                        <button 
+                          onClick={() => navigate('/feedback')}
+                          className="w-full text-left px-3 py-2 text-sm text-blue-600 hover:bg-white/50 rounded-lg transition-all duration-300 hover:shadow-md"
+                        >
+                          Submit Feedback
+                        </button>
+                        <button 
+                          onClick={() => navigate('/complaints')}
+                          className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-white/50 rounded-lg transition-all duration-300 hover:shadow-md"
+                        >
+                          File Complaint
+                        </button>
                       </div>
                     </div>
                   </div>
 
                   {/* Emergency Contact */}
-                  <div className="bg-red-50 border border-red-200 rounded-2xl shadow-sm p-5">
-                    <h4 className="font-semibold text-red-800 mb-3">Emergency Contacts</h4>
-                    <div className="text-sm text-red-700 space-y-2">
-                      <div>🚨 Emergency: 911</div>
-                      <div>🏥 Park Medical: (555) 123-4567</div>
-                      <div>🐾 Wildlife Emergency: (555) 123-4568</div>
-                    </div>
-                    <button
-                      onClick={() => setActiveTab('emergency')}
-                      className="mt-3 w-full bg-red-600 hover:bg-red-700 text-white rounded-lg px-3 py-2 text-sm font-medium"
-                    >
-                      Report Emergency
-                    </button>
-                  </div>
-
-                  {/* Recent Activity */}
-                  <div className="bg-white rounded-2xl shadow-sm p-5">
-                    <h4 className="font-semibold text-gray-800 mb-3">Recent Activity</h4>
-                    <div className="space-y-3 text-sm">
-                      {myBookings.slice(0, 3).map((booking) => (
-                        <div key={booking._id} className="flex items-center gap-2">
-                          <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                          <span className="text-gray-600">Booked {booking.activityName}</span>
-                        </div>
-                      ))}
-                      {myDonations.slice(0, 2).map((donation) => (
-                        <div key={donation._id} className="flex items-center gap-2">
-                          <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                          <span className="text-gray-600">Donated ${donation.amount}</span>
-                        </div>
-                      ))}
-                      {(myBookings.length === 0 && myDonations.length === 0) && (
-                        <p className="text-gray-500 text-center py-4">No recent activity</p>
-                      )}
+                  <div className="group relative overflow-hidden rounded-2xl lg:rounded-3xl bg-red-50/80 backdrop-blur-xl border border-red-200/50 shadow-xl lg:shadow-2xl p-4 lg:p-6 transition-all duration-500 hover:shadow-2xl lg:hover:shadow-3xl">
+                    <div className="absolute inset-0 bg-gradient-to-br from-red-50/50 to-red-100/30"></div>
+                    <div className="relative z-10">
+                      <h3 className="font-semibold text-red-900 mb-2">Emergency</h3>
+                      <p className="text-sm text-red-700 mb-3">
+                        In case of wildlife emergency, call immediately:
+                      </p>
+                      <button className="w-full bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white py-2 px-3 rounded-lg text-sm font-medium transition-all duration-300 shadow-lg hover:shadow-xl hover:scale-105">
+                        Call Emergency: 1990
+                      </button>
                     </div>
                   </div>
                 </div>
@@ -1687,33 +1483,25 @@ const TouristDashboard = () => {
             </div>
           </div>
         </div>
+
+        {/* QR Code Modal */}
+        {showQRCodeModal && selectedRegistration && selectedEvent && (
+          <EventRegistrationQRCode
+            registration={selectedRegistration}
+            event={selectedEvent}
+            onClose={() => {
+              setShowQRCodeModal(false);
+              setSelectedRegistration(null);
+              setSelectedEvent(null);
+            }}
+          />
+        )}
+
         <Footer />
       </div>
-    </ProtectedRoute>
+    </RoleGuard>
   );
 };
 
-/* ===== Small UI helpers ===== */
-const StatCard = ({ title, value, color = 'blue', iconPath }) => {
-  const colorMap = {
-    blue: 'bg-blue-100 text-blue-600',
-    yellow: 'bg-yellow-100 text-yellow-600',
-    green: 'bg-green-100 text-green-600',
-    purple: 'bg-purple-100 text-purple-600'
-  };
-  return (
-    <div className="bg-white rounded-2xl shadow-sm p-4">
-      <div className="flex items-center">
-        <span className={`p-2 rounded-xl ${colorMap[color]}`}>
-          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d={iconPath} /></svg>
-        </span>
-        <div className="ml-3">
-          <div className="text-xs text-gray-500">{title}</div>
-          <div className="text-xl font-bold text-gray-800">{value}</div>
-        </div>
-      </div>
-    </div>
-  );
-};
 
 export default TouristDashboard;

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { protectedApi } from '../../services/authService';
-import { useAuthContext } from '../../contexts/AuthContext';
+import { useAuth } from '../../contexts/AuthContext';
 import Navbar from '../../components/Navbar';
 import Footer from '../../components/footer';
 
@@ -134,7 +134,7 @@ if (typeof document !== 'undefined') {
 }
 
 const DonationList = () => {
-    const { backendUser, user } = useAuthContext();
+    const { backendUser, user } = useAuth();
     const [donations, setDonations] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);

@@ -1,12 +1,17 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { AuthProvider } from './contexts/AuthContext';
+import { NotificationProvider } from './contexts/NotificationContext';
 import './App.css';
 
-import Home from './pages/home';
+
+
+import Home from './pages/home.jsx';
 import AboutUs from './pages/AboutUs';
 import Dashboard from './pages/Dashboard';
 import Profile from './pages/Profile';
 import ContactUs from './pages/contactus';
+import AuthErrorBoundary from './components/AuthErrorBoundary';
 
 // Role-specific dashboards
 import RoleDashboardRouter from './components/RoleDashboardRouter';
@@ -25,7 +30,7 @@ import GuideDashboard from './pages/tourmanagement/guidedashboard';
 import NewBookings from './pages/tourmanagement/newBookings';
 import AvailabilityGuideDriver from './pages/tourmanagement/avalabilityGuideDriver';
 import ApplyJobForm from './pages/tourmanagement/ApplyJobForm';
-import NewApplications from './pages/tourmanagement/NewApplications';
+import NewApplications from './pages/tourmanagement/newApplications.jsx';
 import AdminCreateUserPage from './pages/tourmanagement/AdminCreateUserPage';
 import AllToursPage from './pages/tourmanagement/AllToursPage';
 
@@ -33,18 +38,30 @@ import AllToursPage from './pages/tourmanagement/AllToursPage';
 import ActivityList from './pages/activities/ActivityList';
 import EventList from './pages/events/EventList';
 import AnimalCaseList from './pages/animal-care/AnimalCaseList';
-import FeedbackList from './pages/feedback/FeedbackList';
+import FeedbackList from './pages/FeedbackList';
 import ComplaintList from './pages/complaints/ComplaintList';
 import DonationList from './pages/donations/DonationList';
+import DonationPage from './pages/DonationPage';
+import DonationSuccess from './pages/DonationSuccess';
+import ProjectsPage from './pages/ProjectsPage';
+import BookingSuccess from './pages/BookingSuccess';
 import UserManagement from './pages/user-management/UserManagement';
 import EmergencyList from './pages/emergency/EmergencyList';
 import TourList from './pages/tourmanagement/TourList';
 import FuelClaimList from './pages/fuel-claims/FuelClaimList';
+import DriverManagement from './pages/wildlife-officer/DriverManagement';
+
+import LoginForm from './pages/LoginForm';
+import CleanRegisterForm from './pages/CleanRegisterForm';
+import PublicRoute from './components/PublicRoute';
 
 function App() {
   return (
-    <Router>
-      <Routes>
+    <AuthErrorBoundary>
+      <AuthProvider>
+        <NotificationProvider>
+          <Router>
+          <Routes>
         {/* Public Routes */}
         <Route path="/" element={<Home />} />
         <Route path="/about" element={<AboutUs />} />
@@ -94,6 +111,12 @@ function App() {
 
         {/* Donation Routes */}
         <Route path="/donations" element={<DonationList />} />
+        <Route path="/donation" element={<DonationPage />} />
+        <Route path="/donation-success" element={<DonationSuccess />} />
+        <Route path="/projects" element={<ProjectsPage />} />
+        
+        {/* Booking Routes */}
+        <Route path="/booking-success" element={<BookingSuccess />} />
 
         {/* User Management Routes */}
         <Route path="/user-management" element={<UserManagement />} />
@@ -104,10 +127,20 @@ function App() {
         {/* Fuel Claims Routes */}
         <Route path="/fuel-claims" element={<FuelClaimList />} />
 
+        {/* Wildlife Officer Routes */}
+        <Route path="/wildlife-officer/driver-management" element={<DriverManagement />} />
+
+        <Route path="/login" element={<PublicRoute><LoginForm /></PublicRoute>} />
+        <Route path="/register" element={<PublicRoute><CleanRegisterForm /></PublicRoute>} />
+
         {/* User Profile */}
         <Route path="/profile" element={<Profile />} />
-      </Routes>
-    </Router>
+        </Routes>
+        
+        </Router>
+        </NotificationProvider>
+      </AuthProvider>
+    </AuthErrorBoundary>
   );
 }
 
