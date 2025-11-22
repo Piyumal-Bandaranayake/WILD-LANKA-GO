@@ -1,0 +1,388 @@
+import React, { useState, useEffect } from 'react';
+import { protectedApi } from '../../services/authService';
+import { useAuth } from '../../contexts/AuthContext';
+import Navbar from '../../components/Navbar';
+import Footer from '../../components/footer';
+import { formatLocation } from '../../utils/formatters';
+
+const AnimalCaseList = () => {
+    const { backendUser } = useAuth();
+    const [cases, setCases] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
+    const [selectedCase, setSelectedCase] = useState(null);
+
+    // Debug logging
+    console.log('🐾 AnimalCaseList - backendUser:', backendUser);
+    console.log('🐾 AnimalCaseList - cases state:', cases, 'is array:', Array.isArray(cases));
+
+    useEffect(() => {
+        // Only fetch cases when user is authenticated with backend
+        if (backendUser) {
+            fetchCases();
+        }
+    }, [backendUser]);
+
+    const fetchCases = async (retryCount = 0) => {
+        try {
+            setLoading(true);
+            setError(null);
+            
+            // Check if user is authenticated
+            if (!backendUser) {
+                setError('Please wait for authentication to complete...');
+                return;
+            }
+            
+            // Add a small delay to ensure token is properly set
+            if (retryCount === 0) {
+                await new Promise(resolve => setTimeout(resolve, 500));
+            }
+            
+            console.log('🔄 Fetching animal cases for user:', backendUser.email);
+            const response = await protectedApi.getAnimalCases();
+            console.log('✅ API Response received:', response); // Debug log
+            
+            // Handle the correct backend response structure
+            let casesData = [];
+            if (response.data && response.data.cases && Array.isArray(response.data.cases)) {
+                casesData = response.data.cases;
+            } else if (Array.isArray(response.data)) {
+                casesData = response.data;
+            }
+            
+            console.log('📝 Setting cases data:', casesData.length, 'cases'); // Debug log
+            setCases(casesData);
+        } catch (error) {
+            console.error('❌ Failed to fetch animal cases:', error);
+            
+            // Retry once if it's a 401 error and we haven't retried yet
+            if (error.response?.status === 401 && retryCount === 0) {
+                console.log('🔄 Retrying after 401 error...');
+                setTimeout(() => fetchCases(1), 1000);
+                return;
+            }
+            
+            if (error.response?.status === 401) {
+                setError('Authentication required. Please log in again.');
+            } else {
+                setError('Failed to load animal cases. Please try again.');
+            }
+            setCases([]); // Ensure cases is always an array
+        } finally {
+            setLoading(false);
+        }
+    };
+
+
+    const handleUpdateCaseStatus = async (caseId, newStatus) => {
+        try {
+            await protectedApi.updateAnimalCase(caseId, { status: newStatus });
+            fetchCases();
+        } catch (error) {
+            console.error('Failed to update case status:', error);
+            setError('Failed to update case status');
+        }
+    };
+
+    const handleDeleteCase = async (id) => {
+        if (window.confirm('Are you sure you want to delete this animal case?')) {
+            try {
+                await protectedApi.deleteAnimalCase(id);
+                fetchCases();
+            } catch (error) {
+                console.error('Failed to delete animal case:', error);
+                setError('Failed to delete animal case');
+            }
+        }
+    };
+
+    const getStatusColor = (status) => {
+        switch (status) {
+            case 'Open': return 'bg-red-100 text-red-800';
+            case 'In Progress': return 'bg-yellow-100 text-yellow-800';
+            case 'Resolved': return 'bg-green-100 text-green-800';
+            default: return 'bg-gray-100 text-gray-800';
+        }
+    };
+
+    const getPriorityColor = (priority) => {
+        switch (priority) {
+            case 'High': return 'bg-red-500';
+            case 'Medium': return 'bg-yellow-500';
+            case 'Low': return 'bg-green-500';
+            default: return 'bg-gray-500';
+        }
+    };
+
+    const isVet = backendUser?.role === 'vet';
+    const isWildlifeOfficer = backendUser?.role === 'wildlifeOfficer';
+    const isAdmin = backendUser?.role === 'admin';
+    const canAssignCases = isWildlifeOfficer || isAdmin; // Only WPO can assign cases
+    const canTreatCases = isVet; // Only vets can treat cases
+    const canViewCases = isVet || isWildlifeOfficer || isAdmin; // All can view
+
+    if (loading) {
+        return (
+            <div className="flex flex-col min-h-screen">
+                <Navbar />
+                <div className="flex-1 flex items-center justify-center pt-32">
+                    <div className="text-center">
+                        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto"></div>
+                        <p className="mt-4 text-gray-600">Loading animal cases...</p>
+                    </div>
+                </div>
+                <Footer />
+            </div>
+        );
+    }
+
+    // Safety check to ensure cases is always an array
+    const safeCases = Array.isArray(cases) ? cases : [];
+    
+    console.log('🐾 Render - safeCases:', safeCases, 'length:', safeCases.length);
+
+    // Show loading if not authenticated or if waiting for initial data
+    if (!backendUser || loading) {
+        return (
+            <div className="flex flex-col min-h-screen">
+                <Navbar />
+                <div className="flex-1 pt-32 pb-16 flex items-center justify-center">
+                    <div className="text-center">
+                        <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-green-600 mx-auto mb-4"></div>
+                        <p className="text-gray-600">
+                            {!backendUser ? 'Authenticating...' : 'Loading animal cases...'}
+                        </p>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
+    return (
+        <div className="flex flex-col min-h-screen">
+            <Navbar />
+            <div className="flex-1 pt-32 pb-16">
+                <div className="container mx-auto px-4">
+                    <div className="flex justify-between items-center mb-8">
+                        <h1 className="text-3xl font-bold text-gray-800">Animal Care Cases</h1>
+                        <div className="flex gap-3">
+                            <button
+                                onClick={() => fetchCases()}
+                                className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
+                            >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                                </svg>
+                                Refresh
+                            </button>
+                        </div>
+                    </div>
+
+                    {error && (
+                        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4 flex justify-between items-center">
+                            <span>{error}</span>
+                            <button
+                                onClick={() => fetchCases()}
+                                className="bg-red-600 text-white px-3 py-1 rounded text-sm hover:bg-red-700 transition-colors"
+                            >
+                                Retry
+                            </button>
+                        </div>
+                    )}
+
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        {safeCases.length > 0 ? (
+                            safeCases.map((animalCase) => (
+                                <div key={animalCase._id} className="bg-white rounded-lg shadow-md p-6">
+                                    <div className="flex justify-between items-start mb-4">
+                                        <h3 className="text-xl font-semibold">Case #{animalCase.caseId || animalCase._id.slice(-6)}</h3>
+                                        <div className="flex gap-2">
+                                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(animalCase.status)}`}>
+                                                {animalCase.status}
+                                        </span>
+                                        <div className={`w-3 h-3 rounded-full ${getPriorityColor(animalCase.priority)}`} title={`${animalCase.priority} Priority`}></div>
+                                    </div>
+                                </div>
+
+                                {/* Animal Images */}
+                                {animalCase.images && animalCase.images.length > 0 && (
+                                    <div className="mb-4">
+                                        <h4 className="font-medium text-sm text-gray-700 mb-2">Animal Images</h4>
+                                        <div className="grid grid-cols-2 gap-2">
+                                            {animalCase.images.slice(0, 4).map((image, index) => (
+                                                <div key={index} className="relative group">
+                                                    <img
+                                                        src={image.url || image.secure_url}
+                                                        alt={`Animal case ${index + 1}`}
+                                                        className="w-full h-24 object-cover rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
+                                                        onClick={() => window.open(image.url || image.secure_url, '_blank')}
+                                                    />
+                                                    <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-all rounded-lg flex items-center justify-center">
+                                                        <span className="text-white text-xs opacity-0 group-hover:opacity-100">Click to enlarge</span>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                            {animalCase.images.length > 4 && (
+                                                <div className="w-full h-24 bg-gray-100 rounded-lg flex items-center justify-center text-gray-500 text-sm">
+                                                    +{animalCase.images.length - 4} more
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
+
+                                <div className="space-y-3 text-sm">
+                                    <p><span className="font-medium">Animal:</span> {animalCase.animalType}</p>
+                                    <p><span className="font-medium">Location:</span> {formatLocation(animalCase.location)}</p>
+                                    <p><span className="font-medium">Description:</span> {animalCase.description}</p>
+                                    {animalCase.symptoms && (
+                                        <p><span className="font-medium">Symptoms:</span> {animalCase.symptoms}</p>
+                                    )}
+                                    <p><span className="font-medium">Reported by:</span> {animalCase.reportedBy}</p>
+                                    <p><span className="font-medium">Contact:</span> {animalCase.contactInfo}</p>
+                                    <p><span className="font-medium">Date:</span> {new Date(animalCase.createdAt).toLocaleDateString()}</p>
+                                </div>
+
+                                {animalCase.photos && animalCase.photos.length > 0 && (
+                                    <div className="mt-4">
+                                        <p className="font-medium text-sm mb-2">Photos:</p>
+                                        <div className="flex gap-2">
+                                            {animalCase.photos.map((photo, index) => (
+                                                <img
+                                                    key={index}
+                                                    src={photo}
+                                                    alt={`Case photo ${index + 1}`}
+                                                    className="w-16 h-16 object-cover rounded"
+                                                />
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+
+                                <div className="mt-6 flex gap-2">
+                                    {/* Only Vets can start/complete treatment */}
+                                    {canTreatCases && animalCase.status !== 'Resolved' && (
+                                        <>
+                                            {animalCase.status === 'Open' && (
+                                                <button
+                                                    onClick={() => handleUpdateCaseStatus(animalCase._id, 'In Progress')}
+                                                    className="bg-yellow-600 text-white px-3 py-1 text-sm rounded hover:bg-yellow-700 transition-colors"
+                                                >
+                                                    Start Treatment
+                                                </button>
+                                            )}
+                                            {animalCase.status === 'In Progress' && (
+                                                <button
+                                                    onClick={() => handleUpdateCaseStatus(animalCase._id, 'Resolved')}
+                                                    className="bg-green-600 text-white px-3 py-1 text-sm rounded hover:bg-green-700 transition-colors"
+                                                >
+                                                    Mark Resolved
+                                                </button>
+                                            )}
+                                        </>
+                                    )}
+
+                                    {/* Only WPO can assign cases to vets */}
+                                    {canAssignCases && animalCase.status === 'Open' && (
+                                        <button
+                                            className="bg-purple-600 text-white px-3 py-1 text-sm rounded hover:bg-purple-700 transition-colors"
+                                        >
+                                            Assign to Vet
+                                        </button>
+                                    )}
+
+                                    <button
+                                        onClick={() => setSelectedCase(animalCase)}
+                                        className="bg-blue-600 text-white px-3 py-1 text-sm rounded hover:bg-blue-700 transition-colors"
+                                    >
+                                        View Details
+                                    </button>
+
+                                    {/* Only WPO and Admin can delete cases */}
+                                    {canAssignCases && (
+                                        <button
+                                            onClick={() => handleDeleteCase(animalCase._id)}
+                                            className="bg-red-600 text-white px-3 py-1 text-sm rounded hover:bg-red-700 transition-colors"
+                                        >
+                                            Delete
+                                        </button>
+                                    )}
+                                </div>
+                            </div>
+                            ))
+                        ) : (
+                            <div className="col-span-full text-center py-12">
+                                <p className="text-gray-500 text-lg">
+                                    {loading ? 'Loading animal cases...' : 'No animal cases found'}
+                                </p>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Keep the existing empty state message for when there are 0 cases */}
+                    {safeCases.length === 0 && !loading && (
+                        <div className="text-center py-12">
+                            <p className="text-gray-500 text-lg">No animal cases reported</p>
+                        </div>
+                    )}
+                </div>
+            </div>
+
+            {/* Case Details Modal */}
+            {selectedCase && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                    <div className="bg-white rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+                        <div className="flex justify-between items-center mb-4">
+                            <h2 className="text-2xl font-bold">Case Details</h2>
+                            <button
+                                onClick={() => setSelectedCase(null)}
+                                className="text-gray-500 hover:text-gray-700"
+                            >
+                                ×
+                            </button>
+                        </div>
+                        <div className="space-y-4">
+                            <div className="grid grid-cols-2 gap-4">
+                                <p><span className="font-medium">Case ID:</span> #{selectedCase.caseId || selectedCase._id.slice(-6)}</p>
+                                <p><span className="font-medium">Status:</span>
+                                    <span className={`ml-2 px-2 py-1 rounded-full text-xs ${getStatusColor(selectedCase.status)}`}>
+                                        {selectedCase.status}
+                                    </span>
+                                </p>
+                                <p><span className="font-medium">Animal:</span> {selectedCase.animalType}</p>
+                                <p><span className="font-medium">Priority:</span> {selectedCase.priority}</p>
+                                <p><span className="font-medium">Location:</span> {formatLocation(selectedCase.location)}</p>
+                                <p><span className="font-medium">Date:</span> {new Date(selectedCase.createdAt).toLocaleDateString()}</p>
+                            </div>
+                            <div>
+                                <p className="font-medium">Description:</p>
+                                <p className="mt-1 text-gray-700">{selectedCase.description}</p>
+                            </div>
+                            {selectedCase.symptoms && (
+                                <div>
+                                    <p className="font-medium">Symptoms:</p>
+                                    <p className="mt-1 text-gray-700">{selectedCase.symptoms}</p>
+                                </div>
+                            )}
+                            <div className="grid grid-cols-2 gap-4">
+                                <p><span className="font-medium">Reported by:</span> {selectedCase.reportedBy}</p>
+                                <p><span className="font-medium">Contact:</span> {selectedCase.contactInfo}</p>
+                                {selectedCase.estimatedAge && (
+                                    <p><span className="font-medium">Age:</span> {selectedCase.estimatedAge}</p>
+                                )}
+                                {selectedCase.weight && (
+                                    <p><span className="font-medium">Weight:</span> {selectedCase.weight} kg</p>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            <Footer />
+        </div>
+    );
+};
+
+export default AnimalCaseList;
