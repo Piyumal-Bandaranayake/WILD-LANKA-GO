@@ -1,0 +1,31 @@
+# Build output
+dist
+build
+.vercel
+
+# Dependencies
+node_modules
+package-lock.json
+
+# Environment
+.env
+.env.local
+.env.production
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode
+.idea
+
+# Backend specific
+backend/uploads/*
+!backend/uploads/.gitkeep
+backend/logs/*
+!backend/logs/.gitkeep

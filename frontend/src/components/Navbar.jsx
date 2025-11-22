@@ -38,7 +38,6 @@ const NavBar = () => {
   const protectedNavLinks = [
     { name: 'Dashboard', path: '/dashboard', icon: 'M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z' },
     { name: 'Feedback', path: '/feedback', icon: 'M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z' },
-    { name: 'Profile', path: '/profile', icon: 'M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z' },
   ];
 
   // Scroll listener to detect if the page has been scrolled
@@ -55,93 +54,109 @@ const NavBar = () => {
     <nav
       className={`w-full px-6 py-3 md:px-8 lg:px-12
         flex items-center justify-between 
-        fixed top-0 left-0 z-50 transition-all duration-300
+        fixed top-0 left-0 z-50 transition-all duration-500 ease-in-out
         ${isDashboardPage || isScrolled 
-          ? 'backdrop-blur-xl bg-white/90 shadow-lg border-b border-emerald-100' 
+          ? 'backdrop-blur-xl bg-white/90 shadow-lg border-b border-emerald-100 animate-slideDown' 
           : 'bg-transparent'
         }
       `}
     >
       {/* Logo + Brand */}
-      <Link to="/" className="flex items-center gap-3 group">
+      <Link to="/" className="flex items-center gap-3 group animate-fadeInLeft">
         <div className="relative">
           <img 
             src={logo} 
             alt="Wild Lanka Go" 
-            className="h-12 w-auto transition-transform duration-300 group-hover:scale-110" 
+            className="h-12 w-auto transition-all duration-500 group-hover:scale-110 group-hover:rotate-6" 
           />
-          <div className="absolute inset-0 bg-emerald-500/20 rounded-full blur-md opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+          <div className="absolute inset-0 bg-emerald-500/20 rounded-full blur-md opacity-0 group-hover:opacity-100 transition-all duration-500 group-hover:scale-125"></div>
+          <div className="absolute -inset-1 bg-gradient-to-r from-emerald-400 to-teal-400 rounded-full opacity-0 group-hover:opacity-30 blur-lg transition-all duration-500"></div>
         </div>
         <div className="hidden sm:block">
-          <div className="font-bold text-xl bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent">
+          <div className="font-bold text-xl bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent group-hover:from-emerald-500 group-hover:to-teal-500 transition-all duration-300">
             Wild Lanka
           </div>
-          <div className="text-xs text-gray-600 font-medium uppercase tracking-wider">
+          <div className="text-xs text-gray-600 font-medium uppercase tracking-wider group-hover:tracking-widest transition-all duration-300">
             Adventures
           </div>
         </div>
       </Link>
 
       {/* Desktop Navigation */}
-      <div className="hidden lg:flex items-center">
+      <div className="hidden lg:flex items-center animate-fadeInDown">
         <ul className="flex items-center gap-1">
           {!isAuthenticated() && publicNavLinks.map((link, index) => (
-            <li key={index}>
+            <li 
+              key={index}
+              className="animate-fadeInDown"
+              style={{ animationDelay: `${index * 0.1}s` }}
+            >
               <Link 
                 to={link.path} 
-                className={`group flex items-center gap-2 px-4 py-2 rounded-xl transition-all duration-300 font-medium ${
+                className={`group flex items-center gap-2 px-4 py-2 rounded-xl transition-all duration-300 font-medium transform hover:scale-105 hover:-translate-y-0.5 ${
                   isDashboardPage || isScrolled 
-                    ? 'text-gray-700 hover:text-emerald-600 hover:bg-emerald-50/80' 
-                    : 'text-white hover:text-emerald-300 hover:bg-white/20'
+                    ? 'text-gray-700 hover:text-emerald-600 hover:bg-emerald-50/80 hover:shadow-md' 
+                    : 'text-white hover:text-emerald-300 hover:bg-white/20 hover:shadow-lg hover:shadow-emerald-500/20'
                 }`}
               >
-                <svg className="w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-4 h-4 opacity-0 group-hover:opacity-100 transition-all duration-300 group-hover:rotate-12 group-hover:scale-110" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d={link.icon} />
                 </svg>
                 <span className="relative">
                   {link.name}
-                  <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-gradient-to-r from-emerald-500 to-teal-500 group-hover:w-full transition-all duration-300"></span>
+                  <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-gradient-to-r from-emerald-500 to-teal-500 group-hover:w-full transition-all duration-500 ease-out"></span>
+                  <span className="absolute inset-0 bg-gradient-to-r from-emerald-400/0 via-emerald-400/10 to-emerald-400/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700"></span>
                 </span>
               </Link>
             </li>
           ))}
           {isAuthenticated() && [
             ...publicNavLinks.map((link, index) => (
-              <li key={`public-${index}`}>
+              <li 
+                key={`public-${index}`}
+                className="animate-fadeInDown"
+                style={{ animationDelay: `${index * 0.1}s` }}
+              >
                 <Link 
                   to={link.path} 
-                  className={`group flex items-center gap-2 px-4 py-2 rounded-xl transition-all duration-300 font-medium ${
+                  className={`group flex items-center gap-2 px-4 py-2 rounded-xl transition-all duration-300 font-medium transform hover:scale-105 hover:-translate-y-0.5 ${
                     isDashboardPage || isScrolled 
-                      ? 'text-gray-700 hover:text-emerald-600 hover:bg-emerald-50/80' 
-                      : 'text-white hover:text-emerald-300 hover:bg-white/20'
+                      ? 'text-gray-700 hover:text-emerald-600 hover:bg-emerald-50/80 hover:shadow-md' 
+                      : 'text-white hover:text-emerald-300 hover:bg-white/20 hover:shadow-lg hover:shadow-emerald-500/20'
                   }`}
                 >
-                  <svg className="w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-4 h-4 opacity-0 group-hover:opacity-100 transition-all duration-300 group-hover:rotate-12 group-hover:scale-110" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d={link.icon} />
                   </svg>
                   <span className="relative">
                     {link.name}
-                    <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-gradient-to-r from-emerald-500 to-teal-500 group-hover:w-full transition-all duration-300"></span>
+                    <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-gradient-to-r from-emerald-500 to-teal-500 group-hover:w-full transition-all duration-500 ease-out"></span>
+                    <span className="absolute inset-0 bg-gradient-to-r from-emerald-400/0 via-emerald-400/10 to-emerald-400/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700"></span>
                   </span>
                 </Link>
               </li>
             )),
             ...protectedNavLinks.map((link, index) => (
-              <li key={`protected-${index}`}>
+              <li 
+                key={`protected-${index}`}
+                className="animate-fadeInDown"
+                style={{ animationDelay: `${(publicNavLinks.length + index) * 0.1}s` }}
+              >
                 <Link 
                   to={link.path} 
-                  className={`group flex items-center gap-2 px-4 py-2 rounded-xl transition-all duration-300 font-medium ${
+                  className={`group flex items-center gap-2 px-4 py-2 rounded-xl transition-all duration-300 font-medium transform hover:scale-105 hover:-translate-y-0.5 ${
                     isDashboardPage || isScrolled 
-                      ? 'text-gray-700 hover:text-emerald-600 hover:bg-emerald-50/80' 
-                      : 'text-white hover:text-emerald-300 hover:bg-white/20'
+                      ? 'text-gray-700 hover:text-emerald-600 hover:bg-emerald-50/80 hover:shadow-md' 
+                      : 'text-white hover:text-emerald-300 hover:bg-white/20 hover:shadow-lg hover:shadow-emerald-500/20'
                   }`}
                 >
-                  <svg className="w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-4 h-4 opacity-0 group-hover:opacity-100 transition-all duration-300 group-hover:rotate-12 group-hover:scale-110" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d={link.icon} />
                   </svg>
                   <span className="relative">
                     {link.name}
-                    <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-gradient-to-r from-emerald-500 to-teal-500 group-hover:w-full transition-all duration-300"></span>
+                    <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-gradient-to-r from-emerald-500 to-teal-500 group-hover:w-full transition-all duration-500 ease-out"></span>
+                    <span className="absolute inset-0 bg-gradient-to-r from-emerald-400/0 via-emerald-400/10 to-emerald-400/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700"></span>
                   </span>
                 </Link>
               </li>
@@ -151,12 +166,12 @@ const NavBar = () => {
       </div>
 
       {/* Right Section */}
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-4 animate-fadeInRight">
         {/* Authentication Buttons */}
         {!isAuthenticated() ? (
           <Link
             to="/login"
-            className="group relative px-6 py-2.5 bg-gradient-to-r from-emerald-500 to-teal-600 text-white font-semibold rounded-full shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-0.5 disabled:opacity-50"
+            className="group relative px-6 py-2.5 bg-gradient-to-r from-emerald-500 to-teal-600 text-white font-semibold rounded-full shadow-lg hover:shadow-2xl transition-all duration-500 transform hover:-translate-y-1 hover:scale-105 disabled:opacity-50 overflow-hidden"
           >
             <span className="relative z-10 flex items-center gap-2">
               {loading ? (
@@ -168,49 +183,41 @@ const NavBar = () => {
                 </>
               ) : (
                 <>
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-4 h-4 transition-transform duration-300 group-hover:translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
                   </svg>
                   Login
                 </>
               )}
             </span>
-            <div className="absolute inset-0 bg-gradient-to-r from-emerald-600 to-teal-700 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+            <div className="absolute inset-0 bg-gradient-to-r from-emerald-600 to-teal-700 rounded-full opacity-0 group-hover:opacity-100 transition-all duration-500"></div>
+            <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-500 ease-out"></div>
+            <div className="absolute -inset-1 bg-gradient-to-r from-emerald-400 to-teal-400 rounded-full opacity-0 group-hover:opacity-50 blur-lg transition-all duration-500"></div>
           </Link>
         ) : (
           <div className="flex items-center gap-4">
-            {/* User Profile Section */}
-            <div className="hidden md:flex items-center gap-3 bg-white/80 backdrop-blur-sm rounded-full px-4 py-2 shadow-lg border border-emerald-100">
-              {/* Notification Bell for Safari Drivers */}
-              {user?.role === 'safariDriver' && (
+            {/* Notification Bell for Safari Drivers */}
+            {user?.role === 'safariDriver' && (
+              <div className="animate-bounceIn">
                 <NotificationBell 
                   driverId={user?.driverId || user?._id || user?.userId}
-                  className="text-gray-600 hover:text-emerald-600"
+                  className="text-gray-600 hover:text-emerald-600 transition-all duration-300 hover:scale-110"
                 />
-              )}
-              
-              <ProfileImage
-                src={user?.picture}
-                alt={user?.name}
-                fallbackText={user?.name}
-                className="w-8 h-8 rounded-full border-2 border-emerald-400 shadow-md"
-              />
-              <span className="text-sm font-medium text-gray-700 max-w-32 truncate">
-                {user?.name}
-              </span>
-            </div>
+              </div>
+            )}
             
             {/* Logout Button */}
             <button
-              className="group relative px-4 py-2 bg-white/80 backdrop-blur-sm text-gray-700 border border-gray-200 hover:border-red-300 hover:text-red-600 rounded-full transition-all duration-300 font-medium shadow-md hover:shadow-lg"
+              className="group relative px-4 py-2 bg-white/80 backdrop-blur-sm text-gray-700 border border-gray-200 hover:border-red-300 hover:text-red-600 rounded-full transition-all duration-500 font-medium shadow-md hover:shadow-xl transform hover:-translate-y-0.5 hover:scale-105 overflow-hidden"
               onClick={() => logout({ logoutParams: { returnTo: window.location.origin } })}
             >
-              <span className="flex items-center gap-2">
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <span className="flex items-center gap-2 relative z-10">
+                <svg className="w-4 h-4 transition-transform duration-300 group-hover:rotate-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
                 </svg>
                 Logout
               </span>
+              <div className="absolute inset-0 bg-red-50 translate-x-[-100%] group-hover:translate-x-0 transition-transform duration-500 ease-out"></div>
             </button>
           </div>
         )}
@@ -219,17 +226,17 @@ const NavBar = () => {
         <button
           aria-label="Toggle menu"
           type="button"
-          className={`lg:hidden relative w-10 h-10 backdrop-blur-sm rounded-full shadow-lg border flex items-center justify-center transition-all duration-300 ${
+          className={`lg:hidden relative w-10 h-10 backdrop-blur-sm rounded-full shadow-lg border flex items-center justify-center transition-all duration-500 transform hover:scale-110 hover:rotate-90 ${
             isDashboardPage || isScrolled 
-              ? 'bg-white/80 border-emerald-100 hover:bg-emerald-50' 
+              ? 'bg-white/80 border-emerald-100 hover:bg-emerald-50 hover:border-emerald-300' 
               : 'bg-white/20 border-white/30 hover:bg-white/30'
           }`}
           onClick={() => setIsMenuOpen(!isMenuOpen)}
         >
           <div className="relative w-5 h-5">
-            <span className={`absolute block w-5 h-0.5 transition-all duration-300 ${isDashboardPage || isScrolled ? 'bg-gray-700' : 'bg-white'} ${isMenuOpen ? 'top-2 rotate-45' : 'top-1'}`}></span>
-            <span className={`absolute block w-5 h-0.5 transition-all duration-300 ${isDashboardPage || isScrolled ? 'bg-gray-700' : 'bg-white'} ${isMenuOpen ? 'opacity-0' : 'top-2'}`}></span>
-            <span className={`absolute block w-5 h-0.5 transition-all duration-300 ${isDashboardPage || isScrolled ? 'bg-gray-700' : 'bg-white'} ${isMenuOpen ? 'top-2 -rotate-45' : 'top-3'}`}></span>
+            <span className={`absolute block w-5 h-0.5 transition-all duration-500 ease-out ${isDashboardPage || isScrolled ? 'bg-gray-700' : 'bg-white'} ${isMenuOpen ? 'top-2 rotate-45' : 'top-1'}`}></span>
+            <span className={`absolute block w-5 h-0.5 transition-all duration-500 ease-out ${isDashboardPage || isScrolled ? 'bg-gray-700' : 'bg-white'} ${isMenuOpen ? 'opacity-0 scale-0' : 'opacity-100 scale-100 top-2'}`}></span>
+            <span className={`absolute block w-5 h-0.5 transition-all duration-500 ease-out ${isDashboardPage || isScrolled ? 'bg-gray-700' : 'bg-white'} ${isMenuOpen ? 'top-2 -rotate-45' : 'top-3'}`}></span>
           </div>
         </button>
       </div>
@@ -239,30 +246,30 @@ const NavBar = () => {
         <>
           {/* Overlay */}
           <div 
-            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40 lg:hidden"
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40 lg:hidden animate-fadeIn"
             onClick={() => setIsMenuOpen(false)}
           ></div>
           
           {/* Mobile Menu Panel */}
-          <div className="fixed top-0 right-0 w-80 h-full bg-white shadow-2xl z-50 lg:hidden transform transition-transform duration-300">
+          <div className="fixed top-0 right-0 w-80 h-full bg-white shadow-2xl z-50 lg:hidden transform transition-all duration-500 ease-out animate-slideInRight">
             {/* Mobile Menu Header */}
-            <div className="flex items-center justify-between p-6 border-b border-gray-100">
+            <div className="flex items-center justify-between p-6 border-b border-gray-100 animate-fadeInDown">
               <div className="flex items-center gap-3">
-                <img src={logo} alt="Wild Lanka Go" className="h-8 w-auto" />
+                <img src={logo} alt="Wild Lanka Go" className="h-8 w-auto animate-bounceIn" />
                 <div>
-                  <div className="font-bold text-lg bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent">
+                  <div className="font-bold text-lg bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent animate-fadeInRight">
                     Wild Lanka
                   </div>
-                  <div className="text-xs text-gray-500 uppercase tracking-wider">
+                  <div className="text-xs text-gray-500 uppercase tracking-wider animate-fadeInRight" style={{ animationDelay: '0.1s' }}>
                     Adventures
                   </div>
                 </div>
               </div>
               <button
                 onClick={() => setIsMenuOpen(false)}
-                className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center hover:bg-gray-200 transition-colors"
+                className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center hover:bg-red-100 hover:text-red-600 transition-all duration-300 transform hover:scale-110 hover:rotate-90"
               >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-4 h-4 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
                 </svg>
               </button>
@@ -272,45 +279,66 @@ const NavBar = () => {
             <div className="p-6">
               <ul className="space-y-2">
                 {!isAuthenticated() && publicNavLinks.map((link, index) => (
-                  <li key={index}>
+                  <li 
+                    key={index}
+                    className="animate-slideInRight"
+                    style={{ animationDelay: `${index * 0.05}s` }}
+                  >
                     <Link 
                       to={link.path} 
-                      className="flex items-center gap-3 px-4 py-3 rounded-xl text-gray-700 hover:text-emerald-600 hover:bg-emerald-50 transition-all duration-300 font-medium"
+                      className="flex items-center gap-3 px-4 py-3 rounded-xl text-gray-700 hover:text-emerald-600 hover:bg-emerald-50 transition-all duration-300 font-medium transform hover:translate-x-2 hover:scale-105 group"
                       onClick={() => setIsMenuOpen(false)}
                     >
-                      <svg className="w-5 h-5 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <svg className="w-5 h-5 text-emerald-500 transition-transform duration-300 group-hover:rotate-12 group-hover:scale-110" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d={link.icon} />
                       </svg>
-                      {link.name}
+                      <span className="relative">
+                        {link.name}
+                        <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-emerald-500 group-hover:w-full transition-all duration-300"></span>
+                      </span>
                     </Link>
                   </li>
                 ))}
                 {isAuthenticated() && [
                   ...publicNavLinks.map((link, index) => (
-                    <li key={`mobile-public-${index}`}>
+                    <li 
+                      key={`mobile-public-${index}`}
+                      className="animate-slideInRight"
+                      style={{ animationDelay: `${index * 0.05}s` }}
+                    >
                       <Link 
                         to={link.path} 
-                        className="flex items-center gap-3 px-4 py-3 rounded-xl text-gray-700 hover:text-emerald-600 hover:bg-emerald-50 transition-all duration-300 font-medium"
+                        className="flex items-center gap-3 px-4 py-3 rounded-xl text-gray-700 hover:text-emerald-600 hover:bg-emerald-50 transition-all duration-300 font-medium transform hover:translate-x-2 hover:scale-105 group"
                         onClick={() => setIsMenuOpen(false)}
                       >
-                        <svg className="w-5 h-5 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg className="w-5 h-5 text-emerald-500 transition-transform duration-300 group-hover:rotate-12 group-hover:scale-110" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d={link.icon} />
                         </svg>
-                        {link.name}
+                        <span className="relative">
+                          {link.name}
+                          <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-emerald-500 group-hover:w-full transition-all duration-300"></span>
+                        </span>
                       </Link>
                     </li>
                   )),
                   ...protectedNavLinks.map((link, index) => (
-                    <li key={`mobile-protected-${index}`}>
+                    <li 
+                      key={`mobile-protected-${index}`}
+                      className="animate-slideInRight"
+                      style={{ animationDelay: `${(publicNavLinks.length + index) * 0.05}s` }}
+                    >
                       <Link 
                         to={link.path} 
-                        className="flex items-center gap-3 px-4 py-3 rounded-xl text-gray-700 hover:text-emerald-600 hover:bg-emerald-50 transition-all duration-300 font-medium"
+                        className="flex items-center gap-3 px-4 py-3 rounded-xl text-gray-700 hover:text-emerald-600 hover:bg-emerald-50 transition-all duration-300 font-medium transform hover:translate-x-2 hover:scale-105 group"
                         onClick={() => setIsMenuOpen(false)}
                       >
-                        <svg className="w-5 h-5 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg className="w-5 h-5 text-emerald-500 transition-transform duration-300 group-hover:rotate-12 group-hover:scale-110" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d={link.icon} />
                         </svg>
-                        {link.name}
+                        <span className="relative">
+                          {link.name}
+                          <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-emerald-500 group-hover:w-full transition-all duration-300"></span>
+                        </span>
                       </Link>
                     </li>
                   ))
@@ -345,27 +373,15 @@ const NavBar = () => {
                   </Link>
                 ) : (
                   <div className="space-y-4">
-                    {/* User Profile in Mobile */}
-                    <div className="flex items-center gap-3 p-4 bg-emerald-50 rounded-xl">
-                      {/* Notification Bell for Safari Drivers */}
-                      {user?.role === 'safariDriver' && (
+                    {/* Notification Bell for Safari Drivers */}
+                    {user?.role === 'safariDriver' && (
+                      <div className="flex justify-center">
                         <NotificationBell 
                           driverId={user?.driverId || user?._id || user?.userId}
                           className="text-gray-600 hover:text-emerald-600"
                         />
-                      )}
-                      
-                      <ProfileImage
-                        src={user?.picture}
-                        alt={user?.name}
-                        fallbackText={user?.name}
-                        className="w-12 h-12 rounded-full border-2 border-emerald-400 shadow-md"
-                      />
-                      <div>
-                        <div className="font-semibold text-gray-900">{user?.name}</div>
-                        <div className="text-sm text-emerald-600">Authenticated User</div>
                       </div>
-                    </div>
+                    )}
                     
                     {/* Logout Button */}
                     <button

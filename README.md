@@ -406,6 +406,131 @@ Authorization: Bearer <your-jwt-token>
 
 ---
 
+## 🚀 Deployment
+
+### Deploying to Vercel
+
+This project is configured for deployment to Vercel with a monorepo structure.
+
+#### Prerequisites
+- [Vercel Account](https://vercel.com/signup)
+- [Vercel CLI](https://vercel.com/download) installed globally
+- MongoDB Atlas database (production)
+- All required API keys and secrets
+
+#### Quick Deploy
+
+**Option 1: Using Deployment Scripts**
+
+For Windows:
+```bash
+.\deploy.bat
+```
+
+For Unix/Linux/macOS:
+```bash
+chmod +x deploy.sh
+./deploy.sh
+```
+
+**Option 2: Manual Deployment**
+
+1. Install Vercel CLI:
+```bash
+npm install -g vercel
+```
+
+2. Login to Vercel:
+```bash
+vercel login
+```
+
+3. Deploy from project root:
+```bash
+vercel
+```
+
+4. Follow the prompts:
+   - Set up and deploy? **Y**
+   - Which scope? Select your account
+   - Link to existing project? **N** (first time)
+   - What's your project's name? **wild-lanka-go**
+   - In which directory is your code located? **/**
+
+#### Environment Variables
+
+After deployment, configure these environment variables in the Vercel dashboard:
+
+**Required Backend Variables:**
+```
+MONGODB_URI=mongodb+srv://username:password@cluster.mongodb.net/wildlankago
+JWT_SECRET=your-super-secret-jwt-key
+CLOUDINARY_CLOUD_NAME=your-cloudinary-cloud-name
+CLOUDINARY_API_KEY=your-cloudinary-api-key
+CLOUDINARY_API_SECRET=your-cloudinary-api-secret
+AUTH0_DOMAIN=your-domain.auth0.com
+AUTH0_CLIENT_ID=your-auth0-client-id
+AUTH0_CLIENT_SECRET=your-auth0-client-secret
+EMAIL_HOST=smtp.gmail.com
+EMAIL_PORT=587
+EMAIL_USER=your-email@gmail.com
+EMAIL_PASSWORD=your-app-specific-password
+```
+
+**Required Frontend Variables:**
+```
+VITE_API_URL=https://your-app.vercel.app/api
+VITE_AUTH0_DOMAIN=your-domain.auth0.com
+VITE_AUTH0_CLIENT_ID=your-auth0-client-id
+VITE_AUTH0_AUDIENCE=your-api-audience
+```
+
+**To add environment variables:**
+1. Go to your project in [Vercel Dashboard](https://vercel.com/dashboard)
+2. Navigate to **Settings** → **Environment Variables**
+3. Add each variable with appropriate values
+4. Redeploy to apply changes
+
+#### Testing Deployment
+
+1. **Frontend Testing:**
+   - Navigate to `https://your-app.vercel.app`
+   - Test user registration and login
+   - Verify all pages load correctly
+   - Check responsive design on mobile
+
+2. **Backend API Testing:**
+   - Test health endpoint: `GET https://your-app.vercel.app/api/health`
+   - Test authentication: `POST https://your-app.vercel.app/api/auth/login`
+   - Verify database connectivity
+   - Check file uploads (Cloudinary)
+
+3. **Common Issues:**
+   - **500 Error:** Check environment variables are set correctly
+   - **Database connection failed:** Verify MONGODB_URI and IP whitelist
+   - **CORS errors:** Ensure frontend URL is in backend CORS configuration
+   - **Static files 404:** Check build output directory matches vercel.json
+
+#### Monitoring
+
+- View logs in Vercel Dashboard → Your Project → Logs
+- Monitor performance in Analytics tab
+- Set up error tracking (optional): Integrate Sentry or similar
+
+#### CI/CD with GitHub
+
+Vercel automatically deploys on every push:
+- **Production:** Pushes to `main` branch
+- **Preview:** Pushes to other branches
+
+To disable auto-deployments:
+1. Go to Project Settings → Git
+2. Configure deployment branches
+
+For detailed deployment instructions, see [DEPLOYMENT.md](DEPLOYMENT.md).
+
+---
+
 ## 🤝 Contributing
 
 We welcome contributions! Please follow these steps:
