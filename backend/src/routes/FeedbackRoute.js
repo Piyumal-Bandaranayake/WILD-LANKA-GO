@@ -9,16 +9,10 @@ const {
 } = require("../../controllers/FeedbackController");
 
 const router = express.Router();
+const { uploadImage } = require('../config/cloudinary');
 
-// Multer configuration for image uploads
-const storage = multer.diskStorage({
-    destination: function (req, file, cb) {
-        cb(null, 'uploads/feedback/')
-    },
-    filename: function (req, file, cb) {
-        cb(null, Date.now() + '-' + file.originalname)
-    }
-});
+// Multer configuration for memory storage (uploads to Cloudinary)
+const storage = multer.memoryStorage();
 const upload = multer({ storage: storage });
 
 // User adds feedback with image upload

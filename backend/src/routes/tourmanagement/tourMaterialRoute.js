@@ -11,20 +11,13 @@ const {
 } = require("../../controllers/tourmanagement/tourMaterialController");
 
 const router = express.Router();
+const { uploadImage } = require('../../config/cloudinary');
 
 // Apply authentication middleware to all tour material routes
 router.use(authenticate);
 
-// Configure multer for tour material uploads
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    cb(null, './uploads/tour-materials');
-  },
-  filename: function (req, file, cb) {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, 'material-' + uniqueSuffix + path.extname(file.originalname));
-  }
-});
+// Configure multer for memory storage (uploads to Cloudinary)
+const storage = multer.memoryStorage();
 
 const upload = multer({
   storage: storage,

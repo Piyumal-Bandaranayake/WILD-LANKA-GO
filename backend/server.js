@@ -7,8 +7,6 @@ const rateLimit = require('express-rate-limit');
 const mongoSanitize = require('express-mongo-sanitize');
 const xss = require('xss-clean');
 const morgan = require('morgan');
-const fs = require('fs');
-const path = require('path');
 
 // Import configurations
 const connectDB = require('./config/db');
@@ -49,37 +47,13 @@ const chatbotRoutes = require('./src/routes/Chatbot/chatbotRoutes');
 
 const app = express();
 
-// Connect to MongoDB before starting server
-const startServer = async () => {
-  try {
-    await connectDB();
-    logger.info('Database connected successfully');
-    
-    // Auto-reset availability for staff with ended tours
-    try {
-      const SystemUser = require('./src/models/SystemUser');
-      const resetCount = await SystemUser.resetAvailabilityForEndedTours();
-      if (resetCount > 0) {
-        logger.info(`Auto-reset completed: ${resetCount} staff members availability reset from ended tours`);
-      }
-    } catch (resetError) {
-      logger.warn('Auto-reset availability failed (non-critical):', resetError.message);
-    }
-  } catch (err) {
-    logger.error('Failed to connect to database:', err.message);
-    process.exit(1);
-  }
-};
-
-// Configure Cloudinary (optional)
+// Configure Cloudinary
 configureCloudinary();
 
-// Ensure uploads directory exists
-const uploadsDir = path.join(__dirname, 'uploads');
-if (!fs.existsSync(uploadsDir)) {
-  fs.mkdirSync(uploadsDir, { recursive: true });
-  logger.info('Created uploads directory');
-}
+// Initialize database connection (will be cached for serverless)
+connectDB().catch(err => {
+  logger.error('Database connection failed:', err.message);
+});
 
 // Trust proxy (for rate limiting behind reverse proxy)
 app.set('trust proxy', 1);
@@ -116,47 +90,45 @@ if (process.env.NODE_ENV === 'production') {
   logger.info('Rate limiting disabled in development mode for better development experience');
 }
 
-// CORS configuration
+// CORS configuration for Vercel deployment
 const corsOptions = {
   origin: function (origin, callback) {
-    // Define allowed origins for different environments
-    const allowedOrigins = process.env.ALLOWED_ORIGINS 
-      ? process.env.ALLOWED_ORIGINS.split(',')
-      : [
-          // Development origins
-          'http://localhost:3000',    // React default
-          'http://localhost:5173',    // Vite default
-          'http://localhost:5174',    // Vite fallback
-          'http://localhost:4173',    // Vite preview
-          'http://127.0.0.1:3000',   // IPv4 localhost
-          'http://127.0.0.1:5173',   // IPv4 localhost
-          'http://127.0.0.1:5174',   // IPv4 localhost fallback
-          'http://127.0.0.1:4173',   // IPv4 localhost preview
-          'http://[::1]:3000',       // IPv6 localhost
-          'http://[::1]:5173',       // IPv6 localhost
-          'http://[::1]:5174',       // IPv6 localhost fallback
-          'http://[::1]:4173',       // IPv6 localhost preview
-        ];
+    // Get allowed origins from environment variable
+    const allowedOrigins = [];
+    
+    // Add FRONTEND_URL from environment (production frontend)
+    if (process.env.FRONTEND_URL) {
+      allowedOrigins.push(process.env.FRONTEND_URL);
+    }
+    
+    // Add ALLOWED_ORIGINS if specified
+    if (process.env.ALLOWED_ORIGINS) {
+      allowedOrigins.push(...process.env.ALLOWED_ORIGINS.split(','));
+    }
+    
+    // Development fallbacks
+    if (process.env.NODE_ENV === 'development') {
+      allowedOrigins.push(
+        'http://localhost:3000',
+        'http://localhost:5173',
+        'http://localhost:5174',
+        'http://127.0.0.1:5173'
+      );
+    }
     
     // Allow requests with no origin (mobile apps, Postman, etc.)
     if (!origin) return callback(null, true);
     
     // Check if origin is in allowed list
-    if (allowedOrigins.indexOf(origin) !== -1) {
+    if (allowedOrigins.some(allowed => origin === allowed || origin.startsWith(allowed))) {
       callback(null, true);
     } else {
-      // In development, be more permissive for any localhost origin
-      if (process.env.NODE_ENV === 'development') {
-        // Allow any localhost origin in development
-        if (origin.includes('localhost') || origin.includes('127.0.0.1') || origin.includes('[::1]')) {
-          console.log(`⚠️ CORS: Allowing development origin ${origin}`);
-          callback(null, true);
-        } else {
-          console.log(`❌ CORS: Blocking origin ${origin} in development`);
-          callback(new Error('Not allowed by CORS'));
-        }
+      // In development, be more permissive
+      if (process.env.NODE_ENV === 'development' && 
+          (origin.includes('localhost') || origin.includes('127.0.0.1'))) {
+        callback(null, true);
       } else {
-        console.log(`❌ CORS: Blocking origin ${origin} in production`);
+        logger.warn(`CORS blocked origin: ${origin}`);
         callback(new Error('Not allowed by CORS'));
       }
     }
@@ -195,9 +167,6 @@ app.use(xss());
 
 // Compression middleware
 app.use(compression());
-
-// Serve static files from uploads directory
-app.use('/uploads', express.static('uploads'));
 
 // Logging middleware
 if (process.env.NODE_ENV === 'development') {
@@ -250,14 +219,14 @@ app.use('/api/emergency-forms', emergencyFormRoutes);
 // Chatbot routes
 app.use('/api/chatbot', chatbotRoutes);
 
-// Welcome route
+// Root route - confirms backend is running
 app.get('/', (req, res) => {
   res.status(200).json({
     success: true,
-    message: 'Welcome to Wild Lanka Go API',
+    message: 'Wild Lanka Go API is running',
     version: '1.0.0',
-    documentation: '/api/docs',
-    health: '/api/health',
+    environment: process.env.NODE_ENV || 'production',
+    timestamp: new Date().toISOString(),
   });
 });
 
@@ -267,71 +236,16 @@ app.use(notFound);
 // Global error handler
 app.use(errorHandler);
 
-// Graceful shutdown
-let server;
-const gracefulShutdown = (signal) => {
-  logger.info(`Received ${signal}. Starting graceful shutdown...`);
-  
-  if (server) {
-    server.close(() => {
-      logger.info('HTTP server closed.');
-      
-      // Close database connection
-      require('mongoose').connection.close(false, () => {
-        logger.info('MongoDB connection closed.');
-        process.exit(0);
-      });
-    });
-  } else {
-    // Close database connection if server is not available
-    require('mongoose').connection.close(false, () => {
-      logger.info('MongoDB connection closed.');
-      process.exit(0);
-    });
-  }
-  
-  // Force close after 30 seconds
-  setTimeout(() => {
-    logger.error('Could not close connections in time, forcefully shutting down');
-    process.exit(1);
-  }, 30000);
-};
+// Export the Express app for Vercel serverless
+module.exports = app;
 
-// Handle process termination
-// process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
-// process.on('SIGINT', () => gracefulShutdown('SIGINT'));
-
-// Handle uncaught exceptions
-process.on('uncaughtException', (err) => {
-  logger.error('Uncaught Exception:', err);
-  // In development, log the error but don't exit immediately
-  if (process.env.NODE_ENV === 'production') {
-    process.exit(1);
-  } else {
-    logger.warn('Continuing in development mode...');
-  }
-});
-
-// Handle unhandled promise rejections
-process.on('unhandledRejection', (err, promise) => {
-  logger.error('Unhandled Rejection at:', promise, 'reason:', err);
-  // In development, log the error but don't exit immediately
-  if (process.env.NODE_ENV === 'production') {
-    process.exit(1);
-  } else {
-    logger.warn('Continuing in development mode...');
-  }
-});
-
-// Start server after database connection
-const PORT = process.env.PORT || 5001;
-startServer().then(() => {
-  server = app.listen(PORT, () => {
-    logger.info(`Server running in ${process.env.NODE_ENV} mode on port ${PORT}`);
+// Only start server if running locally (not on Vercel)
+if (require.main === module) {
+  const PORT = process.env.PORT || 5001;
+  app.listen(PORT, () => {
+    logger.info(`Server running in ${process.env.NODE_ENV || 'development'} mode on port ${PORT}`);
     console.log(`🚀 Wild Lanka Go API Server is running on port ${PORT}`);
     console.log(`📊 Health check: http://localhost:${PORT}/api/health`);
     console.log(`🔐 Auth endpoints: http://localhost:${PORT}/api/auth`);
   });
-});
-
-module.exports = app;
+}

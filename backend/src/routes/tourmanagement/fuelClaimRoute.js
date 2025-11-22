@@ -12,17 +12,10 @@ const {
 
 const router = express.Router();
 const { authenticate, authorize } = require('../../middleware/authMiddleware');
+const { uploadImage } = require('../../config/cloudinary');
 
-// Configure multer for odometer image uploads
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    cb(null, './uploads/odometer-readings');
-  },
-  filename: function (req, file, cb) {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, 'odometer-' + uniqueSuffix + path.extname(file.originalname));
-  }
-});
+// Configure multer for memory storage (uploads to Cloudinary)
+const storage = multer.memoryStorage();
 
 const upload = multer({
   storage: storage,
