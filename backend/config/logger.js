@@ -1,12 +1,6 @@
 const winston = require('winston');
 const path = require('path');
-
-// Create logs directory if it doesn't exist
 const fs = require('fs');
-const logDir = path.join(__dirname, '..', 'logs');
-if (!fs.existsSync(logDir)) {
-  fs.mkdirSync(logDir);
-}
 
 // Define log format
 const logFormat = winston.format.combine(
@@ -17,31 +11,41 @@ const logFormat = winston.format.combine(
   winston.format.json()
 );
 
-// Create the logger
-const logger = winston.createLogger({
-  level: process.env.NODE_ENV === 'production' ? 'info' : 'debug',
-  format: logFormat,
-  defaultMeta: { service: 'wild-lanka-go-backend' },
-  transports: [
-    // Write all logs with level 'error' and below to error.log
-    new winston.transports.File({
-      filename: path.join(logDir, 'error.log'),
-      level: 'error',
-      maxsize: 5242880, // 5MB
-      maxFiles: 5,
-    }),
-    // Write all logs with level 'info' and below to combined.log
-    new winston.transports.File({
-      filename: path.join(logDir, 'combined.log'),
-      maxsize: 5242880, // 5MB
-      maxFiles: 5,
-    }),
-  ],
-});
+// Determine if we're running on Vercel (serverless)
+const isVercel = process.env.VERCEL === '1' || process.env.NOW_REGION;
 
-// If we're not in production, log to the console as well
-if (process.env.NODE_ENV !== 'production') {
-  logger.add(new winston.transports.Console({
+// Create transports array
+const transports = [];
+
+// Only add file transports if NOT on Vercel (local development only)
+if (!isVercel) {
+  try {
+    const logDir = path.join(__dirname, '..', 'logs');
+    if (!fs.existsSync(logDir)) {
+      fs.mkdirSync(logDir, { recursive: true });
+    }
+    
+    transports.push(
+      new winston.transports.File({
+        filename: path.join(logDir, 'error.log'),
+        level: 'error',
+        maxsize: 5242880, // 5MB
+        maxFiles: 5,
+      }),
+      new winston.transports.File({
+        filename: path.join(logDir, 'combined.log'),
+        maxsize: 5242880, // 5MB
+        maxFiles: 5,
+      })
+    );
+  } catch (err) {
+    console.warn('Could not create log directory, using console only:', err.message);
+  }
+}
+
+// Always add console transport (for Vercel logs and local development)
+transports.push(
+  new winston.transports.Console({
     format: winston.format.combine(
       winston.format.colorize(),
       winston.format.simple(),
@@ -51,7 +55,15 @@ if (process.env.NODE_ENV !== 'production') {
         }`;
       })
     )
-  }));
-}
+  })
+);
+
+// Create the logger
+const logger = winston.createLogger({
+  level: process.env.NODE_ENV === 'production' ? 'info' : 'debug',
+  format: logFormat,
+  defaultMeta: { service: 'wild-lanka-go-backend' },
+  transports: transports,
+});
 
 module.exports = logger;
