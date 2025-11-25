@@ -50,11 +50,6 @@ const app = express();
 // Configure Cloudinary
 configureCloudinary();
 
-// Initialize database connection (will be cached for serverless)
-connectDB().catch(err => {
-  logger.error('Database connection failed:', err.message);
-});
-
 // Trust proxy (for rate limiting behind reverse proxy)
 app.set('trust proxy', 1);
 
@@ -228,6 +223,11 @@ app.get('/', (req, res) => {
     environment: process.env.NODE_ENV || 'production',
     timestamp: new Date().toISOString(),
   });
+});
+
+// Favicon handler to prevent 404 errors
+app.get('/favicon.ico', (req, res) => {
+  res.status(204).end();
 });
 
 // Handle 404 errors
