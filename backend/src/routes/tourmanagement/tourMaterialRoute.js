@@ -11,7 +11,7 @@ const {
 } = require("../../controllers/tourmanagement/tourMaterialController");
 
 const router = express.Router();
-const { uploadImage } = require('../../config/cloudinary');
+const { uploadImage } = require('../../../config/cloudinary');
 
 // Apply authentication middleware to all tour material routes
 router.use(authenticate);

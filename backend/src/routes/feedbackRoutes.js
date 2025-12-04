@@ -9,7 +9,7 @@ const {
   getFeedbackStatistics,
   updateFeedback,
   deleteFeedback
-} = require('../controllers/feedbackController');
+} = require('../controllers/FeedbackController');
 const { authenticate, authorize } = require('../middleware/authMiddleware');
 const { uploadMultiple, uploadToCloudinary } = require('../middleware/upload');
 
