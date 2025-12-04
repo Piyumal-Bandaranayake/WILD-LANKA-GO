@@ -12,7 +12,7 @@ const {
 
 const router = express.Router();
 const { authenticate, authorize } = require('../../middleware/authMiddleware');
-const { uploadImage } = require('../../config/cloudinary');
+const { uploadImage } = require('../../../config/cloudinary');
 
 // Configure multer for memory storage (uploads to Cloudinary)
 const storage = multer.memoryStorage();
